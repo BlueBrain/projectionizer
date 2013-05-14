@@ -14,7 +14,7 @@ class MiniColumnInputMapper(ProjectionInputMapper):
     #TODO: number of gids per minicolumn! ATM fixed at 1
         
     def __init__(self,specs,cfg,absoluteVolume):
-        ProjectionInputMapper.__init__(self.specs,cfg)        
+        ProjectionInputMapper.__init__(self,specs,cfg)        
         self.sigma = float(specs.get("sigma"))
         self.exclusion = float(specs.get("exclusion"))
         self.minicolumns = cfg.get_mvd_minicolumns()
@@ -76,7 +76,7 @@ class RandomInputMapper(ProjectionInputMapper):
     num_assigned_gids = []
         
     def __init__(self,specs,cfg):
-        ProjectionInputMapper.__init__(self.specs,cfg)
+        ProjectionInputMapper.__init__(self,specs,cfg)
         if 'num_assigned_gids' in specs.keys():
             self.num_assigned_gids = int(specs.get("num_assigned_gids"))
         else:
