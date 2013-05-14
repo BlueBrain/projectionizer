@@ -72,7 +72,7 @@ class RandomInputMapper(ProjectionInputMapper):
     An implementation of ProjectionInputMapper that maps randomly
     '''    
     extra_offset = 1337    
-    cells_per_gid = []
+    syns_per_gid = []
     num_assigned_gids = []
         
     def __init__(self,specs,cfg):
@@ -80,7 +80,7 @@ class RandomInputMapper(ProjectionInputMapper):
         if 'num_assigned_gids' in specs.keys():
             self.num_assigned_gids = int(specs.get("num_assigned_gids"))
         else:
-            self.cells_per_gid = int(specs.get("cells_per_gid"))        
+            self.syns_per_gid = int(specs.get("syns_per_gid"))        
         self.mapping_counts = []
     
     def get_mapping(self,syn_loc,seg_spec,syn_type_names):
@@ -88,8 +88,8 @@ class RandomInputMapper(ProjectionInputMapper):
             return numpy.vstack(([],[])).transpose()
         gid_offset = self.max_circuit_gid + self.extra_gid_offset + self.used_gid_offset        
         if len(self.num_assigned_gids)==0:
-            c_p_g = self.cells_per_gid
-            n_a_g = int(numpy.ceil(syn_loc.shape[0]/float(self.cells_per_gid)))
+            c_p_g = self.syns_per_gid
+            n_a_g = int(numpy.ceil(syn_loc.shape[0]/float(self.syns_per_gid)))
         else:
             n_a_g = self.num_assigned_gids
             c_p_g = int(numpy.ceil(syn_loc.shape[0]/float(self.num_assigned_gids)))

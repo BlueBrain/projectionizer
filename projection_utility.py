@@ -528,7 +528,7 @@ class ProjectionComposer(object):
                 print("..done. Writing...")
                 self.proj_list.append(new_proj)
                 new_proj.write_h5_file(path, 'proj_nrn', num_files)
-                offset += len(new_proj.mapping_specs.mapping_counts[0])
+                offset += (new_proj.mapping_specs.used_gid_offset+1)
                 print("done.")
             elif proj.tag == "Projection":
                 raise RuntimeError
