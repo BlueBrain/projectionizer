@@ -58,8 +58,7 @@ class MiniColumnInputMapper(ProjectionInputMapper):
                 minicol_resolved[i] = numpy.NaN
         if len(minicol_resolved)>0:
             mapped_gids = range(gid_offset,numpy.nanmax(minicol_resolved))
-            self.mapping_counts = numpy.histogram(minicol_resolved,numpy.hstack((mapped_gids,mapped_gids[-1]+1)))
-            self.mapping_counts[1] = mapped_gids
+            self.mapping_counts = (numpy.histogram(minicol_resolved,numpy.hstack((mapped_gids,mapped_gids[-1]+1)))[0],mapped_gids)            
             self.used_gid_offset = numpy.max((mapped_gids[-1]-gid_offset+1,self.used_gid_offset))
         
         return numpy.vstack((minicol_resolved,self.delay(syn_loc[:,1]))).transpose()
@@ -98,8 +97,7 @@ class RandomInputMapper(ProjectionInputMapper):
         resolved = resolved[:syn_loc.shape[0]]
         #resolved = numpy.random.random_integers(gid_offset,high=gid_offset+self.num_assigned_gids-1,size=syn_loc.shape[0])        
         mapped_gids = range(gid_offset,numpy.nanmax(resolved))
-        self.mapping_counts = numpy.histogram(resolved,numpy.hstack((mapped_gids,mapped_gids[-1]+1)))
-        self.mapping_counts[1] = mapped_gids        
+        self.mapping_counts = (numpy.histogram(resolved,numpy.hstack((mapped_gids,mapped_gids[-1]+1)))[0],mapped_gids)        
         self.used_gid_offset += n_a_g
         
         return numpy.vstack((resolved,numpy.zeros_like(resolved).astype(float))).transpose()
