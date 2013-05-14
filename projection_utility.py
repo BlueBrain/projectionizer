@@ -56,7 +56,7 @@ class SynTypeMap(object):
         return numpy.sum([len(x) for x in self._map.values()])
 
 def get_gamma_parameters(mn,sd):
-            return ((mn/sd)**2, (sd**2)/mn) #k, theta or shape, scale
+    return ((mn/sd)**2, (sd**2)/mn) #k, theta or shape, scale
 
 class SynapseClassifier(object):
     syn_classes = {}    
@@ -94,11 +94,19 @@ class SynapseClassifier(object):
                                             
 
 class ProjectionInputMapper(object):
+    cfg = []
+    mapping_counts = ([],[])
+    max_circuit_gid = 0
+    extra_gid_offset = 1000
+    used_gid_offset = 0
     '''
     Abstract class to handle the mapping of projection synapses to virtual presynaptic cells
     '''
     def __init__(self,specs,cfg):
-        pass   
+        self.cfg = cfg
+        self.max_circuit_gid = len(self.cfg.get_target('Mosaic'))
+        self.extra_gid_offset = 1000
+        self.used_gid_offset = 0
     def get_mapping(self,syn_loc,seg_spec,syn_type_names):
         '''
         This is the abstract function that has to be implemented. Returns a list of gids.
@@ -106,72 +114,8 @@ class ProjectionInputMapper(object):
                seg_spec: array of shape (N,3), for each synapse [presynGid, preSecId, preSegId]
                syn_type_names: list of length N, for each synapse the identifier of the synapse type
         '''
-        raise NotImplementedError 
-    
-    
-class MiniColumnInputMapper(ProjectionInputMapper):
-    '''
-    An implementation of ProjectionInputMapper that maps to minicolumns
-    '''
-    cfg = []
-    sigma = 1.0
-    exclusion = 100.0
-    extra_offset = 1337
-    conduction_velocity = 300 #micron/ms, TODO: read from recipe?
-    minicolumns = []    
-    mapping_counts = []
-    minicolumn_indices = []
-    #TODO: number of gids per minicolumn! ATM fixed at 1
-        
-    def __init__(self,specs,cfg,absoluteVolume):
-        self.cfg = cfg
-        self.sigma = float(specs.get("sigma"))
-        self.exclusion = float(specs.get("exclusion"))
-        self.minicolumns = cfg.get_mvd_minicolumns()
-        self.minicolumn_indices = numpy.nonzero(
-                                                (self.minicolumns[:,0] > absoluteVolume[0]-self.exclusion) &
-                                                (self.minicolumns[:,0] < absoluteVolume[1]+self.exclusion) &
-                                                (self.minicolumns[:,1] > absoluteVolume[4]-self.exclusion) &
-                                                (self.minicolumns[:,1] < absoluteVolume[5]+self.exclusion)
-                                                )
-        self.minicolumns = self.minicolumns[self.minicolumn_indices[0]]
-        
-    def resolve_exclusion(self,positions):
-        return [numpy.nonzero([(x[0]<self.exclusion)&(x[1]<self.exclusion) for x in numpy.abs(self.minicolumns - loc)])
-                for loc in positions]                    
-        
-    def resolve(self,positions):
-        resIdx = self.resolve_exclusion(positions)        
-        return [resIdx[i][0][self.pick_single(numpy.sqrt(numpy.sum((positions[i]-self.minicolumns[resIdx[i]])**2,axis=1)))]
-                for i in range(len(positions))]
-    
-    def delay(self,y_positions):
-        return y_positions/self.conduction_velocity
-        
-    def pick_single(self,distances):
-        if len(distances)==0:
-            return []
-        distances = norm.pdf(distances,0,self.sigma)
-        found = numpy.nonzero(numpy.random.random() <= (numpy.cumsum(distances)/numpy.sum(distances)))
-        return found[0][0] 
-    
-    def get_mapping(self,syn_loc,seg_spec,syn_type_names):
-        gid_offset = len(self.cfg.get_target('Mosaic')) + self.extra_offset
-        minicol_resolved = self.resolve(syn_loc[:,[0,2]])
-        #import pdb
-        #pdb.set_trace()
-        for i in range(len(minicol_resolved)):
-            if(type(minicol_resolved[i]) in [int, numpy.int64]):
+        raise NotImplementedError     
 
-                minicol_resolved[i] = self.minicolumn_indices[0][minicol_resolved[i]] + gid_offset
-            else:
-                minicol_resolved[i] = numpy.NaN            
-                 
-        for mc in range(len(self.minicolumns)):
-            self.mapping_counts.append(numpy.sum([x==mc for x in minicol_resolved]))
-        
-        return numpy.vstack((minicol_resolved,self.delay(syn_loc[:,1]))).transpose()
-                             
                
 
 class NeuronalProjection(object):
@@ -293,11 +237,15 @@ class VolumeProjection(NeuronalProjection):
                           numpy.max(absoluteVolume[:,3]),
                           numpy.min(absoluteVolume[:,4]),
                           numpy.max(absoluteVolume[:,5])]
-                
+        #TODO: the following might go into NeuronalProjection instead..?        
         for i in range(0,len(proj_xml)):
             if(proj_xml[i].tag == "InputMapping"):
                 if(proj_xml[i].get('type') == 'MapToMiniColumns'):
+                    from InputMappers import MiniColumnInputMapper
                     self.mapping_specs = MiniColumnInputMapper(proj_xml[i],cfg,absoluteVolume)
+                if(proj_xml[i].get('type') == 'Random'):
+                    from InputMappers import RandomInputMapper
+                    self.mapping_specs = RandomInputMapper(proj_xml[i],cfg)
                 else:
                     print("unknown mapping type")#TODO: should be exception 
                 
@@ -580,8 +528,10 @@ class ProjectionComposer(object):
                 print("..done. Writing...")
                 self.proj_list.append(new_proj)
                 new_proj.write_h5_file(path, 'proj_nrn', num_files)
-                offset += len(new_proj.mapping_specs.minicolumns)
-                print("done.") 
+                offset += len(new_proj.mapping_specs.mapping_counts[0])
+                print("done.")
+            elif proj.tag == "Projection":
+                raise RuntimeError
         
             
         
