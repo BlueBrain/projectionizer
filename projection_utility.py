@@ -171,19 +171,19 @@ class NeuronalProjection(object):
         
         for i in range(num_files):
             filename = path + name + '.h5.' + str(int(i))
-        if os.path.exists(filename):
-            raise IOError, "File %s exists." % filename
-            h5file = h5py.File(filename,'w')
-            t_gids = split_gids[i]
-            for g in t_gids:
-                dat = data_list.pop() 
-        # skip if zero synapses
-        if len(dat)==0:
-            continue
-        # sort data set
-        idx = numpy.argsort(dat[:,0], kind='mergesort')
-        sorted_dat = dat[idx,:]
-        d_set = h5file.create_dataset('a' + str(int(g)), sorted_dat.shape, ">f4", sorted_dat)
+            if os.path.exists(filename):
+                raise IOError, "File %s exists." % filename
+                h5file = h5py.File(filename,'w')
+                t_gids = split_gids[i]
+                for g in t_gids:
+                    dat = data_list.pop() 
+                    # skip if zero synapses
+                    if len(dat)==0:
+                        continue
+                    # sort data set
+                    idx = numpy.argsort(dat[:,0], kind='mergesort')
+                    sorted_dat = dat[idx,:]
+                    d_set = h5file.create_dataset('a' + str(int(g)), sorted_dat.shape, ">f4", sorted_dat)
             
         h5file.close()
                                 
