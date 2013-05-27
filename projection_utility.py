@@ -13,24 +13,24 @@ import h5py
 from lxml import etree
 
 class SynapseClass(object):
-        _u = (0.0,1.0)#NOTE: ALL PARAMETERS IN k, Theta!!!    
-        _d = (0.0,1.0)
-        _f = (0.0,1.0)        
-        _g_max = (0.0,1.0)
-        _dtc = (0.0,1.0)
-        syn_type = 1337
-        label = 'ultra_violent_synapse'        
-        _ase = (0.0,1.0)
-        def get_parameter_line(self,lgth):
-            nrm = numpy.random.gamma
-            shape = (lgth,1)
-            return numpy.hstack((nrm(self._g_max[0],self._g_max[1],shape),
-                    nrm(self._u[0],self._u[1],shape),
-                    nrm(self._d[0],self._d[1],shape),
-                    nrm(self._f[0],self._f[1],shape),
-                    nrm(self._dtc[0],self._dtc[1],shape),
-                    self.syn_type * numpy.ones(shape),
-                    nrm(self._ase[0],self._ase[1],shape)))
+    _u = (0.0,1.0)#NOTE: ALL PARAMETERS IN k, Theta!!!    
+    _d = (0.0,1.0)
+    _f = (0.0,1.0)        
+    _g_max = (0.0,1.0)
+    _dtc = (0.0,1.0)
+    syn_type = 1337
+    label = 'ultra_violent_synapse'        
+    _ase = (0.0,1.0)
+    def get_parameter_line(self,lgth):
+        nrm = numpy.random.gamma
+	shape = (lgth,1)
+	return numpy.hstack((nrm(self._g_max[0],self._g_max[1],shape),
+			     nrm(self._u[0],self._u[1],shape),
+			     nrm(self._d[0],self._d[1],shape),
+			     nrm(self._f[0],self._f[1],shape),
+			     nrm(self._dtc[0],self._dtc[1],shape),
+			     self.syn_type * numpy.ones(shape),
+			     nrm(self._ase[0],self._ase[1],shape)))
                             
             
 class SynTypeMap(object):
@@ -171,21 +171,22 @@ class NeuronalProjection(object):
         
         for i in range(num_files):
             filename = path + name + '.h5.' + str(int(i))
-            if os.path.exists(filename):
+            if os.path.exists(filename): 
                 raise IOError, "File %s exists." % filename
-                h5file = h5py.File(filename,'w')
-                t_gids = split_gids[i]
-                for g in t_gids:
-                    dat = data_list.pop() 
-                    # skip if zero synapses
-                    if len(dat)==0:
-                        continue
-                    # sort data set
-                    idx = numpy.argsort(dat[:,0], kind='mergesort')
-                    sorted_dat = dat[idx,:]
-                    d_set = h5file.create_dataset('a' + str(int(g)), sorted_dat.shape, ">f4", sorted_dat)
-            
-        h5file.close()
+	    
+	    h5file = h5py.File(filename,'w')
+	    t_gids = split_gids[i]
+	    for g in t_gids:
+                dat = data_list.pop() 
+                # skip if zero synapses
+                if len(dat)==0: 
+                    continue
+                # sort data set
+                idx = numpy.argsort(dat[:,0], kind='mergesort')
+                sorted_dat = dat[idx,:]
+                d_set = h5file.create_dataset('a' + str(int(g)), sorted_dat.shape, ">f4", sorted_dat)
+                
+            h5file.close()
                                 
     def get_final_h5data_structure(self,seg_spec,syn_parameters,pre_info):                
         
@@ -507,6 +508,18 @@ class ProjectionComposer(object):
         self.cfg = interact.load_circuit(cfg_file)
         #self.idx_obj = self.cfg.get_segment_spatial_index()
         self.xml_file = xml_file
+
+    def write_proj_target(self, path, name, gid_range):
+	    from bluepy.parsers import target
+	    gid_min, gid_max = gid_range
+	    
+	    t = target.Target("proj_%s_Source" % name, "Cell", target.to_gids(range(gid_min, gid_max)))
+
+	    with file(path, "w") as f:
+		    print >>f, t
+
+	    
+	    
         
     def write(self,path,num_files):
         xpo = etree.parse(self.xml_file)
@@ -522,14 +535,21 @@ class ProjectionComposer(object):
         self.proj_list = []
         for proj in projections:
             if (proj.tag == "Projection") & (proj.get("type") == "volume projection"):
+		gidOffset = proj.xpath("InputMapping/@gidOffset")
+		name = proj.get("id").strip()
+		if gidOffset!=[]:
+			offset = int(gidOffset[0])
+			print("Found gidOffset=%d" % offset)
                 print("Building a new projection...")
                 new_proj = VolumeProjection(proj,self.cfg,syn_spec)
-                new_proj.mapping_specs.extra_offset = offset
+                new_proj.mapping_specs.extra_gid_offset = offset
                 print("..done. Writing...")
                 self.proj_list.append(new_proj)
                 new_proj.write_h5_file(path, 'proj_nrn', num_files)
                 offset += (new_proj.mapping_specs.used_gid_offset+1)
                 print("done.")
+		self.write_proj_target(os.path.join(path, "user.target"), name.replace(" ", "_"), new_proj.mapping_specs.gid_range() )
+
             elif proj.tag == "Projection":
                 raise RuntimeError
         

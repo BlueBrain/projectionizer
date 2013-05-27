@@ -45,8 +45,13 @@ class MiniColumnInputMapper(ProjectionInputMapper):
         found = numpy.nonzero(numpy.random.random() <= (numpy.cumsum(distances)/numpy.sum(distances)))
         return found[0][0] 
     
+    def gid_range(self):
+        """ returns gid interval into which this mapping can map [min, max+1] """
+        return (self.max_circuit_gid + self.extra_gid_offset, 
+                self.max_circuit_gid + self.extra_gid_offset + len(self.cfg.get_mvd_minicolumns()))
+    
     def get_mapping(self,syn_loc,seg_spec,syn_type_names):
-        gid_offset = self.max_circuit_gid + self.extra_gid_offset
+        gid_offset, gid_max = self.gid_range()
         minicol_resolved = self.resolve(syn_loc[:,[0,2]])
         #import pdb
         #pdb.set_trace()
@@ -70,7 +75,7 @@ class RandomInputMapper(ProjectionInputMapper):
     '''
     An implementation of ProjectionInputMapper that maps randomly
     '''    
-    extra_offset = 1337    
+    extra_gid_offset = 1337    
     syns_per_gid = []
     num_assigned_gids = []
         
