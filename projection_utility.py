@@ -23,8 +23,8 @@ class SynapseClass(object):
     _ase = (0.0,1.0)
     def get_parameter_line(self,lgth):
         nrm = numpy.random.gamma
-	shape = (lgth,1)
-	return numpy.hstack((nrm(self._g_max[0],self._g_max[1],shape),
+        shape = (lgth,1)
+        return numpy.hstack((nrm(self._g_max[0],self._g_max[1],shape),
 			     nrm(self._u[0],self._u[1],shape),
 			     nrm(self._d[0],self._d[1],shape),
 			     nrm(self._f[0],self._f[1],shape),
@@ -173,10 +173,10 @@ class NeuronalProjection(object):
             filename = path + name + '.h5.' + str(int(i))
             if os.path.exists(filename): 
                 raise IOError, "File %s exists." % filename
-	    
-	    h5file = h5py.File(filename,'w')
-	    t_gids = split_gids[i]
-	    for g in t_gids:
+        
+            h5file = h5py.File(filename,'w')
+            t_gids = split_gids[i]
+            for g in t_gids:
                 dat = data_list.pop() 
                 # skip if zero synapses
                 if len(dat)==0: 
@@ -510,16 +510,16 @@ class ProjectionComposer(object):
         self.xml_file = xml_file
 
     def write_proj_target(self, path, name, gid_range):
-	    from bluepy.parsers import target
-	    gid_min, gid_max = gid_range
-	    
-	    t = target.Target("proj_%s_Source" % name, "Cell", target.to_gids(range(gid_min, gid_max)))
+        from bluepy.parsers import target
+        gid_min, gid_max = gid_range
+        
+        t = target.Target("proj_%s_Source" % name, "Cell", target.to_gids(range(gid_min, gid_max)))
 
-	    with file(path, "w") as f:
-		    print >>f, t
+        with file(path, "w") as f:
+            print >>f, t
 
-	    
-	    
+        
+        
         
     def write(self,path,num_files):
         xpo = etree.parse(self.xml_file)
@@ -535,11 +535,11 @@ class ProjectionComposer(object):
         self.proj_list = []
         for proj in projections:
             if (proj.tag == "Projection") & (proj.get("type") == "volume projection"):
-		gidOffset = proj.xpath("InputMapping/@gidOffset")
-		name = proj.get("id").strip()
-		if gidOffset!=[]:
-			offset = int(gidOffset[0])
-			print("Found gidOffset=%d" % offset)
+                gidOffset = proj.xpath("InputMapping/@gidOffset")
+                name = proj.get("id").strip()
+                if gidOffset!=[]:
+                    offset = int(gidOffset[0])
+                    print("Found gidOffset=%d" % offset)
                 print("Building a new projection...")
                 new_proj = VolumeProjection(proj,self.cfg,syn_spec)
                 new_proj.mapping_specs.extra_gid_offset = offset
@@ -548,7 +548,7 @@ class ProjectionComposer(object):
                 new_proj.write_h5_file(path, 'proj_nrn', num_files)
                 offset += (new_proj.mapping_specs.used_gid_offset+1)
                 print("done.")
-		self.write_proj_target(os.path.join(path, "user.target"), name.replace(" ", "_"), new_proj.mapping_specs.gid_range() )
+                self.write_proj_target(os.path.join(path, "user.target"), name.replace(" ", "_"), new_proj.mapping_specs.gid_range() )
 
             elif proj.tag == "Projection":
                 raise RuntimeError
