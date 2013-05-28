@@ -107,6 +107,10 @@ class ProjectionInputMapper(object):
         self.max_circuit_gid = len(self.cfg.get_target('Mosaic'))
         self.extra_gid_offset = 1000
         self.used_gid_offset = 0
+    def gid_range(self):
+        """ returns gid interval into which this mapping can map [min, max+1] """
+        return (self.max_circuit_gid + self.extra_gid_offset, 
+                self.max_circuit_gid + self.extra_gid_offset + self.used_gid_offset)
     def get_mapping(self,syn_loc,seg_spec,syn_type_names):
         '''
         This is the abstract function that has to be implemented. Returns a list of gids.
@@ -529,25 +533,32 @@ class ProjectionComposer(object):
         print("Building SynapseClassifier...")
         syn_spec = SynapseClassifier(projections[index_of_syn_spec[0][0]])
         print("...done")
-        
-        offset = 1000
+                        
+        max_used_gid_offset = 1        
         
         self.proj_list = []
         for proj in projections:
             if (proj.tag == "Projection") & (proj.get("type") == "volume projection"):
-                gidOffset = proj.xpath("InputMapping/@gidOffset")
-                name = proj.get("id").strip()
-                if gidOffset!=[]:
-                    offset = int(gidOffset[0])
-                    print("Found gidOffset=%d" % offset)
                 print("Building a new projection...")
                 new_proj = VolumeProjection(proj,self.cfg,syn_spec)
-                new_proj.mapping_specs.extra_gid_offset = offset
+                gidOffset = proj.xpath("InputMapping/@gidOffset")
+                if gidOffset!=[]:
+                    print("Found ABSOLUTE gidOffset=%d" % gidOffset[0])
+                    new_proj.mapping_specs.extra_gid_offset = gidOffset[0]
+                else:
+                    gidOffset = proj.xpath("InputMapping/@relOffset")
+                    if gidOffset!=[]:
+                        print("Found RELATIVE gidOffset=%d" % gidOffset[0])
+                        new_proj.mapping_specs.extra_gid_offset = max_used_gid_offset + gidOffset[0]
+                    else:
+                        new_proj.mapping_specs.extra_gid_offset = max_used_gid_offset + 0
                 print("..done. Writing...")
                 self.proj_list.append(new_proj)
                 new_proj.write_h5_file(path, 'proj_nrn', num_files)
-                offset += (new_proj.mapping_specs.used_gid_offset+1)
+                max_used_gid_offset = numpy.max((max_used_gid_offset,
+                                                 new_proj.mapping_specs.extra_gid_offset + new_proj.mapping_specs.used_gid_offset))                
                 print("done.")
+                name = proj.get("id").strip()
                 self.write_proj_target(os.path.join(path, "user.target"), name.replace(" ", "_"), new_proj.mapping_specs.gid_range() )
 
             elif proj.tag == "Projection":

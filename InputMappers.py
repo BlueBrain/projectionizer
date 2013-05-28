@@ -25,6 +25,7 @@ class MiniColumnInputMapper(ProjectionInputMapper):
                                                 (self.minicolumns[:,1] < absoluteVolume[5]+self.exclusion)
                                                 )
         self.minicolumns = self.minicolumns[self.minicolumn_indices[0]]
+        self.used_gid_offset = len(self.cfg.get_mvd_minicolumns())
         
     def resolve_exclusion(self,positions):
         return [numpy.nonzero([(x[0]<self.exclusion)&(x[1]<self.exclusion) for x in numpy.abs(self.minicolumns - loc)])
@@ -45,11 +46,6 @@ class MiniColumnInputMapper(ProjectionInputMapper):
         found = numpy.nonzero(numpy.random.random() <= (numpy.cumsum(distances)/numpy.sum(distances)))
         return found[0][0] 
     
-    def gid_range(self):
-        """ returns gid interval into which this mapping can map [min, max+1] """
-        return (self.max_circuit_gid + self.extra_gid_offset, 
-                self.max_circuit_gid + self.extra_gid_offset + len(self.cfg.get_mvd_minicolumns()))
-    
     def get_mapping(self,syn_loc,seg_spec,syn_type_names):
         gid_offset, gid_max = self.gid_range()
         minicol_resolved = self.resolve(syn_loc[:,[0,2]])
@@ -57,7 +53,6 @@ class MiniColumnInputMapper(ProjectionInputMapper):
         #pdb.set_trace()
         for i in range(len(minicol_resolved)):
             if(type(minicol_resolved[i]) in [int, numpy.int64]):
-
                 minicol_resolved[i] = self.minicolumn_indices[0][minicol_resolved[i]] + gid_offset
             else:
                 minicol_resolved[i] = numpy.NaN
@@ -89,8 +84,8 @@ class RandomInputMapper(ProjectionInputMapper):
     
     def get_mapping(self,syn_loc,seg_spec,syn_type_names):
         if syn_loc.shape[0] == 0:
-            return numpy.vstack(([],[])).transpose()
-        gid_offset = self.max_circuit_gid + self.extra_gid_offset + self.used_gid_offset        
+            return numpy.vstack(([],[])).transpose()        
+        IGNORE, gid_offset = self.gid_range()
         if len(self.num_assigned_gids)==0:
             c_p_g = self.syns_per_gid
             n_a_g = int(numpy.ceil(syn_loc.shape[0]/float(self.syns_per_gid)))
