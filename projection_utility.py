@@ -13,7 +13,7 @@ import h5py
 from lxml import etree
 
 class SynapseClass(object):
-    _u = (0.0,1.0)#NOTE: ALL PARAMETERS IN k, Theta!!!    
+    _u = (0.0,1.0)    
     _d = (0.0,1.0)
     _f = (0.0,1.0)        
     _g_max = (0.0,1.0)
@@ -25,14 +25,13 @@ class SynapseClass(object):
         nrm = numpy.random.gamma
         shape = (lgth,1)
         return numpy.hstack((nrm(self._g_max[0],self._g_max[1],shape),
-			     nrm(self._u[0],self._u[1],shape),
-			     nrm(self._d[0],self._d[1],shape),
-			     nrm(self._f[0],self._f[1],shape),
-			     nrm(self._dtc[0],self._dtc[1],shape),
-			     self.syn_type * numpy.ones(shape),
-			     nrm(self._ase[0],self._ase[1],shape)))
-                            
-            
+                             nrm(self._u[0],self._u[1],shape),
+                             nrm(self._d[0],self._d[1],shape),
+                             nrm(self._f[0],self._f[1],shape),
+                             nrm(self._dtc[0],self._dtc[1],shape),
+                             self.syn_type * numpy.ones(shape),
+                             nrm(self._ase[0],self._ase[1],shape)))
+
 class SynTypeMap(object):
     _map = {}
         
