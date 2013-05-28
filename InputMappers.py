@@ -72,7 +72,7 @@ class RandomInputMapper(ProjectionInputMapper):
     '''    
     extra_gid_offset = 1337    
     syns_per_gid = []
-    num_assigned_gids = []
+    num_assigned_gids = []    
         
     def __init__(self,specs,cfg):
         ProjectionInputMapper.__init__(self,specs,cfg)
@@ -81,6 +81,7 @@ class RandomInputMapper(ProjectionInputMapper):
         else:
             self.syns_per_gid = int(specs.get("syns_per_gid"))        
         self.mapping_counts = []
+        self._targets = []
     
     def get_mapping(self,syn_loc,seg_spec,syn_type_names):
         if syn_loc.shape[0] == 0:
@@ -95,10 +96,12 @@ class RandomInputMapper(ProjectionInputMapper):
         resolved = numpy.hstack([numpy.ones(c_p_g)*i for i in range(n_a_g)]) + gid_offset
         numpy.random.shuffle(resolved)
         resolved = resolved[:syn_loc.shape[0]]
-        #resolved = numpy.random.random_integers(gid_offset,high=gid_offset+self.num_assigned_gids-1,size=syn_loc.shape[0])        
         mapped_gids = range(gid_offset,numpy.nanmax(resolved))
-        self.mapping_counts = (numpy.histogram(resolved,numpy.hstack((mapped_gids,mapped_gids[-1]+1)))[0],mapped_gids)        
+        self.mapping_counts = (numpy.histogram(resolved,numpy.hstack((mapped_gids,mapped_gids[-1]+1)))[0],mapped_gids)
+        self._targets.append(("_Source" + str(len(self._targets)), (gid_offset,mapped_gids[-1]+1)))
         self.used_gid_offset += n_a_g
         
         return numpy.vstack((resolved,numpy.zeros_like(resolved).astype(float))).transpose()
+    def targets(self):
+        return self._targets
     
