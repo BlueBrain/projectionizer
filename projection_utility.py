@@ -111,6 +111,9 @@ class ProjectionInputMapper(object):
         """ returns gid interval into which this mapping can map [min, max+1] """
         return (self.max_circuit_gid + self.extra_gid_offset, 
                 self.max_circuit_gid + self.extra_gid_offset + self.used_gid_offset)
+    def targets(self):
+        """returns name and gids of projecting cell targets. Default: name is _Source and the whole gid range"""
+        return [("_Source",self.gid_range())]
     def get_mapping(self,syn_loc,seg_spec,syn_type_names):
         '''
         This is the abstract function that has to be implemented. Returns a list of gids.
@@ -517,9 +520,9 @@ class ProjectionComposer(object):
         from bluepy.parsers import target
         gid_min, gid_max = gid_range
         
-        t = target.Target("proj_%s_Source" % name, "Cell", target.to_gids(range(gid_min, gid_max)))
+        t = target.Target("proj_%s" % name, "Cell", target.to_gids(range(gid_min, gid_max)))
 
-        with file(path, "w") as f:
+        with file(path, "a") as f:
             print >>f, t
 
         
@@ -559,7 +562,9 @@ class ProjectionComposer(object):
                                                  new_proj.mapping_specs.extra_gid_offset + new_proj.mapping_specs.used_gid_offset))                
                 print("done.")
                 name = proj.get("id").strip()
-                self.write_proj_target(os.path.join(path, "user.target"), name.replace(" ", "_"), new_proj.mapping_specs.gid_range() )
+                for tgt in new_proj.targets():
+                    self.write_proj_target(os.path.join(path, "user.target"),
+                                           name.replace(" ", "_") + tgt[0], tgt[1] )
 
             elif proj.tag == "Projection":
                 raise RuntimeError
