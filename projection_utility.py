@@ -84,7 +84,7 @@ class SynapseClassifier(object):
     
     def get_synapse_parameters(self,syn_type_name_mapper):
         mp = syn_type_name_mapper._map
-        total_lgth = numpy.sum([len(x) for x in mp.values()])
+        total_lgth = numpy.nanmax([numpy.nanmax(x) for x in mp.values()])+1
         ret_val = numpy.zeros((total_lgth,7))
         for s,t in mp.iteritems():
             ret_val[t] = self.syn_classes[s].get_parameter_line(len(t))
