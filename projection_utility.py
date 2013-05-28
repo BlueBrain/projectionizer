@@ -561,7 +561,7 @@ class ProjectionComposer(object):
                                                  new_proj.mapping_specs.extra_gid_offset + new_proj.mapping_specs.used_gid_offset))                
                 print("done.")
                 name = proj.get("id").strip()
-                for tgt in new_proj.targets():
+                for tgt in new_proj.mapping_specs.targets():
                     self.write_proj_target(os.path.join(path, "user.target"),
                                            name.replace(" ", "_") + tgt[0], tgt[1] )
 
