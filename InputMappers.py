@@ -101,7 +101,7 @@ class RandomInputMapper(ProjectionInputMapper):
         self._targets.append(("_Source" + str(len(self._targets)), (gid_offset,mapped_gids[-1]+1)))
         self.used_gid_offset += n_a_g
         
-        return numpy.vstack((resolved,numpy.zeros_like(resolved).astype(float))).transpose()
+        return numpy.vstack((resolved,numpy.ones_like(resolved).astype(float))).transpose()
     def targets(self):
         return self._targets
     
