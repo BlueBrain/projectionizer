@@ -21,7 +21,7 @@ def thalamocortical_s2f(in_file, out_file, params):
         lid_counts = numpy.histogram(post_lids, bins=numpy.hstack((unique_lids,unique_lids[-1]+1)))
         accepted = numpy.ones_like(post_lids)
         for t_id,count in zip(unique_lids, lid_counts):
-            accepted[post_lids == t_id] = cutoff_func(count,real_params)
+            accepted[post_lids == t_id] = cutoff_func(count,params)
         
         write_me = data[pylab.find(accepted),:]        
         out_h5.create_dataset(k, write_me.shape, ">f4", write_me)
