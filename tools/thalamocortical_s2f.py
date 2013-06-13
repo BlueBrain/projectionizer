@@ -23,8 +23,9 @@ def thalamocortical_s2f(in_file, out_file, params):
         for t_id,count in zip(unique_lids, lid_counts):
             accepted[post_lids == t_id] = cutoff_func(count,params)
         
-        write_me = data[pylab.find(accepted),:]        
-        out_h5.create_dataset(k, write_me.shape, ">f4", write_me)
+        if pylab.any(accepted):
+            write_me = data[pylab.find(accepted),:]                
+            out_h5.create_dataset(k, write_me.shape, ">f4", write_me)
     
 def parameter_estimation(a, v):
     norm = scipy.stats.norm.cdf
