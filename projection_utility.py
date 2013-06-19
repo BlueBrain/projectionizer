@@ -157,7 +157,7 @@ class NeuronalProjection(object):
         (seg_spec,syn_type_name_mapper,pre_info) = self.get_projection_synapses()
         print("Equipping synapses with parameters...")
         syn_parameters = self.synapse_specs.get_synapse_parameters(syn_type_name_mapper)
-        print("Assembling final data structura...")
+        print("Assembling final data structure...")
         self._data = (seg_spec,syn_parameters,pre_info)
         self._data = self.get_final_h5data_structure(seg_spec,syn_parameters,pre_info)
         

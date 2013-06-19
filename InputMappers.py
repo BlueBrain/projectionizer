@@ -29,7 +29,7 @@ class MiniColumnInputMapper(ProjectionInputMapper):
         
     def resolve_exclusion(self,positions):
         return [numpy.nonzero([(x[0]<self.exclusion)&(x[1]<self.exclusion) for x in numpy.abs(self.minicolumns - loc)])
-                for loc in positions]                    
+                for loc in positions]
         
     def resolve(self,positions):
         resIdx = self.resolve_exclusion(positions)        
