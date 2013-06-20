@@ -4,6 +4,7 @@ import pylab
 import scipy.stats
 from os import path
 import glob
+import progressbar as pb
 
 """"
 A very simple set of functions implementing a kind of 'Thalamocortical S2F'
@@ -26,11 +27,14 @@ def thalamocortical_s2f(in_file, out_file, cutoff_var, target_mean = None, targe
     else:
         raise RuntimeError("Must provide one of two parameters: target_mean or target_remove")
     
+    widgets = ['TC S2F: ', pb.Percentage(), ' ', pb.Bar(),
+               ' ', pb.ETA()]
     
-    for f_in,suff in zip(in_files,suffix):
+    for i, (f_in,suff) in enumerate(zip(in_files,suffix)):
         in_h5 = h5py.File(f_in,'r')
         out_h5 = h5py.File(out_file + suff)
-        for k in in_h5.keys():
+        pbar = pb.ProgressBar(widgets=widgets, maxval=len(in_h5.keys())).start()
+        for i,k in enumerate(in_h5.keys()):
             data = numpy.array(in_h5[k])
             lid_counts, post_lids, unique_lids = count_syns_connection(data, return_lids=True, return_uniques=True)        
             accepted = numpy.ones_like(post_lids)
@@ -40,6 +44,9 @@ def thalamocortical_s2f(in_file, out_file, cutoff_var, target_mean = None, targe
             if pylab.any(accepted):
                 write_me = data[pylab.find(accepted),:]                
                 out_h5.create_dataset(k, write_me.shape, ">f4", write_me)
+            pbar.update(i+1)
+
+        pbar.finish()
         in_h5.close()
         out_h5.close()
             

@@ -545,13 +545,13 @@ class ProjectionComposer(object):
                 new_proj = VolumeProjection(proj,self.cfg,syn_spec)
                 gidOffset = proj.xpath("InputMapping/@gidOffset")
                 if gidOffset!=[]:
-                    print("Found ABSOLUTE gidOffset=%d" % gidOffset[0])
-                    new_proj.mapping_specs.extra_gid_offset = gidOffset[0]
+                    print("Found ABSOLUTE gidOffset=%d" % int(gidOffset[0]))
+                    new_proj.mapping_specs.extra_gid_offset = int(gidOffset[0])
                 else:
                     gidOffset = proj.xpath("InputMapping/@relOffset")
                     if gidOffset!=[]:
-                        print("Found RELATIVE gidOffset=%d" % gidOffset[0])
-                        new_proj.mapping_specs.extra_gid_offset = max_used_gid_offset + gidOffset[0]
+                        print("Found RELATIVE gidOffset=%d" % int(gidOffset[0]))
+                        new_proj.mapping_specs.extra_gid_offset = max_used_gid_offset + int(gidOffset[0])
                     else:
                         new_proj.mapping_specs.extra_gid_offset = max_used_gid_offset + 0
                 print("..done. Writing...")

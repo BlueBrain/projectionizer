@@ -23,13 +23,22 @@ super_smpl_factor = 2.42
 tgt_mean = 7.0
 
 #CODE TO GENERATE EFFERENT NRN GOES HERE
+# in dir where the proj_nrn.h5.* files reside:
+python ~/src/bbp-user-ebmuller/experiments/thalamocortical_projection/plots/transpose_proj_nrn.py
 #CODE TO MERGE NRN GOES HERE
+python ~/src/bbp-user-ebmuller/SynMerge/TCSynMerge.py
 
 from tools.thalamocortical_s2F import thalamocortical_s2f
 #Run s2f with either a target reduction factor or a target mean number of synapses per connection.
 #Ideally, both yield statistically identical results
-thalamocortical_s2f('out/proj_nrn_efferent.h5','out/proj_nrn_s2f.h5',target_mean=tgt_mean)
-thalamocortical_s2f('out/proj_nrn_efferent.h5','out/proj_nrn_s2f.h5',target_remove = 1 - 1/super_smpl_factor)
+thalamocortical_s2f('out/proj_nrn_efferent.h5','out/proj_nrn_efferent_s2f.h5',target_mean=tgt_mean)
+thalamocortical_s2f('out/proj_nrn_efferent.h5','out/proj_nrn_efferent_s2f.h5',target_remove = 1 - 1/super_smpl_factor)
+
+# Transpose efferent back to NRN
+# Move to new dir, proj_nrn_efferent_s2f.h5 -> proj_nrn_efferent.h5
+ln -s proj_nrn_efferent.h5 proj_nrn_efferent.h5.0
+# Transpose efferent back to NRN
+python ~/src/bbp-user-ebmuller/experiments/thalamocortical_projection/plots/transpose_proj_nrn_efferent.py
 
 #Finally, split the result into many files:
 from tools.split_synapse_files import split_nrn
