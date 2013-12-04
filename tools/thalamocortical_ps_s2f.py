@@ -52,44 +52,52 @@ def thalamocortical_s2f(in_file, out_file, cutoff_var, target_mean = None, targe
         in_h5.close()
         out_h5.close()
             
-def parameter_from_fraction_removed(in_files, fraction):
-    lid_counts = []
+def parameter_from_fraction_removed(in_files, fraction, postsyn_class_gids):    
+    mtype_nsyn_samples = {}
     for name in in_files:
         in_h5 = h5py.File(name)
         for k in in_h5.keys():
             data = numpy.array(in_h5[k])
-            lid_counts.extend(count_syns_connection(data))
+            syns_conn_samples, sample_gids = count_syns_connection(data,return_gids=True)
+            # loop over mtypes
+            for class_name,class_gids in postsyn_class_gids.iteritems():                
+                mtype_nsyn_samples.setdefault(class_name,[]).append(syns_conn_samples[numpy.array([x in class_gids for x in sample_gids])])
         in_h5.close()
-    count_counts = numpy.histogram(lid_counts,range(1,52))[0]
-    count_counts = [float((x+1)*y) for x,y in enumerate(count_counts)]
-    cumulative_count = numpy.hstack((0,numpy.cumsum(count_counts)/sum(count_counts)))
-    return numpy.interp(fraction,cumulative_count,range(1,len(cumulative_count)+1))-1
+    proposed_cutoff = {}
+    for class_name,nsyn_samples in postsyn_class_gids.iteritems():
+        count_counts = numpy.histogram(nsyn_samples,range(1,52))[0]
+        count_counts = [float((x+1)*y) for x,y in enumerate(count_counts)]
+        cumulative_count = numpy.hstack((0,numpy.cumsum(count_counts)/sum(count_counts)))
+        proposed_cutoff[class_name] = numpy.interp(fraction,cumulative_count,range(1,len(cumulative_count)+1))-1
+    return proposed_cutoff
 
-def parameter_from_mean(in_files,tgt_mn):
-    lid_counts = []
+def parameter_from_mean(in_files,tgt_mn, postsyn_class_gids):
+    mtype_nsyn_samples = {}
     for name in in_files:
         in_h5 = h5py.File(name)
         for k in in_h5.keys():
             data = numpy.array(in_h5[k])
-            lid_counts.extend(count_syns_connection(data))
+            syns_conn_samples, sample_gids = count_syns_connection(data,return_gids=True)
+            for class_name,class_gids in postsyn_class_gids.iteritems():                
+                mtype_nsyn_samples.setdefault(class_name,[]).append(syns_conn_samples[numpy.array([x in class_gids for x in sample_gids])])
         in_h5.close()
-    return tgt_mn - numpy.mean(lid_counts) + 0.5
+    proposed_cutoff = {}
+    for class_name,nsyn_samples in postsyn_class_gids.iteritems():
+        proposed_cutoff[class_name] = tgt_mn - numpy.mean(nsyn_samples) + 0.5
+    return proposed_cutoff
             
-def count_syns_connection(data, return_lids=False, return_uniques=False):
-    # EM: here lid refers to "local synapse id", I presume.
-    
-    # EM: get the 
-    post_lids = numpy.unique(data[:,0],return_inverse=True)[1]
-    unique_lids = numpy.unique(post_lids)
-    return_me = numpy.histogram(post_lids, bins=numpy.hstack((unique_lids,unique_lids[-1]+1)))[0]
-    if return_lids:
+def count_syns_connection(data, return_gids=False, return_uniques=False):
+    post_gids = data[:,0]    
+    unique_gids = numpy.unique(post_gids)
+    return_me = numpy.histogram(post_gids, bins=numpy.hstack((unique_gids,unique_gids[-1]+1)))[0]
+    if return_gids:
         if return_uniques:
-            return (return_me, post_lids, unique_lids)
+            return (return_me, post_gids, unique_gids)
         else:
-            return (return_me, post_lids)
+            return (return_me, post_gids)
     else:
         if return_uniques:
-            return (return_me, unique_lids)
+            return (return_me, unique_gids)
         else:
             return return_me
     
