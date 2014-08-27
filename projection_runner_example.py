@@ -1,4 +1,4 @@
-from bbProjections import projection_utility as proj
+import projection_utility as proj
 import os
 
 xml_file = "/home/ebmuller/src/bbp_svn_recipe/Projection_Recipes/Thalamocortical_input_generic_L4/thalamocorticalProjectionRecipe.xml"
@@ -21,28 +21,26 @@ composer.write("out/", 8192)
 #This is similar to the column s2f algorithm.
 super_smpl_factor = 2.42
 tgt_mean = 7.0
+efferent_h5_file = os.path.join("out", "proj_nrn_efferent.h5")
+if not os.path.exists("out_s2f"):
+    os.mkdir("out_s2f")
+s2f_h5_file_efferent = os.path.join("out_s2f", "proj_nrn_efferent.h5")
+s2f_h5_file_afferent = os.path.join("out_s2f", "proj_nrn.h5")
 
-#CODE TO GENERATE EFFERENT NRN GOES HERE
-# in dir where the proj_nrn.h5.* files reside:
-python ~/src/bbp-user-ebmuller/experiments/thalamocortical_projection/plots/transpose_proj_nrn.py
-#CODE TO MERGE NRN GOES HERE
-python ~/src/bbp-user-ebmuller/SynMerge/TCSynMerge.py
-
-from tools.thalamocortical_s2F import thalamocortical_s2f
-#Run s2f with either a target reduction factor or a target mean number of synapses per connection.
-#Ideally, both yield statistically identical results
-thalamocortical_s2f('out/proj_nrn_efferent.h5','out/proj_nrn_efferent_s2f.h5',target_mean=tgt_mean)
-thalamocortical_s2f('out/proj_nrn_efferent.h5','out/proj_nrn_efferent_s2f.h5',target_remove = 1 - 1/super_smpl_factor)
+from tools.transpose_proj_nrn import transpose_projection
+transpose_projection("out", "proj_nrn.h5.*", efferent_h5_file)
+from tools.thalamocortical_s2f import thalamocortical_s2f
+# Run s2f with either a target reduction factor or a target mean number of synapses per connection.
+# Ideally, both yield statistically identical results
+# thalamocortical_s2f('out/proj_nrn_efferent.h5','out/proj_nrn_efferent_s2f.h5',target_mean=tgt_mean)
+thalamocortical_s2f(efferent_h5_file, s2f_h5_file_efferent, target_remove = 1 - 1/super_smpl_factor)
 
 # Transpose efferent back to NRN
-# Move to new dir, proj_nrn_efferent_s2f.h5 -> proj_nrn_efferent.h5
-ln -s proj_nrn_efferent.h5 proj_nrn_efferent.h5.0
-# Transpose efferent back to NRN
-python ~/src/bbp-user-ebmuller/experiments/thalamocortical_projection/plots/transpose_proj_nrn_efferent.py
+transpose_projection("out_s2f", "proj_nrn_efferent.h5", s2f_h5_file_afferent)
 
 #Finally, split the result into many files:
 from tools.split_synapse_files import split_nrn
-split_nrn('out/proj_nrn_s2f.h5',8192)
+split_nrn(s2f_h5_file_afferent, 8192)
 
 
 
