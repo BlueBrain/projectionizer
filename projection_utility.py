@@ -472,7 +472,9 @@ class VolumeSpecifiedSegmentTarget(object):
         seg_candidates = seg_candidates[valid>0,:]
         passed_rule = passed_rule[valid>0] 
         picked_indices = self.pick_candidates(candidate_scores, number_to_pick)
-        seg_center_coords = (seg_candidates[picked_indices,(0,1,2)] + seg_candidates[picked_indices,(3,4,5)])/2        
+        if len(picked_indices) == 0:
+            return numpy.zeros((0, 8))
+        seg_center_coords = (seg_candidates[picked_indices,(0,1,2)] + seg_candidates[picked_indices,(3,4,5)])/2
         seg_spec = numpy.hstack((seg_center_coords,seg_candidates[picked_indices,(8,9,10,11)],passed_rule[picked_indices]))                        
         
         return seg_spec
