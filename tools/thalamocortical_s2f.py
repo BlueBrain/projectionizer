@@ -13,7 +13,7 @@ by only accepting connections with a certain min number of synapses.
 """
 
 
-def thalamocortical_s2f(in_file, out_file, cutoff_var, target_mean = None, target_remove = None):
+def thalamocortical_s2f(in_file, out_file, cutoff_var = None, target_mean = None, target_remove = None):
     if not path.exists(in_file):
         in_files = glob.glob(in_file + '.')
         suffix = [x[len(in_file):] for x in in_files]
@@ -26,6 +26,8 @@ def thalamocortical_s2f(in_file, out_file, cutoff_var, target_mean = None, targe
         cutoff_mean = parameter_from_fraction_removed(in_files, target_remove)
     else:
         raise RuntimeError("Must provide one of two parameters: target_mean or target_remove")
+    if cutoff_var == None:
+        cutoff_var = cutoff_mean * 0.25
     
     widgets = ['TC S2F: ', pb.Percentage(), ' ', pb.Bar(),
                ' ', pb.ETA()]
