@@ -6,6 +6,8 @@ from os import path
 import glob
 import progressbar as pb
 from bluepy.targets.mvddb import Neuron, MType, EType, to_gid_list
+#import pdb
+
 
 """"
 A very simple set of functions implementing a kind of 'Thalamocortical S2F'
@@ -37,6 +39,8 @@ def thalamocortical_s2f(in_file, out_file, circuit_config, cutoff_var, target_me
     else:
         raise RuntimeError("Must provide one of two parameters: target_mean or target_remove")
     
+    #pdb.set_trace()
+
     widgets = ['TC S2F: ', pb.Percentage(), ' ', pb.Bar(),
                ' ', pb.ETA()]
     
@@ -48,7 +52,7 @@ def thalamocortical_s2f(in_file, out_file, circuit_config, cutoff_var, target_me
             data = numpy.array(in_h5[k])
             gid_counts, post_gids, unique_gids = count_syns_connection(data, return_gids=True, return_uniques=True)        
             accepted = numpy.ones_like(post_gids)
-            mtype_ids = [n.mtype_id for n in circ.mvddb.get_gids(post_gids)]
+            mtype_ids = [n.mtype_id for n in circ.mvddb.get_gids(unique_gids)]
             for gid,mtype_id, count in zip(unique_gids, mtype_ids, gid_counts):
                 accepted[post_gids == gid] = cutoff_func(count,(cutoff_mean[mtype_id], cutoff_var))
         
@@ -76,10 +80,15 @@ def parameter_from_fraction_removed(in_files, fraction, postsyn_class_gids, filt
         in_h5.close()
     proposed_cutoff = {}
     for class_name,nsyn_samples in mtype_nsyn_samples.iteritems():
+        if len(nsyn_samples)<10:
+            print "Warning only %d samples for class %d (mtype_id)" % (len(nsyn_smaples), class_name)
         # EM: are you sure its not 42?
+        # compute normalized cumulative syncounts
         count_counts = numpy.histogram(numpy.hstack(nsyn_samples),range(1,52))[0]
         count_counts = [float((x+1)*y) for x,y in enumerate(count_counts)]
         cumulative_count = numpy.hstack((0,numpy.cumsum(count_counts)/sum(count_counts)))
+        # compute cutoff by inverse interpolation of target fraction on cumulative syncount distribution
+        # approximation: assumes hard cutoff, i.e. does not account for moments beyond mean.  Should be OK if dist is fairly symmetrical.
         proposed_cutoff[class_name] = numpy.interp(fraction,cumulative_count,range(1,len(cumulative_count)+1))-1
     return proposed_cutoff
 

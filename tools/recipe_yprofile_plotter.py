@@ -1,9 +1,12 @@
 from lxml import etree
 import bluepy
 
-#proj_recipe_path = "/home/ebmuller/src/bbp_svn_recipe/Projection_Recipes/Thalamocortical_VPM/thalamocorticalProjectionRecipe.xml"
+#proj_recipe_path = "/home/ebmuller/src/bbp_svn_recipe/Projection_Recipes/Thalamocortical_VPM/thalamocorticalProjectionRecipe_O1_TCs2f_7synsPerConn_os3p0.xml"
 
-proj_recipe_path = "/home/ebmuller/src/bbp_svn_recipe/Projection_Recipes/Corticocortical_SIItoSI/corticocorticalProjectionRecipe.xml"
+proj_recipe_path = "/home/ebmuller/src/bbp_svn_recipe/Projection_Recipes/Thalamocortical_VPM/thalamocorticalProjectionRecipe.xml"
+
+#proj_recipe_path = "/home/ebmuller/src/bbp_svn_recipe/Projection_Recipes/Corticocortical_SIItoSI/corticocorticalProjectionRecipe.xml"
+#proj_recipe_path = "/home/ebmuller/src/bbp_svn_recipe/Projection_Recipes/Thalamocortical_input_generic_L4/thalamocorticalProjectionRecipe.xml"
 
 #proj_recipe_path = "/home/ebmuller/src/bbp_svn_recipe/Projection_Recipes/Thalamocortical_input_generic_L1/thalamocorticalProjectionRecipe.xml"
 
@@ -62,6 +65,6 @@ c.plot_layers()
 for v in proj_recipe.xpath("//Projections/Projection/Volume"):
     plot_volume(v)
 
-axis([0, 80, -50, 2050])
+axis([0, 100, -50, 2050])
 xticks(arange(0,100,10), [str(x) for x in arange(0,100,10)])
 xlabel("synapse density [1e-3 / um^3]")

@@ -34,7 +34,7 @@ filter_pre_keys = ['a%d' % x for x in fiber_gids]
 c = bluepy.Circuit("/bgscratch/bbp/l5/release/2012.07.23/circuit/SomatosensoryCxS1-v4.lowerCellDensity.r151/O1/merged_circuit/CircuitConfig")
 
 
-thalamocortical_s2f("proj_nrn_efferent.h5",'proj_nrn_efferent_s2f.h5', c, cutoff_var, target_remove=2./3, filter_pre_keys=filter_pre_keys)
+thalamocortical_s2f("proj_nrn_efferent.h5",'proj_nrn_efferent_s2f.h5', c, cutoff_var, target_remove=0.72, filter_pre_keys=filter_pre_keys)
 
 #thalamocortical_s2f('out/proj_nrn_efferent.h5','out/proj_nrn_efferent_s2f.h5',target_remove = 1 - 1/super_smpl_factor)
 
