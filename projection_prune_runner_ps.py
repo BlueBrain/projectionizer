@@ -27,14 +27,16 @@ from tools.thalamocortical_ps_s2f import thalamocortical_s2f
 #Run s2f with either a target reduction factor or a target mean number of synapses per connection.
 #Ideally, both yield statistically identical results
 
-gid_offset = 218000
+# read this out of the user.target spit out of the initial projection_runner_tcs2f.py step
+gid_offset = 220422
+# this configures that the s2f params are only in the center of mc2_Column, so as to avoid edge effects
 fiber_gids = gid_offset+numpy.arange(620, 670)
 filter_pre_keys = ['a%d' % x for x in fiber_gids] 
 
-c = bluepy.Circuit("/bgscratch/bbp/l5/release/2012.07.23/circuit/SomatosensoryCxS1-v4.lowerCellDensity.r151/O1/merged_circuit/CircuitConfig")
+#c = bluepy.Circuit("/bgscratch/bbp/l5/release/2012.07.23/circuit/SomatosensoryCxS1-v4.lowerCellDensity.r151/O1/merged_circuit/CircuitConfig")
+c = bluepy.Circuit("/gpfs/bbp.cscs.ch/project/proj1/circuits/SomatosensoryCxS1-v5.r0/O1/merged_circuit/CircuitConfig")
 
-
-thalamocortical_s2f("proj_nrn_efferent.h5",'proj_nrn_efferent_s2f.h5', c, cutoff_var, target_remove=0.72, filter_pre_keys=filter_pre_keys)
+thalamocortical_s2f("proj_nrn_efferent.h5",'proj_nrn_efferent_s2f.h5', c, cutoff_var, target_remove=1.6/2.6*0.73/0.66, filter_pre_keys=filter_pre_keys)
 
 #thalamocortical_s2f('out/proj_nrn_efferent.h5','out/proj_nrn_efferent_s2f.h5',target_remove = 1 - 1/super_smpl_factor)
 
