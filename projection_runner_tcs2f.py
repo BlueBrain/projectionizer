@@ -16,6 +16,7 @@ import os
 #xml_file = "/home/ebmuller/src/bbp_svn_recipe/Projection_Recipes/Thalamocortical_VPM/thalamocorticalProjectionRecipe_O1_TCs2f_7synsPerConn_os3p0.xml"
 #xml_file = "/gpfs/bbp.cscs.ch/home/ebmuller/src/bbp-svn-recipe/Projection_Recipes/Thalamocortical_VPM/thalamocorticalProjectionRecipe_O1_TCs2f_7synsPerConn_os3p0.xml"
 xml_file = "/gpfs/bbp.cscs.ch/home/ebmuller/src/bbp-svn-recipe/Projection_Recipes/Thalamocortical_VPM/thalamocorticalProjectionRecipe_O1_TCs2f_7synsPerConn_os2p6.xml"
+#xml_file = "/gpfs/bbp.cscs.ch/home/ebmuller/src/bbp-svn-recipe/Projection_Recipes/Thalamocortical_POm/thalamocorticalProjectionRecipe_O1_TCs2f_os2p6.xml"
 
 
 #xml_file = "/home/ebmuller/src/bbp_svn_recipe/Projection_Recipes/Thalamocortical_input_generic_L4/thalamocorticalProjectionRecipe_debug.xml"
