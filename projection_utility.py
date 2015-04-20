@@ -176,7 +176,7 @@ class NeuronalProjection(object):
         split_gids = numpy.split(uGids, splits[1:-1])        
         
         for i in range(num_files):
-            filename = path + name + '.h5.' + str(int(i))
+            filename = os.path.join(path, name + '.h5.' + str(int(i)))
             if os.path.exists(filename): 
                 raise IOError, "File %s exists." % filename
         

@@ -15,7 +15,7 @@ import os
 
 #xml_file = "/home/ebmuller/src/bbp_svn_recipe/Projection_Recipes/Thalamocortical_VPM/thalamocorticalProjectionRecipe_O1_TCs2f_7synsPerConn_os3p0.xml"
 #xml_file = "/gpfs/bbp.cscs.ch/home/ebmuller/src/bbp-svn-recipe/Projection_Recipes/Thalamocortical_VPM/thalamocorticalProjectionRecipe_O1_TCs2f_7synsPerConn_os3p0.xml"
-xml_file = "/gpfs/bbp.cscs.ch/home/ebmuller/src/bbp-svn-recipe/Projection_Recipes/Thalamocortical_VPM/thalamocorticalProjectionRecipe_O1_TCs2f_7synsPerConn_os2p6.xml"
+xml_file = "/gpfs/bbp.cscs.ch/home/ebmuller/src/bbp-svn-recipe/Projection_Recipes/Thalamocortical_VPM/thalamocorticalProjectionRecipe_O1_TCs2f_7synsPerConn_os2p6_specific.xml"
 #xml_file = "/gpfs/bbp.cscs.ch/home/ebmuller/src/bbp-svn-recipe/Projection_Recipes/Thalamocortical_POm/thalamocorticalProjectionRecipe_O1_TCs2f_os2p6.xml"
 
 
@@ -29,14 +29,36 @@ xml_file = "/gpfs/bbp.cscs.ch/home/ebmuller/src/bbp-svn-recipe/Projection_Recipe
 
 #cfg_file = "/bgscratch/bbp/l5/release/2012.07.23/circuit/SomatosensoryCxS1-v4.lowerCellDensity.r151/O1/merged_circuit/CircuitConfig"
 cfg_file = "/gpfs/bbp.cscs.ch/project/proj1/circuits/SomatosensoryCxS1-v5.r0/O1/merged_circuit/CircuitConfig"
-
+#cfg_file = "/gpfs/bbp.cscs.ch/project/proj19/2014-10-28-1/circuit/SomatosensoryCxS1-v5.r0/O1/merged_circuit/CircuitConfig"
 
 #cfg_file = "/bgscratch/bbp/circuits/23.07.12/SomatosensoryCxS1-v4.lowerCellDensity.r151/O1/merged_circuit/CircuitConfig"
 
-composer = proj.ProjectionComposer(cfg_file, xml_file)
-if not os.path.exists("out"):
-    os.mkdir("out")
-composer.write("out/", 8192)
+out_dir = "out/"
+
+
+def run_composer(cfg_file, xml_file, out_dir):
+    composer = proj.ProjectionComposer(cfg_file, xml_file)
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
+    composer.write(out_dir, 8192)
+
+if __name__=="__main__":
+
+    if len(sys.argv)==4:
+        cfg_file = sys.argv[1]
+        xml_file = sys.argv[2]
+        out_dir = sys.argv[3]
+    else:
+        print sys.argv
+        sys.exit(0)
+    print "Config: %s\nXML Recipe: %s\nout_dir='%s'" % (cfg_file, xml_file, out_dir)
+
+    run_composer(cfg_file, xml_file, out_dir)
+
+
+
+
+
 
 # recover h5 write fail
 """

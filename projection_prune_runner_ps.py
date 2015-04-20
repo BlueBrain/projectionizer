@@ -8,6 +8,14 @@ import inspect
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
 sys.path.append(path)
+from tools.thalamocortical_ps_s2f import thalamocortical_s2f
+
+import sys
+circuit_path = "/gpfs/bbp.cscs.ch/project/proj1/circuits/SomatosensoryCxS1-v5.r0/O1/merged_circuit/CircuitConfig"
+
+if len(sys.argv)==2:
+    circuit_path = sys.argv[1]
+print "Circuit: %s" % circuit_path
 
 #super_smpl_factor = 2.42
 #tgt_mean = 7.0
@@ -23,20 +31,26 @@ cutoff_var = 1.0
 #python /bgscratch/bbp/users/ebmuller/Projectionizer-git/projection_prune_runner_ps.py
 #...
 
-from tools.thalamocortical_ps_s2f import thalamocortical_s2f
+
 #Run s2f with either a target reduction factor or a target mean number of synapses per connection.
 #Ideally, both yield statistically identical results
 
 # read this out of the user.target spit out of the initial projection_runner_tcs2f.py step
-gid_offset = 220422
+# load generated target, and get minimum gid
+t = bluepy.parsers.target.parse_target(file("user.target"))
+gid_offset = min(sorted(t[t.available_targets()[0]]))
+#gid_offset = 220422
+
 # this configures that the s2f params are only in the center of mc2_Column, so as to avoid edge effects
 fiber_gids = gid_offset+numpy.arange(620, 670)
 filter_pre_keys = ['a%d' % x for x in fiber_gids] 
 
-#c = bluepy.Circuit("/bgscratch/bbp/l5/release/2012.07.23/circuit/SomatosensoryCxS1-v4.lowerCellDensity.r151/O1/merged_circuit/CircuitConfig")
-c = bluepy.Circuit("/gpfs/bbp.cscs.ch/project/proj1/circuits/SomatosensoryCxS1-v5.r0/O1/merged_circuit/CircuitConfig")
+c = bluepy.Circuit(circuit_path)
+
 
 thalamocortical_s2f("proj_nrn_efferent.h5",'proj_nrn_efferent_s2f.h5', c, cutoff_var, target_remove=1.6/2.6*0.73/0.66, filter_pre_keys=filter_pre_keys)
+
+
 
 #thalamocortical_s2f('out/proj_nrn_efferent.h5','out/proj_nrn_efferent_s2f.h5',target_remove = 1 - 1/super_smpl_factor)
 

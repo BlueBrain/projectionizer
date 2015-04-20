@@ -1,12 +1,18 @@
 import h5py
 import numpy
-import pylab
 import scipy.stats
 from os import path
 import glob
 import progressbar as pb
 from bluepy.targets.mvddb import Neuron, MType, EType, to_gid_list
 #import pdb
+
+# reimplementation of pylab.find
+def find(condition):
+    "Return the indices where ravel(condition) is true"
+    res, = numpy.nonzero(numpy.ravel(condition))
+    return res
+
 
 
 """"
@@ -56,8 +62,8 @@ def thalamocortical_s2f(in_file, out_file, circuit_config, cutoff_var, target_me
             for gid,mtype_id, count in zip(unique_gids, mtype_ids, gid_counts):
                 accepted[post_gids == gid] = cutoff_func(count,(cutoff_mean[mtype_id], cutoff_var))
         
-            if pylab.any(accepted):
-                write_me = data[pylab.find(accepted),:]                
+            if numpy.any(accepted):
+                write_me = data[find(accepted),:]                
                 out_h5.create_dataset(k, write_me.shape, ">f4", write_me)
             pbar.update(i+1)
 
@@ -126,4 +132,4 @@ def count_syns_connection(data, return_gids=False, return_uniques=False):
     
 def cutoff_func(x,params):
     norm = scipy.stats.norm.cdf
-    return norm(x,params[0],params[1])>pylab.rand()
+    return norm(x,params[0],params[1])>numpy.random.rand()
