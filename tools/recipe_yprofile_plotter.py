@@ -1,5 +1,8 @@
+import sys
 from lxml import etree
+import numpy
 import bluepy
+from matplotlib import pyplot as plt
 
 #proj_recipe_path = "/home/ebmuller/src/bbp_svn_recipe/Projection_Recipes/Thalamocortical_VPM/thalamocorticalProjectionRecipe_O1_TCs2f_7synsPerConn_os3p0.xml"
 
@@ -17,11 +20,9 @@ proj_recipe_path = "/gpfs/bbp.cscs.ch/home/ebmuller/src/bbp-svn-recipe/Projectio
 #circuit_path = "/bgscratch/bbp/l5/release/2012.07.23/circuit/SomatosensoryCxS1-v4.lowerCellDensity.r151/O1/merged_circuit/CircuitConfig"
 circuit_path = "/gpfs/bbp.cscs.ch/project/proj1/circuits/SomatosensoryCxS1-v5.r0/O1/merged_circuit/CircuitConfig"
 
-c = bluepy.Circuit(circuit_path)
 
-proj_recipe = etree.parse(proj_recipe_path)
 
-def plot_volume(v):
+def plot_volume(v, c):
     bin_heights  = v.xpath("DensityProfile/bin/@height")
     bin_heights = numpy.array([float(x) for x in bin_heights])
 
@@ -59,17 +60,32 @@ def plot_volume(v):
     p_bins = numpy.hstack((density_bins[0,0]-db, density_bins[:,0], density_bins[-1,1]))
     p_bins_abs = p_bins*(ymax-ymin) + ymin
     #plot(p_bins, numpy.hstack((0, density_values, 0)), 'b-', ls='steps-post')
-    plot(numpy.hstack((0, density_values, 0))*1000, p_bins_abs, 'b-', ls='steps')
+    plt.plot(numpy.hstack((0, density_values, 0))*1000, p_bins_abs, 'b-', ls='steps')
 
 
+def plot_yprofile(circuit_path, proj_recipe_path):
+    c = bluepy.Circuit(circuit_path)
+
+    proj_recipe = etree.parse(proj_recipe_path)
+
+    c.plot_layers()
+
+    for v in proj_recipe.xpath("//Projections/Projection/Volume"):
+        plot_volume(v, c)
+
+    plt.axis([0, 100, -50, 2050])
+    plt.xticks(numpy.arange(0,100,10), [str(x) for x in numpy.arange(0,100,10)])
+    plt.xlabel("synapse density [1e-3 / um^3]")
 
 
+if __name__=="__main__":
 
-c.plot_layers()
+    if len(sys.argv)==3:
+        circuit_path = sys.argv[1]
+        proj_recipe_path = sys.argv[2]
+    else:
+        print "Usage: recipe_yprofile_plotter.py circuit_path proj_recipe_path"
+        sys.exit()
 
-for v in proj_recipe.xpath("//Projections/Projection/Volume"):
-    plot_volume(v)
 
-axis([0, 100, -50, 2050])
-xticks(arange(0,100,10), [str(x) for x in arange(0,100,10)])
-xlabel("synapse density [1e-3 / um^3]")
+    plot_yprofile(circuit_path, proj_recipe_path)
