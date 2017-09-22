@@ -1,7 +1,7 @@
 {
   "name": "Projectionizer",
   "description": "Create long-range projections in circuits",
-  "version": "0.0",
+  "version": "0.0.0",
   "scripts": {
     "build_doc": "echo 'Documentation not yet available in this way.'"
   },
