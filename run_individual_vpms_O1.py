@@ -3,8 +3,8 @@ import bluepy
 
 def generate_vpm(cfg_file, xml_file):
     circuit_dir = os.path.split(cfg_file)[0]
-    out_dir = os.path.join(circuit_dir, "ncsThalamocortical_VPM_os2p6")
-    out_dir_ps = os.path.join(circuit_dir, "ncsThalamocortical_VPM_tcS2F_2p6_ps")
+    out_dir = os.path.join(circuit_dir, "ncsThalamocortical_VPM_os2p6_O1")
+    out_dir_ps = os.path.join(circuit_dir, "ncsThalamocortical_VPM_tcS2F_2p6_ps_O1")
 
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
@@ -13,11 +13,11 @@ def generate_vpm(cfg_file, xml_file):
         os.mkdir(out_dir_ps)
 
     ret = os.system("""
-    . ~/venv/bin/activate
+    . ~/VENV_REPO/2015-10-rc1/bin/activate
     export PYTHONPATH=/gpfs/bbp.cscs.ch/project/proj1/software/legacy-spatialindexer/lib:$PYTHONPATH
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/gpfs/bbp.cscs.ch/project/proj1/software/legacy-spatialindexer/lib
     cd %s
-    srun --account=proj1 -t 3-00:00:00 --mem=28000 -n1 --partition=prod --job-name="prjctnzr" bash -c ". ~/venv/bin/activate && python $HOME/src/Projectionizer-git/projection_runner_tcs2f.py %s %s %s 2>&1 | tee prjctnzr.log"
+    srun --account=proj1 -t 3-00:00:00 --mem=128000 -n1 --partition=prod --job-name="prjctnzr" bash -c ". ~/VENV_REPO/2015-10-rc1/bin/activate && python $HOME/src/Projectionizer-git/projection_runner_tcs2f.py %s %s %s 2>&1 | tee prjctnzr.log"
     """ % (out_dir, cfg_file, xml_file, out_dir))
 
     if ret!=0:
@@ -26,7 +26,7 @@ def generate_vpm(cfg_file, xml_file):
 
     ret = os.system("""
     cd %s
-    . ~/venv/bin/activate
+    . ~/VENV_REPO/2015-10-rc1/bin/activate
     python ~/src/bbp-user-ebmuller/SynMerge/TCSynMerge.py
     python ~/src/bbp-user-ebmuller/experiments/thalamocortical_projection/plots/transpose_proj_nrn.py
     """ % (out_dir,))
@@ -37,7 +37,7 @@ def generate_vpm(cfg_file, xml_file):
 
 
     ret = os.system("""
-    srun --account=proj1 --mem=28000 -n1 -t 3-00:00:00 --partition=prod --job-name="prune_runner_ps" bash -c ". ~/venv/bin/activate && cd %s && python $HOME/src/Projectionizer-git/projection_prune_runner_ps.py %s 2>&1 | tee prune_runner_ps.log"
+    srun --account=proj1 --mem=128000 -n1 -t 3-00:00:00 --partition=prod --job-name="prune_runner_ps" bash -c ". ~/VENV_REPO/2015-10-rc1/bin/activate && cd %s && python $HOME/src/Projectionizer-git/projection_prune_runner_ps.py %s 2>&1 | tee prune_runner_ps.log"
     """ % (out_dir, cfg_file))
 
     if ret!=0:
@@ -79,6 +79,7 @@ def generate_vpm(cfg_file, xml_file):
 
 import os
 import sys
+sys.path.insert(1,"/gpfs/bbp.cscs.ch/project/proj1/software/legacy-spatialindexer/lib")
 import libFLATIndex as FLATIndex
 print FLATIndex
 from glob import glob
