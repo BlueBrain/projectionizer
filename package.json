@@ -1,0 +1,16 @@
+{
+  "name": "Projectionizer",
+  "description": "Create long-range projections in circuits",
+  "version": "0.0.0",
+  "scripts": {
+    "build_doc": "echo 'Documentation not yet available in this way.'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "",
+    "issuesurl": ""
+  },
+  "author": "Michael Reimann (michael.reimann@epfl.ch)",
+  "contributors": ["Michael Reimann", "Eilif Muller"],
+  "license": "BBP-internal-confidential"
+}
