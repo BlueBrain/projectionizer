@@ -1,0 +1,2 @@
+bluepy>=0.10.0
+voxcell>=2.3.1
