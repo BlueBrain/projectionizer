@@ -292,7 +292,7 @@ def sample_synapses(tile_locations, circuit, voxel_size, map_):
     voxel_synapse_count = build_voxel_synapse_count(distmap, voxel_size=voxel_size)
     synapses = pick_synapses(
         tile_locations, voxel_synapse_count, circuit, map_=map_)
-    remove_cols = projection.START_COLS + projection.END_COLS
+    remove_cols = projection.SEGMENT_START_COLS + projection.SEGMENT_END_COLS
     synapses.drop(remove_cols, axis=1, inplace=True)
     return synapses
 
@@ -314,9 +314,7 @@ def prune(synapses, circuit, parallelize):
     synapses = synapses.join(circuit.cells.get(properties='mtype'), on='tgid')
     synapses.mtype.cat.remove_unused_categories(inplace=True)
     keep_syn = prune_synapses_by_target_pathway(synapses, parallelize)
-    keep_syn.rename(columns={'Section.ID': 'section_id',
-                             'Segment.ID': 'segment_id',
-                             'segment_length': 'location',
+    keep_syn.rename(columns={'segment_length': 'location',
                              }, inplace=True)
     keep_syn.columns = map(str, keep_syn.columns)
     return keep_syn

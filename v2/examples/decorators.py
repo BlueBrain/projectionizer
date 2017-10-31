@@ -9,6 +9,8 @@ from itertools import chain
 import numpy
 import pandas
 
+from projectionizer import utils
+
 L = logging.getLogger()
 
 
@@ -133,8 +135,8 @@ if __name__ == '__main__':
 
 def load_feather(name):
     synapses = pd.read_feather(name)
-    START_COLS = [u'Segment.X1', u'Segment.Y1', u'Segment.Z1', ]
-    END_COLS = [u'Segment.X2', u'Segment.Y2', u'Segment.Z2']
+    START_COLS = map(str, utils.SEGMENT_START_COLS)
+    END_COLS = map(str, utils.SEGMENT_END_COLS)
     for k, st, en in zip('xyz', START_COLS, END_COLS):
         synapses[k] = (synapses[st] + synapses[en]) / 2.
     synapses.index = synapses['index']

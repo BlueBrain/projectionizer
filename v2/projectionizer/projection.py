@@ -44,10 +44,8 @@ IJK = utils.IJK
 I, J, K = 0, 1, 2
 L = logging.getLogger(__name__)
 
-START_COLS = [Segment.X1, Segment.Y1, Segment.Z1, ]
-END_COLS = [Segment.X2, Segment.Y2, Segment.Z2, ]
 WANTED_COLS = ['gid', Section.ID, Segment.ID, 'segment_length', 'x', 'y', 'z',
-               ] + START_COLS + END_COLS
+               ] + utils.SEGMENT_START_COLS + utils.SEGMENT_END_COLS
 
 
 def assign_synapse_to_cell_voxel(voxel_probability, cells, synapses, presyn_pref):
@@ -128,8 +126,6 @@ def assign_synapse_to_cell(cells, voxel_probability, synapses, min_ijk, max_ijk,
             voxel_probability, cells, local_synapses, presyn_pref)
         pathways.append(path)
 
-        #L.debug('Voxel: %s time: %s synapses: %d',
-        #        voxel_pos, datetime.now() - start, len(local_synapses))
     pathways = pd.concat(pathways, ignore_index=True)
     return pathways
 
@@ -175,21 +171,19 @@ def pick_synapses_voxel(circuit, min_xyz, max_xyz, count, segment_pref):
     '''
     segs_df = circuit.morph.spatial_index.q_window(min_xyz, max_xyz)
 
-    for k, st, en in zip('xyz', START_COLS, END_COLS):
+    for k, st, en in zip('xyz', utils.SEGMENT_START_COLS, utils.SEGMENT_END_COLS):
         segs_df[k] = (segs_df[st] + segs_df[en]) / 2.
 
     min_xyz, max_xyz = _min_max_axis(min_xyz.copy(), max_xyz.copy())
 
-    in_bb = ((min_xyz[0] < segs_df['x']) & (segs_df['x'] < max_xyz[0]) &
-             (min_xyz[1] < segs_df['y']) & (segs_df['y'] < max_xyz[1]) &
-             (min_xyz[2] < segs_df['z']) & (segs_df['z'] < max_xyz[2]))
-
+    in_bb = utils.in_bounding_box(min_xyz, max_xyz, segs_df)
     segs_df = segs_df[in_bb]
 
-    if not len(segs_df[START_COLS]):
+    if not len(segs_df[utils.SEGMENT_START_COLS]):
         return None
 
-    diff = segs_df[END_COLS].values.astype(np.float) - segs_df[START_COLS].values.astype(np.float)
+    diff = (segs_df[utils.SEGMENT_END_COLS].values.astype(np.float) -
+            segs_df[utils.SEGMENT_START_COLS].values.astype(np.float))
     segs_df['segment_length'] = np.linalg.norm(diff, axis=1)
 
     prob_density = segment_pref(segs_df)
