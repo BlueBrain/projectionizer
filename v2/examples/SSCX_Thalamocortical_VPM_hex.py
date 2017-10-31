@@ -132,40 +132,12 @@ def pick_synapses(tile_locations, voxel_synapse_count, circuit, map_=map):
     return synapses
 
 
-TARGET_REMOVE = 1.6 / 2.6 * 0.73 / 0.66  # =~ 0.6806526806526807
-
-
-# def find_cutoff_means_all_mtypes(synapses, mtypes):
-#     '''For each mtype, find its unique cutoff_mean
-
-#     Args:
-#         circuit(bluepy.v2 circuit): circuit to work with
-#         synapses(DataFrame): must have columns 'mtype', 'tgid', 'sgid'
-#         target_remove(float): TARGET_REMOVE
-#         bin_counts(int): bin count for the histogram
-
-#     Returns:
-#         dict(mtype -> cutoff_mean)
-
-#     From thalamocortical_ps_s2f.py
-#         compute cutoff by inverse interpolation of target fraction on cumulative syncount
-#         distribution approximation: assumes hard cutoff, i.e. does not account for moments beyond
-#         mean.  Should be OK if dist is fairly symmetrical.
-#     '''
-#     gb = synapses.groupby(['mtype', 'tgid', 'sgid']).size()
-
-#     return {mtype: find_cutoff_mean(gb[mtype].value_counts(sort=False), config['target_remove'])
-#             for mtype in mtypes}
-
-
-def _find_cutoff_means(synapses, target_remove=TARGET_REMOVE):
+def _find_cutoff_means(synapses, target_remove):
     '''For each mtype, find its unique cutoff_mean
 
     Args:
-        circuit(bluepy.v2 circuit): circuit to work with
         synapses(DataFrame): must have columns 'mtype', 'tgid', 'sgid'
         target_remove(float): TARGET_REMOVE
-        bin_counts(int): bin count for the histogram
 
     Returns:
         dict(mtype -> cutoff_mean)
@@ -177,9 +149,8 @@ def _find_cutoff_means(synapses, target_remove=TARGET_REMOVE):
     '''
 
     gb = synapses.groupby(['mtype', 'tgid', 'sgid']).size()
-    mtypes = synapses.mtype.unique()
     return {mtype: find_cutoff_mean_per_mtype(gb[mtype].value_counts(sort=False), target_remove)
-            for mtype in mtypes}
+            for mtype in synapses.mtype.unique()}
 
 
 def find_cutoff_mean_per_mtype(value_count, target_remove):
@@ -189,13 +160,11 @@ def find_cutoff_mean_per_mtype(value_count, target_remove):
     return np.interp(target_remove, xp=x, fp=value_count.index)
 
 
-def prune_synapses_by_target_pathway(synapses, cutoff_var=1.0, parallelize=False):
+def prune_synapses_by_target_pathway(synapses, target_remove, cutoff_var=1.0, parallelize=False):
     '''Based on the frequency of mtypes, and the synapses/connection frequency, probabilistically
     remove *connections* (ie: groups of synapses in a (sgid, tgid) pair
     '''
-    cutoff_means = _find_cutoff_means(synapses)
-
-    print(cutoff_means)
+    cutoff_means = _find_cutoff_means(synapses, target_remove)
 
     def prune_based_on_cutoff(df):
         return np.random.random() < norm.cdf(len(df), cutoff_means[df['mtype'].iloc[0]], cutoff_var)
@@ -220,6 +189,31 @@ def prune_synapses_by_target_pathway(synapses, cutoff_var=1.0, parallelize=False
     return keep_syn
 
 
+def first_partition(big_array, size, axis=1):
+    """Returns a tuple of 2 elements:
+        - an array containing the first partition of big_array
+        - the indices of these elements"""
+    indices = np.argpartition(big_array, size, axis=axis)[:, :size]
+    row_idx = np.arange(len(big_array))[np.newaxis]
+    big_array = big_array[row_idx.T, indices]
+    return big_array, indices
+
+
+def mask_far_fibers(fibers, origin, exclusion_box):
+    """Mask fibers outside of exclusion_box centered on origin"""
+    fibers = np.rollaxis(fibers, 1)
+    fibers = np.abs(fibers - origin) < exclusion_box
+    return np.all(fibers, axis=2).T
+
+
+def choice(probabilities):
+    cum_distances = np.cumsum(probabilities, axis=1)
+    cum_distances = cum_distances / np.sum(probabilities, axis=1, keepdims=True)
+    rand_cutoff = np.random.random((len(cum_distances), 1))
+    idx = np.argmax(rand_cutoff < cum_distances, axis=1)
+    return idx
+
+
 def assign_synapse_virtual_fibers(synapses, fiber_locations):
     '''Each potential synapse needs to be assigned to a unique virtual fiber
 
@@ -234,53 +228,20 @@ def assign_synapse_virtual_fibers(synapses, fiber_locations):
     # TODO: do EXCLUSION first
     xz = synapses[['x', 'z']].values
 
-    distances = cdist(xz, fiber_locations)
+    distances, indices = first_partition(cdist(xz, fiber_locations), CLOSEST_COUNT)
 
-    # get CLOSEST_COUNT closest virtual_fibers
-    partition = np.argpartition(distances, CLOSEST_COUNT, axis=1)[:, :CLOSEST_COUNT]
-    row_idx = np.arange(len(distances))[np.newaxis]
-    distances = distances[row_idx.T, partition]
-
-    # create mask for fibers that satisfy the EXCLUSION distance
-    closest_fibers = fiber_locations[partition]
-    closest_fibers = np.rollaxis(closest_fibers, 1)
-    closest_fibers = np.abs(closest_fibers - xz) < (EXCLUSION, EXCLUSION)
-    mask = np.all(closest_fibers, axis=2).T
+    mask = mask_far_fibers(fiber_locations[indices], xz, (EXCLUSION, EXCLUSION))
 
     # want to choose the 'best' one based on a normal distribution based on distance
     distances[np.invert(mask)] = 1000  # make columns outside of exclusion unlikely to be pick
-    distances = norm.pdf(distances, 0, SIGMA)
-
-    # manually sample one of them: would use np.random.choice, but that's only the 1d case
-    cum_distances = np.cumsum(distances, axis=1)
-    cum_distances = cum_distances / np.sum(distances, axis=1, keepdims=True)
-    rand_cutoff = np.random.random((len(cum_distances), 1))
-    idx = np.argmax(rand_cutoff < cum_distances, axis=1)
-    mini_cols = partition[row_idx, idx][0]
-
+    idx = choice(norm.pdf(distances, 0, SIGMA))
+    row_idx = np.arange(len(indices))[np.newaxis]
+    mini_cols = indices[row_idx, idx][0]
     mini_cols[np.invert(np.any(mask, axis=1))] = -1
+
     synapses['sgid'] = mini_cols
 
     return synapses
-
-
-def calc_density(synapses, mult=1.):
-    min_xyz, max_xyz = np.array([250, 0, 350]), np.array([550, 164, 700])
-    distmap = [sscx.recipe_to_height_and_density('4', 0, '3', 0.5, y_distmap_3_4, mult=2.6),
-               sscx.recipe_to_height_and_density('6', 0.85, '5', 0.6, y_distmap_5_6, mult=2.6),
-               ]
-
-    for dist in distmap:
-        for (bottom, density), (top, _) in zip(dist[:-1], dist[1:]):
-            min_xyz[1], max_xyz[1] = bottom, top
-            volume = np.prod(max_xyz - min_xyz)
-            in_bb = ((min_xyz[0] < synapses['x']) & (synapses['x'] < max_xyz[0]) &
-                     (min_xyz[1] < synapses['y']) & (synapses['y'] < max_xyz[1]) &
-                     (min_xyz[2] < synapses['z']) & (synapses['z'] < max_xyz[2]))
-            count = float(np.count_nonzero(in_bb))
-            got_density = count / volume
-            print('Wanted: %.4f got: %.4f got_density/density: %.4f' %
-                  (density, got_density, got_density / density))
 
 
 @timeit('Pick Segments')
@@ -303,8 +264,8 @@ def assign_synapses(synapses, map_):
     virtual_fiber_locations = get_virtual_fiber_locations()
     synapses.rename(columns={'gid': 'tgid'}, inplace=True)
     split = np.array_split(synapses, 100)
-    asvf = partial(assign_synapse_virtual_fibers, fiber_locations=virtual_fiber_locations)
-    split = map_(asvf, split)
+    assign_func = partial(assign_synapse_virtual_fibers, fiber_locations=virtual_fiber_locations)
+    split = map_(assign_func, split)
     synapses = pd.concat(split)
     return synapses
 
@@ -313,9 +274,9 @@ def assign_synapses(synapses, map_):
 def prune(synapses, circuit, parallelize):
     synapses = synapses.join(circuit.cells.get(properties='mtype'), on='tgid')
     synapses.mtype.cat.remove_unused_categories(inplace=True)
-    keep_syn = prune_synapses_by_target_pathway(synapses, parallelize)
-    keep_syn.rename(columns={'segment_length': 'location',
-                             }, inplace=True)
+    target_remove = 1.6 / 2.6 * 0.73 / 0.66  # =~ 0.6806526806526807
+    keep_syn = prune_synapses_by_target_pathway(synapses, target_remove, parallelize=parallelize)
+    keep_syn.rename(columns={'segment_length': 'location'}, inplace=True)
     keep_syn.columns = map(str, keep_syn.columns)
     return keep_syn
 

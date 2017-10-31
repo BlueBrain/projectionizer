@@ -3,14 +3,9 @@ import argparse
 import logging
 import os
 
-from bluepy.api import Circuit
-
 from examples.decorators import load_feather
-from examples.SSCX_Thalamocortical_VPM_hex import create_projections
 
 L = logging.getLogger(__name__)
-
-BASE_CIRCUIT = '/gpfs/bbp.cscs.ch/project/proj1/circuits/SomatosensoryCxS1-v5.r0/O1/merged_circuit/'
 
 
 def get_parser():
@@ -19,13 +14,8 @@ def get_parser():
 
     parser.add_argument('-o', '--output', default='.',
                         help='Output directory')
-    parser.add_argument('-p', '--parallelize', action='store_true',
-                        help='Output directory')
     parser.add_argument('-v', '--verbose', action='count', dest='verbose', default=0,
                         help='-v for INFO, -vv for DEBUG')
-    parser.add_argument('-c', '--circuit', default=BASE_CIRCUIT,
-                        help='Circuit path')
-
     return parser
 
 
@@ -34,12 +24,15 @@ def main(args):
                                logging.INFO,
                                logging.DEBUG)[min(args.verbose, 2)])
 
-    print('Using circuit: %s' % args.circuit)
-    circuit = os.path.join(args.circuit, 'CircuitConfig')
-    circuit = Circuit(circuit).v2
-    # circuit._config['cells'] = '/gpfs/bbp.cscs.ch/project/proj30/mgevaert/SomatosensoryCxS1-v5.r0_circuit.mvd3'
+    orig_data = ('/gpfs/bbp.cscs.ch/home/gevaert/private/src/'
+                 'Projectionizer-v2/old_projections/ncsThalamocortical_VPM_tcS2F_2p6_ps.feather')
+    import pandas
+    orig_data = pandas.read_feather(orig_data)
 
-    create_projections(output=args.output, circuit=circuit, parallelize=args.parallelize)
+    keep_syn_path = os.path.join(output, 'keep_syn.feather')
+    keep_syn = load_feather(keep_syn_path)
+
+    create_plots(args.output)
 
 
 if __name__ == '__main__':

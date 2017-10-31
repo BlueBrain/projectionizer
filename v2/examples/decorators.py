@@ -60,6 +60,7 @@ def _hash(obj):
 
 
 def simple_cache(f):
+    """A simple cache that just caches based on the function name"""
     @wraps(f)
     def wrapper(*args, **kwgs):
         CACHE_DIR = os.path.join(os.getenv('HOME'), '.data_cache')
