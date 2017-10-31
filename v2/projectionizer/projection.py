@@ -29,16 +29,13 @@ Note:  Notationally, when i, j, k are used, it means in 'voxel space', and when 
 
 import itertools as it
 import logging
-import os
 
 import numpy as np
 import pandas as pd
 
-from datetime import datetime
-
 from bluepy.v2.enums import Section, Segment
 
-import utils
+from projectionizer import utils
 
 IJK = utils.IJK
 I, J, K = 0, 1, 2
@@ -75,8 +72,6 @@ def assign_synapse_to_cell_voxel(voxel_probability, cells, synapses, presyn_pref
     ret = {}
     grouped_cells = cells.groupby(IJK)
     for voxel_pos, group_synapses in synapses.groupby(['src_i', 'src_j', 'src_k']):
-        start = datetime.now()
-
         candidate_cells = grouped_cells.get_group(voxel_pos)
         for i, synapse in group_synapses.iterrows():
             prob_density = presyn_pref(candidate_cells, synapse)
@@ -113,8 +108,6 @@ def assign_synapse_to_cell(cells, voxel_probability, synapses, min_ijk, max_ijk,
     for voxel_pos in it.product(range(min_ijk[I], max_ijk[I]),
                                 range(min_ijk[J], max_ijk[J]),
                                 range(min_ijk[K], max_ijk[K])):
-        start = datetime.now()
-
         voxel_pos = np.array(voxel_pos, np.int)
         voxel_probability.offset = voxel_pos
         local_synapses = synapses[synapses[IJK].eq(voxel_pos).all(1)].copy()
@@ -242,8 +235,6 @@ def pick_synapses(circuit, voxel_synapse_count, min_ijk, max_ijk, segment_pref):
     '''
     picked_synapses = []
     for ijk, min_xyz, max_xyz, count in generate_ijk_counts(min_ijk, max_ijk, voxel_synapse_count):
-        start = datetime.now()
-
         syns = pick_synapses_voxel(circuit, min_xyz, max_xyz, count, segment_pref)
 
         if syns is None:
@@ -251,8 +242,6 @@ def pick_synapses(circuit, voxel_synapse_count, min_ijk, max_ijk, segment_pref):
 
         syns[IJK] = pd.DataFrame([ijk], index=syns.index)
         picked_synapses.append(syns)
-
-        #L.debug('Voxel: %s time: %s', ijk, datetime.now() - start)
 
     synapses = pd.concat(picked_synapses, ignore_index=True)
     return synapses

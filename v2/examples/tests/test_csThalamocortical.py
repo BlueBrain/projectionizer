@@ -13,10 +13,8 @@ from examples.mini_col_locations import tiled_locations
 from examples.SSCX_Thalamocortical_VPM_hex import (_find_cutoff_means,
                                                    assign_synapse_virtual_fibers,
                                                    build_voxel_synapse_count,
-                                                   choice,
                                                    find_cutoff_mean_per_mtype,
                                                    first_partition,
-                                                   mask_far_fibers,
                                                    prune_synapses_by_target_pathway)
 
 L = logging.getLogger(__name__)
@@ -101,27 +99,6 @@ def test_first_partition():
                                [3, 4, 2],
                                [3, 2, 0],
                                [1, 0, 2]]))
-
-
-def test_mask_far_fibers():
-    fibers = np.array([[[0, 0], [2, 2], [3, 3], [4, 4]],
-                       [[-1, 0], [2.5, 2.0], [3, 3], [4, 2]]])
-    mask = mask_far_fibers(fibers, origin=[2, 2], exclusion_box=(2, 2))
-    npt.assert_equal(mask,
-                     [[False,  True, True, False],
-                      [False,  True,  True, False]])
-
-
-def test_choice():
-    np.random.seed(0)
-
-    def gaussian(x, mu, sig):
-        return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
-    X = np.arange(20)
-    Ys = np.array([gaussian(X, mu=5, sig=1) for _ in range(100)])
-    indices = choice(Ys)
-    npt.assert_almost_equal(np.mean(X[indices]), 5, decimal=1)
-    npt.assert_almost_equal(np.var(X[indices]), 1, decimal=1)
 
 
 def test_assign_synapse():

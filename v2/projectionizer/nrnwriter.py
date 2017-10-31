@@ -1,3 +1,4 @@
+'''helper to write nrn.h5 files'''
 import pandas as pd
 import numpy as np
 import h5py

@@ -5,6 +5,8 @@ import sys
 from functools import partial
 from itertools import islice
 
+import toolz
+
 import numpy as np
 import pandas as pd
 from dask.distributed import Client
@@ -201,21 +203,6 @@ def first_partition(big_array, size, axis=1):
     return big_array, indices
 
 
-def mask_far_fibers(fibers, origin, exclusion_box):
-    """Mask fibers outside of exclusion_box centered on origin"""
-    fibers = np.rollaxis(fibers, 1)
-    fibers = np.abs(fibers - origin) < exclusion_box
-    return np.all(fibers, axis=2).T
-
-
-def choice(probabilities):
-    cum_distances = np.cumsum(probabilities, axis=1)
-    cum_distances = cum_distances / np.sum(probabilities, axis=1, keepdims=True)
-    rand_cutoff = np.random.random((len(cum_distances), 1))
-    idx = np.argmax(rand_cutoff < cum_distances, axis=1)
-    return idx
-
-
 def assign_synapse_virtual_fibers(synapses, fiber_locations):
     '''Each potential synapse needs to be assigned to a unique virtual fiber
 
@@ -232,11 +219,11 @@ def assign_synapse_virtual_fibers(synapses, fiber_locations):
 
     distances, indices = first_partition(cdist(xz, fiber_locations), CLOSEST_COUNT)
 
-    mask = mask_far_fibers(fiber_locations[indices], xz, (EXCLUSION, EXCLUSION))
+    mask = sscx.mask_far_fibers(fiber_locations[indices], xz, (EXCLUSION, EXCLUSION))
 
     # want to choose the 'best' one based on a normal distribution based on distance
     distances[np.invert(mask)] = 1000  # make columns outside of exclusion unlikely to be pick
-    idx = choice(norm.pdf(distances, 0, SIGMA))
+    idx = sscx.choice(norm.pdf(distances, 0, SIGMA))
     row_idx = np.arange(len(indices))[np.newaxis]
     mini_cols = indices[row_idx, idx][0]
     mini_cols[np.invert(np.any(mask, axis=1))] = -1
@@ -247,8 +234,12 @@ def assign_synapse_virtual_fibers(synapses, fiber_locations):
 
 
 @timeit('Pick Segments')
-@simple_cache
 def sample_synapses(tile_locations, circuit, voxel_size, map_):
+
+    p = '/gpfs/bbp.cscs.ch/project/proj30/mgevaert/csThal/orig_v5_2p6_no_interp/segments.feather'
+    synapses = pd.read_feather(p)
+    return synapses
+
     distmap = [sscx.recipe_to_height_and_density('4', 0, '3', 0.5, y_distmap_3_4, mult=2.6),
                sscx.recipe_to_height_and_density('6', 0.85, '5', 0.6, y_distmap_5_6, mult=2.6), ]
 
@@ -257,6 +248,55 @@ def sample_synapses(tile_locations, circuit, voxel_size, map_):
         tile_locations, voxel_synapse_count, circuit, map_=map_)
     remove_cols = projection.SEGMENT_START_COLS + projection.SEGMENT_END_COLS
     synapses.drop(remove_cols, axis=1, inplace=True)
+    return synapses
+
+
+def get_minicol_virtual_fibers():
+    "returns Nx6 matrix: first 3 columns are XYZ pos of fibers, last 3 are direction vector"
+
+    virtual_fiber_locations = get_virtual_fiber_locations()
+    virtual_fibers = np.zeros((len(virtual_fiber_locations), 6))
+    virtual_fibers[:, 0] = virtual_fiber_locations[:, 0]  # X
+    virtual_fibers[:, 2] = virtual_fiber_locations[:, 1]  # Z
+
+    #all direction vectors point straight up
+    virtual_fibers[:, 4] = 1
+
+    return virtual_fibers
+
+
+@timeit('Assign vector virtual fibers')
+def assign_synapses_vector_fibers(synapses, map_):
+    '''Assign virtual fibers from vectors'''
+    synapses.rename(columns={'gid': 'tgid'}, inplace=True)
+
+    virtual_fibers = get_minicol_virtual_fibers()
+
+    xyz = synapses[list('xyz')].values
+    min_ = np.min(xyz, axis=0)
+    max_ = np.max(xyz, axis=0)
+
+    voxel_size = VOXEL_SIZE_UM
+    raw = (1 + max_ - min_) // voxel_size
+    synapse_counts = VoxelData(np.zeros(shape=raw.astype(int)), [voxel_size] * 3, min_)
+    idx = np.unique(synapse_counts.positions_to_indices(xyz), axis=0)
+    synapse_counts.raw[tuple(idx.T)] = 1
+
+    voxelized_fiber_distances = sscx.get_voxelized_fiber_distances(synapse_counts, virtual_fibers)
+
+    asf = partial(sscx.assign_synapse_fiber,
+                  synapse_counts=synapse_counts,
+                  virtual_fibers=virtual_fibers,
+                  voxelized_fiber_distances=voxelized_fiber_distances)
+
+    #TODO: dask.map seems to do some kind of hash check on its input args
+    # which takes forever...using (crappy) map_parallelize for now
+    from examples.map_parallelize import map_parallelize
+    CHUNK_SIZE = 100000
+    it = toolz.itertoolz.partition_all(CHUNK_SIZE, xyz)
+    fiber_id = map_parallelize(asf, it)
+    fiber_id = np.hstack(fiber_id)
+    synapses['sgid'] = fiber_id
     return synapses
 
 
@@ -293,8 +333,7 @@ def write(synapses, output):
 
 def create_projections(output, circuit, parallelize):
     if parallelize:
-        client = Client()
-
+        client = Client(memory_limit=5e9)
         def map_(func, it):
             res = client.map(func, it)
             return client.gather(res)
@@ -307,6 +346,8 @@ def create_projections(output, circuit, parallelize):
     # tile_locations = list(islice(tile_locations, 20))
 
     synapses = sample_synapses(tile_locations, circuit, voxel_size=voxel_size, map_=map_)
-    assigned_synapses = assign_synapses(synapses, map_=map_)
+    #assigned_synapses = assign_synapses(synapses, map_=map_)
+    assigned_synapses = assign_synapses_vector_fibers(synapses, map_=map_)
+    #assigned_synapses = pd.read_feather('/gpfs/bbp.cscs.ch/project/proj30/mgevaert/csThal/orig_v5_2p6/assigned_synapses.feather')
     remaining_synapses = prune(assigned_synapses, circuit, parallelize)
     write(remaining_synapses, output)

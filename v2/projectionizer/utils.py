@@ -6,6 +6,7 @@ from neurom import NeuriteType
 
 
 class ErrorCloseToZero(Exception):
+    '''Raised if normalizing if sum of probabilities is close to zero'''
     pass
 
 # bluepy.v2 returns a DataFrame with the start and endpoint of the segments when performing a query,

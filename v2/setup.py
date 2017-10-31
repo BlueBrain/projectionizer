@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 ''' projectionizer setup '''
 import os
-import sys
 
 from setuptools import setup
 import projectionizer
