@@ -5,7 +5,6 @@ import os
 
 from bluepy.api import Circuit
 
-from examples.decorators import load_feather
 from examples.SSCX_Thalamocortical_VPM_hex import create_projections
 
 L = logging.getLogger(__name__)

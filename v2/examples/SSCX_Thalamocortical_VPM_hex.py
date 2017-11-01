@@ -7,6 +7,7 @@ from itertools import islice
 
 import numpy as np
 import pandas as pd
+from dask.distributed import Client
 from scipy.spatial.distance import cdist
 from scipy.stats import norm
 from voxcell import VoxelData
@@ -132,15 +133,15 @@ def pick_synapses(tile_locations, voxel_synapse_count, circuit, map_=map):
     return synapses
 
 
-def _find_cutoff_means(synapses, target_remove):
+def _find_cutoff_means(synapses, synaptical_fraction):
     '''For each mtype, find its unique cutoff_mean
 
     Args:
         synapses(DataFrame): must have columns 'mtype', 'tgid', 'sgid'
-        target_remove(float): TARGET_REMOVE
+        synaptical_fraction(float): the wanted fraction of synapse below the cutoff
 
     Returns:
-        dict(mtype -> cutoff_mean)
+        dict(mtype -> cutoff_mean) where cutoff_mean is the value for which the cumulated number          of synapses belonging to all connection having at maximum "cutoff_mean" synapses represents "synaptical_fraction" of the total number of synapse
 
     From thalamocortical_ps_s2f.py
         compute cutoff by inverse interpolation of target fraction on cumulative syncount
@@ -149,22 +150,23 @@ def _find_cutoff_means(synapses, target_remove):
     '''
 
     gb = synapses.groupby(['mtype', 'tgid', 'sgid']).size()
-    return {mtype: find_cutoff_mean_per_mtype(gb[mtype].value_counts(sort=False), target_remove)
+    return {mtype: find_cutoff_mean_per_mtype(gb[mtype].value_counts(sort=False),
+                                              synaptical_fraction)
             for mtype in synapses.mtype.unique()}
 
 
-def find_cutoff_mean_per_mtype(value_count, target_remove):
+def find_cutoff_mean_per_mtype(value_count, synaptical_fraction):
     n_synapse_per_bin = np.array([value * count for value, count in value_count.iteritems()],
                                  dtype=float)
     x = np.cumsum(n_synapse_per_bin) / np.sum(n_synapse_per_bin)
-    return np.interp(target_remove, xp=x, fp=value_count.index)
+    return np.interp(synaptical_fraction, xp=x, fp=value_count.index)
 
 
-def prune_synapses_by_target_pathway(synapses, target_remove, cutoff_var=1.0, parallelize=False):
+def prune_synapses_by_target_pathway(synapses, synaptical_fraction, cutoff_var=1.0, parallelize=False):
     '''Based on the frequency of mtypes, and the synapses/connection frequency, probabilistically
     remove *connections* (ie: groups of synapses in a (sgid, tgid) pair
     '''
-    cutoff_means = _find_cutoff_means(synapses, target_remove)
+    cutoff_means = _find_cutoff_means(synapses, synaptical_fraction)
 
     def prune_based_on_cutoff(df):
         return np.random.random() < norm.cdf(len(df), cutoff_means[df['mtype'].iloc[0]], cutoff_var)
@@ -274,8 +276,9 @@ def assign_synapses(synapses, map_):
 def prune(synapses, circuit, parallelize):
     synapses = synapses.join(circuit.cells.get(properties='mtype'), on='tgid')
     synapses.mtype.cat.remove_unused_categories(inplace=True)
-    target_remove = 1.6 / 2.6 * 0.73 / 0.66  # =~ 0.6806526806526807
-    keep_syn = prune_synapses_by_target_pathway(synapses, target_remove, parallelize=parallelize)
+    synaptical_fraction = 1.6 / 2.6 * 0.73 / 0.66  # =~ 0.6806526806526807
+    keep_syn = prune_synapses_by_target_pathway(
+        synapses, synaptical_fraction, parallelize=parallelize)
     keep_syn.rename(columns={'segment_length': 'location'}, inplace=True)
     keep_syn.columns = map(str, keep_syn.columns)
     return keep_syn
@@ -290,11 +293,6 @@ def write(synapses, output):
 
 def create_projections(output, circuit, parallelize):
     if parallelize:
-        try:
-            from dask.distributed import Client
-        except ImportError:
-            sys.exit("Need to install 'pip install 'dask[distributed]'")
-
         client = Client()
 
         def map_(func, it):
@@ -306,7 +304,7 @@ def create_projections(output, circuit, parallelize):
     voxel_size = VOXEL_SIZE_UM
     tile_locations = tiled_locations(voxel_size=voxel_size)
 
-    tile_locations = list(islice(tile_locations, 20))
+    # tile_locations = list(islice(tile_locations, 20))
 
     synapses = sample_synapses(tile_locations, circuit, voxel_size=voxel_size, map_=map_)
     assigned_synapses = assign_synapses(synapses, map_=map_)

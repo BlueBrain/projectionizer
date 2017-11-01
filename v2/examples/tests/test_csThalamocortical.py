@@ -71,7 +71,7 @@ def test_prune_synapses_by_target_pathway():
     synapses = pd.DataFrame({'mtype': mtype, 'sgid': sgid, 'tgid': tgid})
 
     pruned_fraction = [len(prune_synapses_by_target_pathway(synapses=synapses,
-                                                            target_remove=0.5,
+                                                            synaptical_fraction=0.5,
                                                             cutoff_var=1.0)) / float(len(synapses))
                        for _ in range(100)]
     npt.assert_almost_equal(np.mean(pruned_fraction), 0.5, decimal=2)
@@ -106,7 +106,7 @@ def test_first_partition():
 def test_mask_far_fibers():
     fibers = np.array([[[0, 0], [2, 2], [3, 3], [4, 4]],
                        [[-1, 0], [2.5, 2.0], [3, 3], [4, 2]]])
-    mask = mask_far_fibers(fibers, [2, 2], (2, 2))
+    mask = mask_far_fibers(fibers, origin=[2, 2], exclusion_box=(2, 2))
     npt.assert_equal(mask,
                      [[False,  True, True, False],
                       [False,  True,  True, False]])
@@ -114,11 +114,14 @@ def test_mask_far_fibers():
 
 def test_choice():
     np.random.seed(0)
-    indices = choice(np.array([[1., 2, 3, 4],
-                               [0, 0, 1, 0],
-                               [6, 5, 4, 0]]))
-    npt.assert_equal(indices,
-                     [2, 2, 1])
+
+    def gaussian(x, mu, sig):
+        return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
+    X = np.arange(20)
+    Ys = np.array([gaussian(X, mu=5, sig=1) for _ in range(100)])
+    indices = choice(Ys)
+    npt.assert_almost_equal(np.mean(X[indices]), 5, decimal=1)
+    npt.assert_almost_equal(np.var(X[indices]), 1, decimal=1)
 
 
 def test_assign_synapse():
