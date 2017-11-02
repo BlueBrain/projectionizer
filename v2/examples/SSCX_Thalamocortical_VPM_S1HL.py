@@ -1,23 +1,20 @@
 '''Create projections for S1HL circuit'''
 import json
 import os
-
 from functools import partial
 
 import numpy as np
 import pandas as pd
-
+import toolz
 import voxcell
-from voxcell import build
 from bluepy.v2.circuit import Circuit
 from bluepy.v2.enums import Cell, Section, Segment
 from neurom import NeuriteType
-
-from decorators import timeit
+from voxcell import build
 
 import map_parallelize
+from decorators import simple_cache, timeit
 from projectionizer import projection, sscx, utils
-
 
 BASE_CIRCUIT = '/gpfs/bbp.cscs.ch/project/proj64/circuits/S1HL/20171004/'
 
@@ -99,7 +96,15 @@ def get_heights(region_name=REGION_NAME, path=VOXEL_PATH, prefix=PREFIX):
     return distance
 
 
+def get_distmap():
+    from SSCX_Thalamocortical_VPM_hex import y_distmap_3_4, y_distmap_5_6
+    return [sscx.recipe_to_height_and_density('4', 0, '3', 0.5, y_distmap_3_4, mult=2.6),
+            sscx.recipe_to_height_and_density('6', 0.85, '5', 0.6, y_distmap_5_6, mult=2.6), ]
+
+
+@simple_cache
 def build_voxel_synapse_count(height, distmap, path=VOXEL_PATH, prefix=PREFIX):
+
     raw = np.zeros_like(height.raw, dtype=np.uint)
 
     voxel_volume = np.prod(np.abs(height.voxel_dimensions))
@@ -119,36 +124,30 @@ def _pick_syns(args, circuit):
 
 
 def pick_synapses(circuit, synapse_counts, distmap, map_=map):
-    def get_xyz_counts():
-        idx = np.nonzero(synapse_counts.raw)
+    idx = np.nonzero(synapse_counts.raw)
 
-        min_xyzs = synapse_counts.indices_to_positions(np.transpose(idx))
-        max_xyzs = min_xyzs + synapse_counts.voxel_dimensions
+    min_xyzs = synapse_counts.indices_to_positions(np.transpose(idx))
+    max_xyzs = min_xyzs + synapse_counts.voxel_dimensions
 
-        for min_xyz, max_xyz, count in zip(min_xyzs, max_xyzs, synapse_counts.raw[idx]):
-            yield min_xyz, max_xyz, count
-
-    xyz_counts = list(get_xyz_counts())
+    xyz_counts = list(zip(min_xyzs, max_xyzs, synapse_counts.raw[idx]))
     ps = partial(_pick_syns, circuit=circuit)
     synapses = map_(ps, xyz_counts)
     return synapses
 
 
 @timeit('Pick Segments')
-def sample_synapses(circuit, map_):
-    #XXX: sampling takes a long time, use this to load faster
-    synapses = pd.read_feather('/gpfs/bbp.cscs.ch/project/proj30/mgevaert/S1HL_20171004.feather')
-
-    from SSCX_Thalamocortical_VPM_hex import y_distmap_3_4, y_distmap_5_6
-    distmap = [sscx.recipe_to_height_and_density('4', 0, '3', 0.5, y_distmap_3_4, mult=2.6),
-               sscx.recipe_to_height_and_density('6', 0.85, '5', 0.6, y_distmap_5_6, mult=2.6), ]
-    heights = get_heights()
-    synapse_counts = build_voxel_synapse_count(heights, distmap)
-    #synapses = pick_synapses(circuit, synapse_counts, distmap, map_=map_)
-    return synapses, synapse_counts
+@simple_cache
+def sample_synapses(circuit, map_, n_islice):
+    # XXX: sampling takes a long time, use this to load faster
+    filename = '/gpfs/bbp.cscs.ch/home/bcoste/workspace/projectionizer/v2/examples/sample_s1hl_mini.feather'
+    synapses = pd.read_feather(filename)
+    if n_islice is not None:
+        return synapses.iloc[:n_islice]
+    return synapses
 
 
 @timeit('Assign vector virtual fibers')
+@simple_cache
 def assign_synapses_vector_fibers(synapses, synapse_counts, map_):
     synapses.rename(columns={'gid': 'tgid'}, inplace=True)
 
@@ -156,34 +155,31 @@ def assign_synapses_vector_fibers(synapses, synapse_counts, map_):
     voxelized_fiber_distances = sscx.get_voxelized_fiber_distances(synapse_counts, virtual_fibers)
 
     synapse_locations = synapses[list('xyz')].values
+    print(synapse_locations)
 
     asf = partial(sscx.assign_synapse_fiber,
                   synapse_counts=synapse_counts,
                   virtual_fibers=virtual_fibers,
                   voxelized_fiber_distances=voxelized_fiber_distances)
     CHUNK_SIZE = 100000
-    fiber_id = map_(asf, toolz.itertoolz.partition_all(synapse_locations, CHUNK_SIZE))
+    fiber_id = map_(asf, toolz.itertoolz.partition_all(CHUNK_SIZE, synapse_locations))
     fiber_id = np.hstack(fiber_id)
     synapses['sgid'] = fiber_id
     return synapses
 
 
-def main():
-    base_circuit = BASE_CIRCUIT
-    circuit = os.path.join(base_circuit, 'CircuitConfig')
-    circuit = Circuit(circuit)
-    synapses, synapse_counts = sample_synapses(circuit, map_=map_parallelize.map_parallelize)
+def create_projections(output, circuit, parallelize, n_islice):
 
-    #reduce syn count to manageable fraction
-    synapses = synapses.sample(frac=0.001)  # ~137529
-    # synapses = synapses.sample(frac=0.01) # ~1375290
+    synapses = sample_synapses(circuit, map_parallelize.map_parallelize, n_islice)
+    synapse_counts = build_voxel_synapse_count(get_heights(), get_distmap())
+    # synapses = pick_synapses(circuit, synapse_counts, distmap, map_=map_)
 
-    assigned_synapses = assign_synapses_vector_fibers(synapses, synapse_counts, map_=map_parallelize.map_parallelize)
+    assigned_synapses = assign_synapses_vector_fibers(
+        synapses, synapse_counts, map_=map_parallelize.map_parallelize)
 
-    from SSCX_Thalamocortical_VPM_hex import prune, write
-    remaining_synapses = prune(assigned_synapses, circuit, parallelize=True)
-    write(remaining_synapses, output)
+    remaining_synapses = projection.prune(assigned_synapses, circuit, parallelize=True)
+    projection.write(remaining_synapses, output)
 
 
-# if __name__ == '__main__':
-#    main()
+if __name__ == '__main__':
+    main()

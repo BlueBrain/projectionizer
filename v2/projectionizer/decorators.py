@@ -7,7 +7,7 @@ from functools import wraps
 from itertools import chain
 
 import numpy
-import pandas
+import pandas as pd
 
 from projectionizer import utils
 
@@ -30,7 +30,7 @@ def timeit(name):
 def _write_feather(name, df):
     df = df.copy()
     df.columns = map(str, df.columns)
-    df = df.reset_index()
+    df = df.reset_index(drop=True)
     df.to_feather(name)
 
 
@@ -40,7 +40,7 @@ def _hash(obj):
     if isinstance(obj, bluepy.v2.circuit.Circuit):
         ret = hash(tuple(sorted(obj._config)))
         return ret
-    if isinstance(obj, pandas.DataFrame):
+    if isinstance(obj, pd.DataFrame):
         ret = hashlib.md5(obj.values.tobytes()).hexdigest()
         return ret
     if isinstance(obj, (list, tuple, numpy.ndarray)):
@@ -69,13 +69,14 @@ def simple_cache(f):
         cached_filename = os.path.join(CACHE_DIR, '{}'.format(f.__name__))
         if os.path.exists(cached_filename):
             L.debug('Reading from cache')
-            return pandas.read_feather(cached_filename)
+            return pd.read_feather(cached_filename)
         else:
             L.debug('Cache miss')
             res = f(*args, **kwgs)
             try:
                 _write_feather(cached_filename, res)
-            except:
+            except Exception as e:
+                L.warning('Failed to cache file. Reason: {}'.format(e))
                 try:
                     os.remove(cached_filename)
                 except:
@@ -108,7 +109,7 @@ def pandas_cache(f):
         cached_filename = os.path.join(CACHE_DIR, '{}-{}'.format(f.__name__, h))
         if os.path.exists(cached_filename):
             L.debug('Reading from cache')
-            return pandas.read_feather(cached_filename)
+            return pd.read_feather(cached_filename)
         else:
             L.debug('Cache miss')
             res = f(*args, **kwgs)
@@ -129,18 +130,18 @@ if __name__ == '__main__':
 
     @timeit('blah')
     def hello(*args, **kwargs):
-        return pandas.DataFrame([1, 2, 3])
+        return pd.DataFrame([1, 2, 3])
 
     hello(1, [1, 2, 3])
 
 
 def load_feather(name):
     synapses = pd.read_feather(name)
-    START_COLS = map(str, utils.SEGMENT_START_COLS)
-    END_COLS = map(str, utils.SEGMENT_END_COLS)
-    for k, st, en in zip('xyz', START_COLS, END_COLS):
-        synapses[k] = (synapses[st] + synapses[en]) / 2.
-    synapses.index = synapses['index']
-    synapses.drop(['index'] + START_COLS + END_COLS,
-                  axis=1, inplace=True)
+    # START_COLS = map(str, utils.SEGMENT_START_COLS)
+    # END_COLS = map(str, utils.SEGMENT_END_COLS)
+    # for k, st, en in zip('xyz', START_COLS, END_COLS):
+    #     synapses[k] = (synapses[st] + synapses[en]) / 2.
+    # synapses.index = synapses['index']
+    # synapses.drop(['index'] + START_COLS + END_COLS,
+    #               axis=1, inplace=True)
     return synapses

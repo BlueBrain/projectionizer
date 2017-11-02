@@ -4,8 +4,7 @@ import logging
 import os
 
 from bluepy.api import Circuit
-
-from examples.SSCX_Thalamocortical_VPM_hex import create_projections
+import numpy
 
 L = logging.getLogger(__name__)
 
@@ -15,6 +14,8 @@ BASE_CIRCUIT = '/gpfs/bbp.cscs.ch/project/proj1/circuits/SomatosensoryCxS1-v5.r0
 def get_parser():
     '''return the argument parser'''
     parser = argparse.ArgumentParser()
+    parser.add_argument('geometry', default='s1hl', choices=['hex', 's1hl'],
+                        help='The geometry to use')
 
     parser.add_argument('-o', '--output', default='.',
                         help='Output directory')
@@ -24,6 +25,7 @@ def get_parser():
                         help='-v for INFO, -vv for DEBUG')
     parser.add_argument('-c', '--circuit', default=BASE_CIRCUIT,
                         help='Circuit path')
+    parser.add_argument('-s', '--slices', default=None, help='Number of slices', type=int)
 
     return parser
 
@@ -33,12 +35,24 @@ def main(args):
                                logging.INFO,
                                logging.DEBUG)[min(args.verbose, 2)])
 
+    numpy.random.seed(0)
+
     print('Using circuit: %s' % args.circuit)
     circuit = os.path.join(args.circuit, 'CircuitConfig')
     circuit = Circuit(circuit).v2
     # circuit._config['cells'] = '/gpfs/bbp.cscs.ch/project/proj30/mgevaert/SomatosensoryCxS1-v5.r0_circuit.mvd3'
 
-    create_projections(output=args.output, circuit=circuit, parallelize=args.parallelize)
+    if args.geometry == 'hex':
+        from examples.SSCX_Thalamocortical_VPM_hex import create_projections
+    elif args.geometry == 's1hl':
+        from examples.SSCX_Thalamocortical_VPM_S1HL import create_projections
+    else:
+        raise Exception('Unknown geometry: {}'.format(args.geometry))
+
+    create_projections(output=args.output,
+                       circuit=circuit,
+                       parallelize=args.parallelize,
+                       n_islice=args.slices)
 
 
 if __name__ == '__main__':

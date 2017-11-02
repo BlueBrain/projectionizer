@@ -5,10 +5,9 @@ import sys
 from functools import partial
 from itertools import islice
 
-import toolz
-
 import numpy as np
 import pandas as pd
+import toolz
 from dask.distributed import Client
 from scipy.spatial.distance import cdist
 from scipy.stats import norm
@@ -17,7 +16,7 @@ from voxcell import VoxelData
 from decorators import pandas_cache, simple_cache, timeit
 from mini_col_locations import (get_virtual_fiber_locations, hexagon,
                                 tiled_locations)
-from projectionizer import nrnwriter, projection, sscx, utils
+from projectionizer import projection, sscx, utils
 
 L = logging.getLogger(__name__)
 
@@ -135,64 +134,6 @@ def pick_synapses(tile_locations, voxel_synapse_count, circuit, map_=map):
     return synapses
 
 
-def _find_cutoff_means(synapses, synaptical_fraction):
-    '''For each mtype, find its unique cutoff_mean
-
-    Args:
-        synapses(DataFrame): must have columns 'mtype', 'tgid', 'sgid'
-        synaptical_fraction(float): the wanted fraction of synapse below the cutoff
-
-    Returns:
-        dict(mtype -> cutoff_mean) where cutoff_mean is the value for which the cumulated number          of synapses belonging to all connection having at maximum "cutoff_mean" synapses represents "synaptical_fraction" of the total number of synapse
-
-    From thalamocortical_ps_s2f.py
-        compute cutoff by inverse interpolation of target fraction on cumulative syncount
-        distribution approximation: assumes hard cutoff, i.e. does not account for moments beyond
-        mean.  Should be OK if dist is fairly symmetrical.
-    '''
-
-    gb = synapses.groupby(['mtype', 'tgid', 'sgid']).size()
-    return {mtype: find_cutoff_mean_per_mtype(gb[mtype].value_counts(sort=False),
-                                              synaptical_fraction)
-            for mtype in synapses.mtype.unique()}
-
-
-def find_cutoff_mean_per_mtype(value_count, synaptical_fraction):
-    n_synapse_per_bin = np.array([value * count for value, count in value_count.iteritems()],
-                                 dtype=float)
-    x = np.cumsum(n_synapse_per_bin) / np.sum(n_synapse_per_bin)
-    return np.interp(synaptical_fraction, xp=x, fp=value_count.index)
-
-
-def prune_synapses_by_target_pathway(synapses, synaptical_fraction, cutoff_var=1.0, parallelize=False):
-    '''Based on the frequency of mtypes, and the synapses/connection frequency, probabilistically
-    remove *connections* (ie: groups of synapses in a (sgid, tgid) pair
-    '''
-    cutoff_means = _find_cutoff_means(synapses, synaptical_fraction)
-
-    def prune_based_on_cutoff(df):
-        return np.random.random() < norm.cdf(len(df), cutoff_means[df['mtype'].iloc[0]], cutoff_var)
-
-    if parallelize:
-        import dask.dataframe as dd
-        df = dd.from_pandas(synapses, npartitions=16)
-        pathways = df.groupby(['sgid', 'tgid'])
-
-        def prune_df(df):
-            '''return dataframe if it satisfy cutoff probability'''
-            if prune_based_on_cutoff(df):
-                return df
-            else:
-                return None
-        keep_syn = pathways.apply(prune_df, meta=synapses).compute()
-        keep_syn.reset_index(drop=True, inplace=True)
-    else:
-        pathways = synapses.groupby(['sgid', 'tgid'])
-        keep_syn = pathways.filter(prune_based_on_cutoff)
-
-    return keep_syn
-
-
 def first_partition(big_array, size, axis=1):
     """Returns a tuple of 2 elements:
         - an array containing the first partition of big_array
@@ -234,10 +175,13 @@ def assign_synapse_virtual_fibers(synapses, fiber_locations):
 
 
 @timeit('Pick Segments')
-def sample_synapses(tile_locations, circuit, voxel_size, map_):
+#@simple_cache
+def sample_synapses(tile_locations, circuit, voxel_size, map_, n_islice):
 
     p = '/gpfs/bbp.cscs.ch/project/proj30/mgevaert/csThal/orig_v5_2p6_no_interp/segments.feather'
     synapses = pd.read_feather(p)
+    if n_islice is not None:
+        return synapses.iloc[:n_islice]
     return synapses
 
     distmap = [sscx.recipe_to_height_and_density('4', 0, '3', 0.5, y_distmap_3_4, mult=2.6),
@@ -259,13 +203,14 @@ def get_minicol_virtual_fibers():
     virtual_fibers[:, 0] = virtual_fiber_locations[:, 0]  # X
     virtual_fibers[:, 2] = virtual_fiber_locations[:, 1]  # Z
 
-    #all direction vectors point straight up
+    # all direction vectors point straight up
     virtual_fibers[:, 4] = 1
 
     return virtual_fibers
 
 
 @timeit('Assign vector virtual fibers')
+#@simple_cache
 def assign_synapses_vector_fibers(synapses, map_):
     '''Assign virtual fibers from vectors'''
     synapses.rename(columns={'gid': 'tgid'}, inplace=True)
@@ -289,7 +234,7 @@ def assign_synapses_vector_fibers(synapses, map_):
                   virtual_fibers=virtual_fibers,
                   voxelized_fiber_distances=voxelized_fiber_distances)
 
-    #TODO: dask.map seems to do some kind of hash check on its input args
+    # TODO: dask.map seems to do some kind of hash check on its input args
     # which takes forever...using (crappy) map_parallelize for now
     from examples.map_parallelize import map_parallelize
     CHUNK_SIZE = 100000
@@ -301,7 +246,7 @@ def assign_synapses_vector_fibers(synapses, map_):
 
 
 @timeit('Assign virtual fibers')
-@simple_cache
+#@simple_cache
 def assign_synapses(synapses, map_):
     virtual_fiber_locations = get_virtual_fiber_locations()
     synapses.rename(columns={'gid': 'tgid'}, inplace=True)
@@ -312,28 +257,10 @@ def assign_synapses(synapses, map_):
     return synapses
 
 
-@timeit('Prune attempt to get right distribution')
-def prune(synapses, circuit, parallelize):
-    synapses = synapses.join(circuit.cells.get(properties='mtype'), on='tgid')
-    synapses.mtype.cat.remove_unused_categories(inplace=True)
-    synaptical_fraction = 1.6 / 2.6 * 0.73 / 0.66  # =~ 0.6806526806526807
-    keep_syn = prune_synapses_by_target_pathway(
-        synapses, synaptical_fraction, parallelize=parallelize)
-    keep_syn.rename(columns={'segment_length': 'location'}, inplace=True)
-    keep_syn.columns = map(str, keep_syn.columns)
-    return keep_syn
-
-
-@timeit('write nrn.h5')
-def write(synapses, output):
-    nrn_path = os.path.join(output, 'nrn.h5')
-    gb = synapses.groupby('tgid')
-    nrnwriter.write_synapses(nrn_path, iter(gb), sscx.create_synapse_data)
-
-
-def create_projections(output, circuit, parallelize):
+def create_projections(output, circuit, parallelize, n_islice):
     if parallelize:
         client = Client(memory_limit=5e9)
+
         def map_(func, it):
             res = client.map(func, it)
             return client.gather(res)
@@ -342,12 +269,7 @@ def create_projections(output, circuit, parallelize):
 
     voxel_size = VOXEL_SIZE_UM
     tile_locations = tiled_locations(voxel_size=voxel_size)
-
-    # tile_locations = list(islice(tile_locations, 20))
-
-    synapses = sample_synapses(tile_locations, circuit, voxel_size=voxel_size, map_=map_)
-    #assigned_synapses = assign_synapses(synapses, map_=map_)
+    synapses = sample_synapses(tile_locations, circuit, voxel_size, map_, n_islice)
     assigned_synapses = assign_synapses_vector_fibers(synapses, map_=map_)
-    #assigned_synapses = pd.read_feather('/gpfs/bbp.cscs.ch/project/proj30/mgevaert/csThal/orig_v5_2p6/assigned_synapses.feather')
-    remaining_synapses = prune(assigned_synapses, circuit, parallelize)
-    write(remaining_synapses, output)
+    remaining_synapses = projection.prune(assigned_synapses, circuit, parallelize)
+    projection.write(remaining_synapses, output)

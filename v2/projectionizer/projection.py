@@ -29,13 +29,15 @@ Note:  Notationally, when i, j, k are used, it means in 'voxel space', and when 
 
 import itertools as it
 import logging
+import os
 
 import numpy as np
 import pandas as pd
-
 from bluepy.v2.enums import Section, Segment
+from scipy.stats import norm
 
-from projectionizer import utils
+from projectionizer import utils, nrnwriter, sscx
+from decorators import timeit
 
 IJK = utils.IJK
 I, J, K = 0, 1, 2
@@ -245,3 +247,93 @@ def pick_synapses(circuit, voxel_synapse_count, min_ijk, max_ijk, segment_pref):
 
     synapses = pd.concat(picked_synapses, ignore_index=True)
     return synapses
+
+
+@timeit('Prune attempt to get right distribution')
+def prune(synapses, circuit, parallelize):
+    synapses = synapses.join(circuit.cells.get(properties='mtype'), on='tgid')
+    synapses.mtype.cat.remove_unused_categories(inplace=True)
+    synaptical_fraction = 1.6 / 2.6 * 0.73 / 0.66  # =~ 0.6806526806526807
+    keep_syn = prune_synapses_by_target_pathway(
+        synapses, synaptical_fraction, parallelize=parallelize)
+    keep_syn.rename(columns={'segment_length': 'location'}, inplace=True)
+    keep_syn.columns = map(str, keep_syn.columns)
+    return keep_syn
+
+
+@timeit('write nrn.h5')
+def write(synapses, output):
+    nrn_path = os.path.join(output, 'nrn.h5')
+    gb = synapses.groupby('tgid')
+    nrnwriter.write_synapses(nrn_path, iter(gb), sscx.create_synapse_data)
+
+
+def _find_cutoff_means(synapses, synaptical_fraction):
+    '''For each mtype, find its unique cutoff_mean
+
+    Args:
+        synapses(DataFrame): must have columns 'mtype', 'tgid', 'sgid'
+        synaptical_fraction(float): the wanted fraction of synapse below the cutoff
+
+    Returns:
+        dict(mtype -> cutoff_mean) where cutoff_mean is the value for which the cumulated number          of synapses belonging to all connection having at maximum "cutoff_mean" synapses represents "synaptical_fraction" of the total number of synapse
+
+    From thalamocortical_ps_s2f.py
+        compute cutoff by inverse interpolation of target fraction on cumulative syncount
+        distribution approximation: assumes hard cutoff, i.e. does not account for moments beyond
+        mean.  Should be OK if dist is fairly symmetrical.
+    '''
+
+    gb = synapses.groupby(['mtype', 'tgid', 'sgid']).size()
+    # print('len gb mtypes: {}'.format(gb.mtype.unique()))
+    # print('len synapses mtypes: {}'.format(synapses.mtype.unique()))
+    # for mtype in synapses.mtype.unique():
+    # print(mtype)
+
+    # So many commented line because I am investigating why
+    # so mtype are 'nan'. I'll remove them later.
+    d = dict()
+    for mtype in synapses.mtype.unique():
+        # print(mtype)
+        d[mtype] = find_cutoff_mean_per_mtype(
+            gb[mtype].value_counts(sort=False), synaptical_fraction)
+    return d
+    # return {mtype: find_cutoff_mean_per_mtype(gb[mtype].value_counts(sort=False),
+    #                                           synaptical_fraction)
+    #         for mtype in synapses.mtype.unique()}
+
+
+def find_cutoff_mean_per_mtype(value_count, synaptical_fraction):
+    n_synapse_per_bin = np.array([value * count for value, count in value_count.iteritems()],
+                                 dtype=float)
+    x = np.cumsum(n_synapse_per_bin) / np.sum(n_synapse_per_bin)
+    return np.interp(synaptical_fraction, xp=x, fp=value_count.index)
+
+
+def prune_synapses_by_target_pathway(synapses, synaptical_fraction, cutoff_var=1.0, parallelize=False):
+    '''Based on the frequency of mtypes, and the synapses/connection frequency, probabilistically
+    remove *connections* (ie: groups of synapses in a (sgid, tgid) pair
+    '''
+    cutoff_means = _find_cutoff_means(synapses, synaptical_fraction)
+
+    def prune_based_on_cutoff(df):
+        return np.random.random() < norm.cdf(len(df), cutoff_means[df['mtype'].iloc[0]], cutoff_var)
+
+    if parallelize:
+        import dask.dataframe as dd
+        df = dd.from_pandas(synapses, npartitions=16)
+        pathways = df.groupby(['sgid', 'tgid'])
+
+        def prune_df(df):
+            '''return dataframe if it satisfy cutoff probability'''
+            if prune_based_on_cutoff(df):
+                return df
+            else:
+                return None
+        keep_syn = pathways.apply(prune_df, meta=synapses).compute()
+        keep_syn.reset_index(drop=True, inplace=True)
+    else:
+        pathways = synapses.groupby(['sgid', 'tgid'])
+        keep_syn = pathways.filter(prune_based_on_cutoff)
+
+    return keep_syn
