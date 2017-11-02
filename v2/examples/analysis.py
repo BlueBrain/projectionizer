@@ -1,9 +1,8 @@
+import matplotlib
+# matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 
 
 def _make_hist(y, bins):
@@ -17,14 +16,13 @@ def _get_ax():
     return fig, ax
 
 
-def synapse_density(orig_data, keep_syn, distmap, bin_size=25):
+def synapse_density(orig_data, keep_syn, distmap, bin_width=25):
     def vol(df):
-        xyz = list('xyz')
-        vol_ = df[xyz].max().values - df[xyz].min().values
-        vol_[1] = bin_size
-        return np.prod(vol_)
+        xz = list('xz')
+        xz_extend = df[xz].max().values - df[xz].min().values
+        return np.prod(xz_extend) * bin_width
 
-    bins = np.arange(600, 1600, bin_size)
+    bins = np.arange(600, 1600, bin_width)
 
     df = pd.DataFrame(index=bins[:-1])
     df['Original'] = _make_hist(orig_data.y.values, bins) / vol(orig_data)
@@ -81,8 +79,12 @@ def plot_hexagon(ax, center=(0., 0.)):
     ax.plot(center[0] + points[:, 0], center[1] + points[:, 1], 'r-')
 
 
-def plot_used_minicolumns(ax, df):
+def plot_used_minicolumns(df, ax=None):
     ''''''
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+
     from mini_col_locations import get_virtual_fiber_locations
     locations = get_virtual_fiber_locations()
     x, z = locations[:, 0], locations[:, 1]

@@ -3,11 +3,13 @@ import numpy as np
 
 from bluepy.v2.enums import Section, Segment
 from neurom import NeuriteType
+from dask.distributed import Client
 
 
 class ErrorCloseToZero(Exception):
     '''Raised if normalizing if sum of probabilities is close to zero'''
     pass
+
 
 # bluepy.v2 returns a DataFrame with the start and endpoint of the segments when performing a query,
 # simplify addressing them using the following
@@ -42,3 +44,15 @@ def in_bounding_box(min_xyz, max_xyz, df):
            (min_xyz[Y] < df['y']) & (df['y'] < max_xyz[Y]) &
            (min_xyz[Z] < df['z']) & (df['z'] < max_xyz[Z]))
     return ret
+
+
+def map_func(parallelize):
+    if parallelize:
+        client = Client(memory_limit=5e9)
+
+        def map_(func, it):
+            res = client.map(func, it)
+            return client.gather(res)
+        return map_
+    else:
+        return map

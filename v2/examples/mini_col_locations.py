@@ -742,6 +742,10 @@ def hexagon():
     return points
 
 
+def hexagon_area():
+    return HEXAGON_SIDE**2 * 3 / 2 * np.sqrt(3)
+
+
 def get_virtual_fiber_locations(apron_size=0.0):
     '''get locations in bounding box of central column'''
     points = hexagon()

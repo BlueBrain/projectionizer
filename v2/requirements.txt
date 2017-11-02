@@ -1,5 +1,9 @@
 bluepy>=0.10.0
 voxcell>=2.3.1
 dask==0.15.4
+dask[distributed]>=1.16
 toolz>=0.8.2
 partd==0.3.8
+feather-format==0.4.0
+mpl-scatter-density==0.3
+nose==1.3.7

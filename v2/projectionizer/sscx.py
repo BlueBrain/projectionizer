@@ -2,9 +2,7 @@
 
 import numpy as np
 import numpy.matlib
-
 from scipy.stats import norm  # pylint: disable=no-name-in-module
-
 
 LAYERS = ('1', '2', '3', '4', '5', '6', )
 # layer thickness from recipe
@@ -29,8 +27,7 @@ def recipe_to_height_and_density(low_layer,
                                  low_fraction,
                                  high_layer,
                                  high_fraction,
-                                 distribution,
-                                 mult=1.0):
+                                 distribution):
     '''Convert recipe style layer & density values to absolute height & density values
 
     Args:
@@ -55,7 +52,7 @@ def recipe_to_height_and_density(low_layer,
     bottom = LAYER_STARTS[low_layer] + low_fraction * LAYER_THICKNESS[low_layer]
     top = LAYER_STARTS[high_layer] + high_fraction * LAYER_THICKNESS[high_layer]
     diff = top - bottom
-    return [(bottom + diff * low, mult * density)
+    return [(bottom + diff * low, density)
             for low, density in zip(heights, density)]
 
 

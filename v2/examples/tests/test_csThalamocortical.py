@@ -5,17 +5,15 @@ import nose.tools as nt
 import numpy as np
 import numpy.testing as npt
 import pandas as pd
-from mock import MagicMock
 from nose.tools import eq_, ok_, raises
 from numpy.linalg import norm
 
 from examples.mini_col_locations import tiled_locations
-from examples.SSCX_Thalamocortical_VPM_hex import (_find_cutoff_means,
-                                                   assign_synapse_virtual_fibers,
+from examples.SSCX_Thalamocortical_VPM_hex import (assign_synapse_virtual_fibers,
                                                    build_voxel_synapse_count,
-                                                   find_cutoff_mean_per_mtype,
-                                                   first_partition,
-                                                   prune_synapses_by_target_pathway)
+                                                   first_partition)
+from projectionizer.projection import (find_cutoff_mean_per_mtype,
+                                       prune_synapses_by_target_pathway)
 
 L = logging.getLogger(__name__)
 
@@ -33,7 +31,7 @@ def test_build_voxel_synapse_count():
     voxel_size = 25
     voxel_volume = voxel_size**3
     count_per_slice = (np.array([1.5, 3.4, 7.8]) * voxel_volume).astype(int)
-    result = build_voxel_synapse_count(distmap, voxel_size=voxel_size).raw
+    result = build_voxel_synapse_count(distmap, voxel_size, 1).raw
     npt.assert_equal(result[0][:10],
                      np.array([[0],
                                [count_per_slice[0]],
