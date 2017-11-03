@@ -13,7 +13,7 @@ from neurom import NeuriteType
 from voxcell import build
 
 import map_parallelize
-from decorators import simple_cache, timeit
+from decorators import timeit
 from projectionizer import projection, sscx, utils
 
 BASE_CIRCUIT = '/gpfs/bbp.cscs.ch/project/proj64/circuits/S1HL/20171004/'
@@ -98,12 +98,11 @@ def get_heights(region_name=REGION_NAME, path=VOXEL_PATH, prefix=PREFIX):
 
 def get_distmap():
     from SSCX_Thalamocortical_VPM_hex import y_distmap_3_4, y_distmap_5_6
-    return [sscx.recipe_to_height_and_density('4', 0, '3', 0.5, y_distmap_3_4, mult=2.6),
-            sscx.recipe_to_height_and_density('6', 0.85, '5', 0.6, y_distmap_5_6, mult=2.6), ]
+    return [sscx.recipe_to_height_and_density('4', 0, '3', 0.5, y_distmap_3_4),
+            sscx.recipe_to_height_and_density('6', 0.85, '5', 0.6, y_distmap_5_6), ]
 
 
-@simple_cache
-def build_voxel_synapse_count(height, distmap, path=VOXEL_PATH, prefix=PREFIX):
+def build_voxel_synapse_count(height, distmap, oversamping, path=VOXEL_PATH, prefix=PREFIX):
 
     raw = np.zeros_like(height.raw, dtype=np.uint)
 
@@ -111,7 +110,7 @@ def build_voxel_synapse_count(height, distmap, path=VOXEL_PATH, prefix=PREFIX):
     for dist in distmap:
         for (bottom, density), (top, _) in zip(dist[:-1], dist[1:]):
             idx = np.nonzero((bottom < height.raw) & (height.raw < top))
-            raw[idx] = int(voxel_volume * density)
+            raw[idx] = int(voxel_volume * density * oversamping)
 
     return height.with_data(raw)
 
@@ -136,18 +135,20 @@ def pick_synapses(circuit, synapse_counts, distmap, map_=map):
 
 
 @timeit('Pick Segments')
-@simple_cache
 def sample_synapses(circuit, map_, n_islice):
     # XXX: sampling takes a long time, use this to load faster
-    filename = '/gpfs/bbp.cscs.ch/home/bcoste/workspace/projectionizer/v2/examples/sample_s1hl_mini.feather'
-    synapses = pd.read_feather(filename)
-    if n_islice is not None:
-        return synapses.iloc[:n_islice]
-    return synapses
+    # filename = '/gpfs/bbp.cscs.ch/home/bcoste/workspace/projectionizer/v2/examples/sample_s1hl_mini.feather'
+    # synapses = pd.read_feather(filename)
+    # return synapses.iloc[:n_islice]
+    distmap = get_distmap()
+    voxel_synapse_count = build_voxel_synapse_count(get_heights(), distmap, oversampling=2.6)
+    synapses = pick_synapses(circuit, voxel_synapse_count, distmap, map_)
+    remove_cols = utils.SEGMENT_START_COLS + utils.SEGMENT_END_COLS
+    synapses.drop(remove_cols, axis=1, inplace=True)
+    return synapses.iloc[:n_islice]
 
 
 @timeit('Assign vector virtual fibers')
-@simple_cache
 def assign_synapses_vector_fibers(synapses, synapse_counts, map_):
     synapses.rename(columns={'gid': 'tgid'}, inplace=True)
 
@@ -166,20 +167,3 @@ def assign_synapses_vector_fibers(synapses, synapse_counts, map_):
     fiber_id = np.hstack(fiber_id)
     synapses['sgid'] = fiber_id
     return synapses
-
-
-def create_projections(output, circuit, parallelize, n_islice):
-
-    synapses = sample_synapses(circuit, map_parallelize.map_parallelize, n_islice)
-    synapse_counts = build_voxel_synapse_count(get_heights(), get_distmap())
-    # synapses = pick_synapses(circuit, synapse_counts, distmap, map_=map_)
-
-    assigned_synapses = assign_synapses_vector_fibers(
-        synapses, synapse_counts, map_=map_parallelize.map_parallelize)
-
-    remaining_synapses = projection.prune(assigned_synapses, circuit, parallelize=True)
-    projection.write(remaining_synapses, output)
-
-
-if __name__ == '__main__':
-    main()

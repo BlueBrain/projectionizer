@@ -2,8 +2,9 @@
 import argparse
 import logging
 import os
-
+import matplotlib.pyplot as plt
 from examples.decorators import load_feather
+from examples.analysis import synapse_density, syns_per_connection, plot_used_minicolumns, column_scatter_plots
 
 L = logging.getLogger(__name__)
 
@@ -17,6 +18,8 @@ def get_parser():
                         help='Output directory')
     parser.add_argument('-v', '--verbose', action='count', dest='verbose', default=0,
                         help='-v for INFO, -vv for DEBUG')
+    parser.add_argument(
+        '-d', '--original', default='~/proj30/mgevaert/ncsThalamocortical_VPM_tcS2F_2p6_ps.feather', help='Path to the original data')
     return parser
 
 
@@ -25,14 +28,17 @@ def main(args):
                                logging.INFO,
                                logging.DEBUG)[min(args.verbose, 2)])
 
-    orig_data = os.path.expanduser('~/proj30/mgevaert/ncsThalamocortical_VPM_tcS2F_2p6_ps.feather')
-
     import pandas
-    orig_data = pandas.read_feather(orig_data)
-
+    orig_data = pandas.read_feather(os.path.expanduser(args.original))
     keep_syn = load_feather(os.path.expanduser(args.input))
+    import examples.SSCX_Thalamocortical_VPM_S1HL as model
 
-    create_plots(args.output)
+    synapse_density(orig_data, keep_syn, model.get_distmap())
+    syns_per_connection(orig_data, keep_syn)
+    column_scatter_plots(keep_syn, args.output, fiber_locations=None)
+    plot_used_minicolumns(keep_syn)
+
+    plt.show()
 
 
 if __name__ == '__main__':

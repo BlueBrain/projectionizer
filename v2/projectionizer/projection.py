@@ -251,6 +251,7 @@ def pick_synapses(circuit, voxel_synapse_count, min_ijk, max_ijk, segment_pref):
 
 @timeit('Prune attempt to get right distribution')
 def prune(synapses, circuit, parallelize):
+    L.debug('Pruning {} synapses...'.format(synapses.size))
     synapses = synapses.join(circuit.cells.get(properties='mtype'), on='tgid')
     synapses.mtype.cat.remove_unused_categories(inplace=True)
     synaptical_fraction = 1.6 / 2.6 * 0.73 / 0.66  # =~ 0.6806526806526807

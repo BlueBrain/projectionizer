@@ -1,10 +1,16 @@
 #!/usr/bin/env python
 import argparse
+from functools import partial
+import json
 import logging
 import os
+import datetime
+import pandas
 
 from bluepy.api import Circuit
 import numpy
+from projectionizer import utils, projection, decorators
+from examples.map_parallelize import map_parallelize
 
 L = logging.getLogger(__name__)
 
@@ -17,15 +23,14 @@ def get_parser():
     parser.add_argument('geometry', default='s1hl', choices=['hex', 's1hl'],
                         help='The geometry to use')
 
-    parser.add_argument('-o', '--output', default='.',
+    parser.add_argument('-o', '--output',  default=os.path.expanduser('~/proj30/projectionizer'),
                         help='Output directory')
-    parser.add_argument('-p', '--parallelize', action='store_true',
-                        help='Output directory')
+    parser.add_argument('-p', '--parallelize', action='store_true', help='Output directory')
     parser.add_argument('-v', '--verbose', action='count', dest='verbose', default=0,
                         help='-v for INFO, -vv for DEBUG')
-    parser.add_argument('-c', '--circuit', default=BASE_CIRCUIT,
-                        help='Circuit path')
     parser.add_argument('-s', '--slices', default=None, help='Number of slices', type=int)
+    parser.add_argument(
+        '-r', '--rewind', default=None, help='Redo the analysis starting at a given step. The argument is the path to the dataframe to start from')
 
     return parser
 
@@ -37,22 +42,85 @@ def main(args):
 
     numpy.random.seed(0)
 
-    print('Using circuit: %s' % args.circuit)
-    circuit = os.path.join(args.circuit, 'CircuitConfig')
-    circuit = Circuit(circuit).v2
-    # circuit._config['cells'] = '/gpfs/bbp.cscs.ch/project/proj30/mgevaert/SomatosensoryCxS1-v5.r0_circuit.mvd3'
+    if args.parallelize:
+        map_ = map_parallelize
+    else:
+        map_ = map
 
     if args.geometry == 'hex':
-        from examples.SSCX_Thalamocortical_VPM_hex import create_projections
+        import examples.SSCX_Thalamocortical_VPM_hex as model
+        voxel_size = model.VOXEL_SIZE_UM
+        circuit = Circuit(os.path.join(model.BASE_CIRCUIT, 'CircuitConfig')).v2
+        # TODO: dask.map seems to do some kind of hash check on its input args
+        # which takes forever...using (crappy) map_parallelize for now
+
+        def sample_func():
+            return model.sample_synapses(model.tiled_locations(voxel_size=voxel_size),
+                                         circuit, voxel_size, map_, args.slices)
+
+        def assign_func(synapses):
+            return model.assign_synapses_vector_fibers(synapses, map_=map_)
+
     elif args.geometry == 's1hl':
-        from examples.SSCX_Thalamocortical_VPM_S1HL import create_projections
+        import examples.SSCX_Thalamocortical_VPM_S1HL as model
+        circuit = Circuit(os.path.join(model.BASE_CIRCUIT, 'CircuitConfig')).v2
+
+        def sample_func():
+            return model.sample_synapses(circuit, map_, args.slices)
+
+        def assign_func(synapses):
+            synapse_counts = model.build_voxel_synapse_count(model.get_heights(),
+                                                             model.get_distmap())
+            # synapses = pick_synapses(circuit, synapse_counts, distmap, map_=map_)
+            return model.assign_synapses_vector_fibers(synapses, synapse_counts,
+                                                       map_)
     else:
         raise Exception('Unknown geometry: {}'.format(args.geometry))
 
-    create_projections(output=args.output,
-                       circuit=circuit,
-                       parallelize=args.parallelize,
-                       n_islice=args.slices)
+    steps = [['sampling', sample_func],
+             ['fiber-assignment', assign_func],
+             ['pruning', partial(projection.prune,
+                                 circuit=circuit, parallelize=args.parallelize)],
+             ['writing', partial(projection.write, output=args.output)]]
+
+    run(rewinded_steps(steps, args.rewind), args)
+
+
+def rewinded_steps(steps, path):
+    if not path:
+        return steps
+    starting_step = path.split('/')[-1].split('.')[0]
+    for i, (name, func) in enumerate(steps):
+        if starting_step == name:
+            steps = steps[i:]
+            steps[0] = ('rewind', lambda: pandas.read_feather(path))
+            return steps
+    raise Exception('No step to rewind from called: {}'.format(starting_step))
+
+
+def run(steps, args):
+    id = '{}-{}'.format(datetime.datetime.now().isoformat(), os.getenv('USER'))
+    folder = os.path.join(args.output, id)
+    os.makedirs(folder)
+    L.debug('Working in folder: {}'.format(folder))
+
+    with open(os.path.join(folder, 'metadata.json'), 'w') as f:
+        json.dump(vars(args), f)
+
+    def post_step(name, res):
+        '''Function to be executed at the end of each step'''
+        decorators._write_feather('{}.feather'.format(os.path.join(folder, name)), res)
+
+    def do_step(steps, args):
+        if not steps:
+            return args
+        name, func = steps[0]
+        L.debug('Starting step: {}'.format(name))
+        res = func(*args)
+        post_step(name, res)
+        return do_step(steps[1:], [res])
+
+    return do_step(steps, [])
 
 
 if __name__ == '__main__':

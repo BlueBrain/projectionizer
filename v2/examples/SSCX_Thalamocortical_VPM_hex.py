@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+'''Create projections for hexagonal circuit'''
 import logging
 import os
 import sys
@@ -8,14 +8,12 @@ from itertools import islice
 import numpy as np
 import pandas as pd
 import toolz
-from dask.distributed import Client
 from scipy.spatial.distance import cdist
 from scipy.stats import norm
 from voxcell import VoxelData
 
-from decorators import pandas_cache, simple_cache, timeit
-from mini_col_locations import (get_virtual_fiber_locations, hexagon,
-                                tiled_locations)
+from decorators import pandas_cache, timeit
+from mini_col_locations import get_virtual_fiber_locations, tiled_locations
 from projectionizer import projection, sscx, utils
 
 L = logging.getLogger(__name__)
@@ -55,7 +53,12 @@ y_distmap_5_6 = (
 )
 
 
-def build_voxel_synapse_count(distmap, voxel_size):
+def get_distmap():
+    return [sscx.recipe_to_height_and_density('4', 0, '3', 0.5, y_distmap_3_4),
+            sscx.recipe_to_height_and_density('6', 0.85, '5', 0.6, y_distmap_5_6), ]
+
+
+def build_voxel_synapse_count(distmap, voxel_size, oversampling):
     '''returns VoxelData with the densities from `distmap`
 
     This is a 'stack' of (x == z == y == voxel_size) voxels stacked to
@@ -77,7 +80,7 @@ def build_voxel_synapse_count(distmap, voxel_size):
             #density = np.interp(np.arange(bottom, top), [bottom, top], [bottom_density, top_density])
             assert xz_extent == 1, "Must change raw's dimensions if xz_extent changes"
             #raw[0, bottom:top, 0] = np.rint(voxel_size ** 3 * density).astype(np.int)
-            raw[0, bottom:top, 0] = int(voxel_size ** 3 * bottom_density)
+            raw[0, bottom:top, 0] = int(voxel_size ** 3 * bottom_density * oversampling)
 
     return VoxelData(raw, [voxel_size] * 3, (0, 0, 0))
 
@@ -175,24 +178,17 @@ def assign_synapse_virtual_fibers(synapses, fiber_locations):
 
 
 @timeit('Pick Segments')
-#@simple_cache
 def sample_synapses(tile_locations, circuit, voxel_size, map_, n_islice):
+    # p = '/gpfs/bbp.cscs.ch/project/proj30/mgevaert/csThal/orig_v5_2p6_no_interp/segments.feather'
+    # synapses = pd.read_feather(p)
+    # return synapses.iloc[:n_islice]
 
-    p = '/gpfs/bbp.cscs.ch/project/proj30/mgevaert/csThal/orig_v5_2p6_no_interp/segments.feather'
-    synapses = pd.read_feather(p)
-    if n_islice is not None:
-        return synapses.iloc[:n_islice]
-    return synapses
-
-    distmap = [sscx.recipe_to_height_and_density('4', 0, '3', 0.5, y_distmap_3_4, mult=2.6),
-               sscx.recipe_to_height_and_density('6', 0.85, '5', 0.6, y_distmap_5_6, mult=2.6), ]
-
-    voxel_synapse_count = build_voxel_synapse_count(distmap, voxel_size=voxel_size)
+    voxel_synapse_count = build_voxel_synapse_count(get_distmap(), voxel_size, oversampling=2.6)
     synapses = pick_synapses(
         tile_locations, voxel_synapse_count, circuit, map_=map_)
-    remove_cols = projection.SEGMENT_START_COLS + projection.SEGMENT_END_COLS
+    remove_cols = utils.SEGMENT_START_COLS + utils.SEGMENT_END_COLS
     synapses.drop(remove_cols, axis=1, inplace=True)
-    return synapses
+    return synapses.iloc[:n_islice]
 
 
 def get_minicol_virtual_fibers():
@@ -210,7 +206,6 @@ def get_minicol_virtual_fibers():
 
 
 @timeit('Assign vector virtual fibers')
-#@simple_cache
 def assign_synapses_vector_fibers(synapses, map_):
     '''Assign virtual fibers from vectors'''
     synapses.rename(columns={'gid': 'tgid'}, inplace=True)
@@ -234,19 +229,15 @@ def assign_synapses_vector_fibers(synapses, map_):
                   virtual_fibers=virtual_fibers,
                   voxelized_fiber_distances=voxelized_fiber_distances)
 
-    # TODO: dask.map seems to do some kind of hash check on its input args
-    # which takes forever...using (crappy) map_parallelize for now
-    from examples.map_parallelize import map_parallelize
     CHUNK_SIZE = 100000
     it = toolz.itertoolz.partition_all(CHUNK_SIZE, xyz)
-    fiber_id = map_parallelize(asf, it)
+    fiber_id = map_(asf, it)
     fiber_id = np.hstack(fiber_id)
     synapses['sgid'] = fiber_id
     return synapses
 
 
 @timeit('Assign virtual fibers')
-#@simple_cache
 def assign_synapses(synapses, map_):
     virtual_fiber_locations = get_virtual_fiber_locations()
     synapses.rename(columns={'gid': 'tgid'}, inplace=True)
@@ -255,21 +246,3 @@ def assign_synapses(synapses, map_):
     split = map_(assign_func, split)
     synapses = pd.concat(split)
     return synapses
-
-
-def create_projections(output, circuit, parallelize, n_islice):
-    if parallelize:
-        client = Client(memory_limit=5e9)
-
-        def map_(func, it):
-            res = client.map(func, it)
-            return client.gather(res)
-    else:
-        map_ = map
-
-    voxel_size = VOXEL_SIZE_UM
-    tile_locations = tiled_locations(voxel_size=voxel_size)
-    synapses = sample_synapses(tile_locations, circuit, voxel_size, map_, n_islice)
-    assigned_synapses = assign_synapses_vector_fibers(synapses, map_=map_)
-    remaining_synapses = projection.prune(assigned_synapses, circuit, parallelize)
-    projection.write(remaining_synapses, output)
