@@ -13,7 +13,7 @@ from neurom import NeuriteType
 from voxcell import build
 
 import map_parallelize
-from decorators import timeit
+from projectionizer.decorators import timeit
 from projectionizer import projection, sscx, utils
 
 BASE_CIRCUIT = '/gpfs/bbp.cscs.ch/project/proj64/circuits/S1HL/20171004/'

@@ -44,6 +44,8 @@ def main(args):
 
     if args.parallelize:
         map_ = map_parallelize
+        from dask.distributed import Client
+        c = Client()
     else:
         map_ = map
 

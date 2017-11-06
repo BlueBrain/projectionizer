@@ -12,7 +12,7 @@ from scipy.spatial.distance import cdist
 from scipy.stats import norm
 from voxcell import VoxelData
 
-from decorators import pandas_cache, timeit
+from projectionizer.decorators import timeit
 from mini_col_locations import get_virtual_fiber_locations, tiled_locations
 from projectionizer import projection, sscx, utils
 

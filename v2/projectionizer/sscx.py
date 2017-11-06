@@ -37,7 +37,6 @@ def recipe_to_height_and_density(low_layer,
         high_fraction(float): Fraction into high_layer from which to end the region
         distribution(iter of tuples: (percent, density synapses/um3): density is assigned
         to each portion of the region: percent is the midpoint 'histogram'
-        mult(float): multiply the densities by this
 
     Return:
         list of tuples of (absolute height, synapse density)
@@ -98,30 +97,30 @@ def create_synapse_data(synapses):
     '''return numpy array for `synapses` with the correct parameters
 
     Args:
-        synapses(np.array): columns - 1 - source gid
-                                      2 - section_id
-                                      3 - segment_id
-                                      4 - location along segment (in um)
+        synapses(pd.DataFrame): with the following columns:
+            sgid, y, Section.Id, Segment.Id, location
     '''
-    synapse_data = np.zeros((len(synapses), 19), dtype=np.float)
-    synapses = np.array(synapses)
+    synapse_count = len(synapses)
+    synapse_data = np.zeros((synapse_count, 19), dtype=np.float)
 
-    synapse_data[:, SynapseColumns.SGID] = synapses[:, 1]
+    synapse_data[:, SynapseColumns.SGID] = synapses['sgid'].values
 
-    # TODO XXX:calculate from y-pos?
     # Note: this has to be > 0
     # (https://bbpteam.epfl.ch/project/issues/browse/NSETM-256?focusedCommentId=56509)
-    synapse_data[:, SynapseColumns.DELAY] = 0.25
+    # TODO: this needs to be a 'distance', for hex, 'y' makes sense, for 3D space, maybe less so
+    CONDUCTION_VELOCITY = 300. #micron/ms, from original Projectionizer: InputMappers.py
+    synapse_data[:, SynapseColumns.DELAY] = synapses['y'].values / CONDUCTION_VELOCITY
 
-    synapse_data[:, SynapseColumns.ISEC] = synapses[:, 2]
-    synapse_data[:, SynapseColumns.IPT] = synapses[:, 3]
-    synapse_data[:, SynapseColumns.OFFSET] = synapses[:, 4]
+    synapse_data[:, SynapseColumns.ISEC] = synapses['Section.ID'].values
+    synapse_data[:, SynapseColumns.IPT] = synapses['Segment.ID'].values
+    offset = synapses['location'].values * np.random.ranf(synapse_count)
+    synapse_data[:, SynapseColumns.OFFSET] = offset
 
     def gamma(param):
         '''given `param`, look it up in SYNAPSE_PARAMS, return random pulls from gamma dist '''
         return np.random.gamma(shape=SYNAPSE_PARAMS[param][0],
                                scale=SYNAPSE_PARAMS[param][1],
-                               size=len(synapses))
+                               size=synapse_count)
 
     synapse_data[:, SynapseColumns.WEIGHT] = gamma('gsyn')
     synapse_data[:, SynapseColumns.U] = gamma('Use')
