@@ -72,7 +72,8 @@ def main(args):
 
         def assign_func(synapses):
             synapse_counts = model.build_voxel_synapse_count(model.get_heights(),
-                                                             model.get_distmap())
+                                                             model.get_distmap(),
+                                                             oversampling=1.0)
             # synapses = pick_synapses(circuit, synapse_counts, distmap, map_=map_)
             return model.assign_synapses_vector_fibers(synapses, synapse_counts,
                                                        map_)

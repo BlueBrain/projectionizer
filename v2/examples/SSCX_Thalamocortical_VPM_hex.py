@@ -110,7 +110,7 @@ def _pick_synapses(xz_loc, circuit, voxel_synapse_count):
     voxel_synapse_count.offset = np.array((xz_loc[0], 0, xz_loc[1]))
 
     column_synapses = projection.pick_synapses(
-        circuit, voxel_synapse_count, min_ijk, max_ijk, utils.segment_pref)
+        circuit, voxel_synapse_count, min_ijk, max_ijk, utils.segment_pref_length)
     return column_synapses
 
 
@@ -191,10 +191,10 @@ def sample_synapses(tile_locations, circuit, voxel_size, map_, n_islice):
     return synapses.iloc[:n_islice]
 
 
-def get_minicol_virtual_fibers():
+def get_minicol_virtual_fibers(apron_size=0.):
     "returns Nx6 matrix: first 3 columns are XYZ pos of fibers, last 3 are direction vector"
 
-    virtual_fiber_locations = get_virtual_fiber_locations()
+    virtual_fiber_locations = get_virtual_fiber_locations(apron_size)
     virtual_fibers = np.zeros((len(virtual_fiber_locations), 6))
     virtual_fibers[:, 0] = virtual_fiber_locations[:, 0]  # X
     virtual_fibers[:, 2] = virtual_fiber_locations[:, 1]  # Z
@@ -206,11 +206,11 @@ def get_minicol_virtual_fibers():
 
 
 @timeit('Assign vector virtual fibers')
-def assign_synapses_vector_fibers(synapses, map_):
+def assign_synapses_vector_fibers(synapses, map_, apron_size=0.):
     '''Assign virtual fibers from vectors'''
     synapses.rename(columns={'gid': 'tgid'}, inplace=True)
 
-    virtual_fibers = get_minicol_virtual_fibers()
+    virtual_fibers = get_minicol_virtual_fibers(apron_size)
 
     xyz = synapses[list('xyz')].values
     min_ = np.min(xyz, axis=0)

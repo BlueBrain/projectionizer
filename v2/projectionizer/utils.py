@@ -34,6 +34,13 @@ def segment_pref(df):
     '''
     return (df[Section.NEURITE_TYPE] != NeuriteType.axon).astype(float)
 
+def segment_pref_length(df):
+    '''don't want axons, assign probability of 0 to them, and 1 to other neurite types,
+    multiplied by the length of the segment
+    this will be normalized by the caller
+    '''
+    return df['segment_length'] * (df[Section.NEURITE_TYPE] != NeuriteType.axon).astype(float)
+
 
 def in_bounding_box(min_xyz, max_xyz, df):
     '''return boolean index of df rows that are in min_xyz/max_xyz

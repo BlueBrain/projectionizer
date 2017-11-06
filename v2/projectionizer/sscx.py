@@ -20,7 +20,7 @@ LAYER_THICKNESS = {name: float(thickness) for name, thickness in
                    zip(LAYERS, LAYER_THICKNESS)}
 
 CLOSEST_COUNT = 25
-EXCLUSION = 120  # 60 # 3 times std?
+EXCLUSION = 60 # 3 times std?
 
 
 def recipe_to_height_and_density(low_layer,
@@ -180,7 +180,7 @@ def get_voxelized_fiber_distances(synapse_counts,
     closest_count = min(closest_count, distances.shape[1] - 1)
 
     # get closest_count closest virtual fibers
-    partition = np.argpartition(distances, closest_count, axis=1)[:, :(closest_count + 1)]
+    partition = np.argpartition(distances, closest_count, axis=1)[:, :closest_count]
     ret = {tuple(ijk): p for ijk, p in zip(ijks, partition)}
     return ret
 
