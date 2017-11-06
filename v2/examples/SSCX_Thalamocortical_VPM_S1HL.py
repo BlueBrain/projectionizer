@@ -102,7 +102,7 @@ def get_distmap():
             sscx.recipe_to_height_and_density('6', 0.85, '5', 0.6, y_distmap_5_6), ]
 
 
-def build_voxel_synapse_count(height, distmap, oversamping, path=VOXEL_PATH, prefix=PREFIX):
+def build_voxel_synapse_count(height, distmap, oversampling, path=VOXEL_PATH, prefix=PREFIX):
 
     raw = np.zeros_like(height.raw, dtype=np.uint)
 
@@ -110,7 +110,7 @@ def build_voxel_synapse_count(height, distmap, oversamping, path=VOXEL_PATH, pre
     for dist in distmap:
         for (bottom, density), (top, _) in zip(dist[:-1], dist[1:]):
             idx = np.nonzero((bottom < height.raw) & (height.raw < top))
-            raw[idx] = int(voxel_volume * density * oversamping)
+            raw[idx] = int(voxel_volume * density * oversampling)
 
     return height.with_data(raw)
 
