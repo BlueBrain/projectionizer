@@ -1,0 +1,14 @@
+CommonParams:
+  circuit_config: /gpfs/bbp.cscs.ch/project/proj42/CircuitRelease/r2017.06b/CircuitConfig
+  geometry: CA3_CA1
+  n_total_chunks: 1
+  sgid_offset: 0 # The offset from which to start numbering the fiber IDs
+
+BuildConnectivity:
+  atlas: /gpfs/bbp.cscs.ch/project/proj42/CircuitRelease/r2017.06b/volume/volume.nrrd
+  region_map: /gpfs/bbp.cscs.ch/project/proj42/atlas/9B1F97DD-13B8-4FCF-B9B1-59E4EBE4B5D8/CA1/hierarchy.json
+  depth_profile: # Bezaire and Soltezs 2013
+    SLM: 0.0026035684
+    SR:  0.6793016311
+    SP:  0.0705260740
+    SO:  0.2475687265

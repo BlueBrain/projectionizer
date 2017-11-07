@@ -1,0 +1,31 @@
+CommonParams:
+  circuit_config: /gpfs/bbp.cscs.ch/project/proj1/circuits/SomatosensoryCxS1-v5.r0/O1/merged_circuit/CircuitConfig
+  geometry: CA3_CA1  # Currently support one of: {hex (hexagonal), s1hl}
+  n_total_chunks: 10 #  The number of chunks to create when splitting the full sample
+  sgid_offset: 219423 # The offset from which to start numbering the fiber IDs
+
+  ################################################################################
+  # Stuff specific to S1HL
+  ################################################################################
+  voxel_path: /gpfs/bbp.cscs.ch/project/proj64/circuits/S1HL/20171004/.atlas/
+  prefix: C63CB79F-392A-4873-9949-0D347682253A-
+  region_name: primary somatosensory cortex, hindlimb region
+  layer6_name: primary somatosensory cortex, hindlimb region, layer 6
+
+FullSampleTask:
+  n_slices: -1 #  The number of voxels to sample (-1 = all)
+
+VoxelSynapseCountTask:
+  oversampling: 2.6 # The number of sampled synapse is: expected count * oversampling
+
+FiberAssignementTask:
+  sigma: 20 # The probability of pairing between a fiber and a synapse is proportional to a gaussian of the distance fiber-synapse parameter. This is its sigma.
+
+ClosestFibersPerVoxel:
+  closest_count: 25 # closest_count is the maximum number of the closest fibers to consider for the pairing with a synapse
+
+CutoffMeans:
+  synaptical_fraction: 0.6806526806526807 # =~ 1.6 / 2.6 * 0.73 / 0.66
+
+ChooseConnectionsToKeep:
+  cutoff_var: 1.0 # the sigma of the normal cumulative distribution function used for selecting if connections are kept or not

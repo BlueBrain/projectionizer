@@ -1,8 +1,7 @@
 '''Data and geometry related to somatosensory cortex'''
+import logging
 
 import numpy as np
-import numpy.matlib
-from scipy.stats import norm  # pylint: disable=no-name-in-module
 
 LAYERS = ('1', '2', '3', '4', '5', '6', )
 # layer thickness from recipe
@@ -19,8 +18,38 @@ LAYER_STARTS = {'6': 0,
 LAYER_THICKNESS = {name: float(thickness) for name, thickness in
                    zip(LAYERS, LAYER_THICKNESS)}
 
-CLOSEST_COUNT = 25
-EXCLUSION = 60 # 3 times std?
+EXCLUSION = 60  # 3 times std?
+L = logging.getLogger(__name__)
+
+y_distmap_3_4 = (
+    (0.05, 0.01),
+    (0.15, 0.02),
+    (0.25, 0.03),
+    (0.35, 0.04),
+    (0.45, 0.04),
+    (0.55, 0.04),
+    (0.65, 0.03),
+    (0.75, 0.02),
+    (0.85, 0.01),
+    (0.95, 0.01),
+)
+y_distmap_5_6 = (
+    (0.05, 0.005),
+    (0.15, 0.01),
+    (0.25, 0.015),
+    (0.35, 0.02),
+    (0.45, 0.0225),
+    (0.55, 0.025),
+    (0.65, 0.0275),
+    (0.75, 0.03),
+    (0.85, 0.015),
+    (0.95, 0.005),
+)
+
+
+def get_distmap():
+    return [recipe_to_height_and_density('4', 0, '3', 0.5, y_distmap_3_4),
+            recipe_to_height_and_density('6', 0.85, '5', 0.6, y_distmap_5_6), ]
 
 
 def recipe_to_height_and_density(low_layer,
@@ -55,187 +84,8 @@ def recipe_to_height_and_density(low_layer,
             for low, density in zip(heights, density)]
 
 
-class SynapseColumns(object):
-    '''columns index in nrn.h5 style file'''
-    SGID = 0
-    DELAY = 1
-
-    ISEC = 2
-    IPT = 3
-    OFFSET = 4
-
-    WEIGHT = 8  # G / CONDUCTANCE
-    U = 9
-    D = 10
-    F = 11
-    DTC = 12
-    SYNTYPE = 13
-
-
-# from thalamocorticalProjectionRecipe_O1_TCs2f_7synsPerConn_os2p6_specific.xml
-# synaptic parameters are mainly derived from Amitai, 1997;
-# Castro-Alamancos & Connors 1997; Gil et al. 1997; Bannister et al. 2010 SR
-def get_gamma_parameters(mn, sd):
-    '''from projection_utility.py'''
-    return ((mn / sd) ** 2, (sd ** 2) / mn)  # k, theta or shape, scale
-
-
-SYNAPSE_PARAMS = {
-    'id': 120,
-    # peak synaptic conductance for generalized e-e after PSP scaling 0.792+-0.528 EM
-    'gsyn': get_gamma_parameters(0.792, 0.528),
-    'Use': get_gamma_parameters(0.75, 0.02),  # Analogous to transmitter release probability SR -->
-    'D': get_gamma_parameters(671, 17),  # Time constant for recovery from depression SR -->
-    'F': get_gamma_parameters(17, 5),  # Time constant for recovery from facilitation SR -->
-    'DTC': get_gamma_parameters(1.74, 0.2),  # decay time constant SR -->
-    # Absolute synaptic efficacy - not used, but a placeholder continuing from legacy nrn.h5 SR -->
-    'Ase': get_gamma_parameters(1, 0.01),
-}
-
-
-def create_synapse_data(synapses):
-    '''return numpy array for `synapses` with the correct parameters
-
-    Args:
-        synapses(pd.DataFrame): with the following columns:
-            sgid, y, Section.Id, Segment.Id, location
-    '''
-    synapse_count = len(synapses)
-    synapse_data = np.zeros((synapse_count, 19), dtype=np.float)
-
-    synapse_data[:, SynapseColumns.SGID] = synapses['sgid'].values
-
-    # Note: this has to be > 0
-    # (https://bbpteam.epfl.ch/project/issues/browse/NSETM-256?focusedCommentId=56509)
-    # TODO: this needs to be a 'distance', for hex, 'y' makes sense, for 3D space, maybe less so
-    CONDUCTION_VELOCITY = 300. #micron/ms, from original Projectionizer: InputMappers.py
-    synapse_data[:, SynapseColumns.DELAY] = synapses['y'].values / CONDUCTION_VELOCITY
-
-    synapse_data[:, SynapseColumns.ISEC] = synapses['Section.ID'].values
-    synapse_data[:, SynapseColumns.IPT] = synapses['Segment.ID'].values
-    offset = synapses['location'].values * np.random.ranf(synapse_count)
-    synapse_data[:, SynapseColumns.OFFSET] = offset
-
-    def gamma(param):
-        '''given `param`, look it up in SYNAPSE_PARAMS, return random pulls from gamma dist '''
-        return np.random.gamma(shape=SYNAPSE_PARAMS[param][0],
-                               scale=SYNAPSE_PARAMS[param][1],
-                               size=synapse_count)
-
-    synapse_data[:, SynapseColumns.WEIGHT] = gamma('gsyn')
-    synapse_data[:, SynapseColumns.U] = gamma('Use')
-    synapse_data[:, SynapseColumns.D] = gamma('D')
-    synapse_data[:, SynapseColumns.F] = gamma('F')
-    synapse_data[:, SynapseColumns.DTC] = gamma('DTC')
-    synapse_data[:, SynapseColumns.SYNTYPE] = SYNAPSE_PARAMS['id']
-
-    return synapse_data
-
-
-def calc_distances(locations, virtual_fibers):
-    '''find closest point from locations to fibers
-
-    virtual_fibers is a Nx6 matrix, w/ 0:3 being the start positions,
-    and 3:6 being the direction vector
-    '''
-    locations_count = len(locations)
-    virtual_fiber_count = len(virtual_fibers)
-
-    starts = virtual_fibers[:, 0:3]
-    directions = virtual_fibers[:, 3:6]
-    directions /= np.linalg.norm(directions, axis=1)[:, np.newaxis]
-
-    starts = np.repeat(starts, len(locations), axis=0)
-    directions = np.repeat(directions, len(locations), axis=0)
-    locations = numpy.matlib.repmat(locations, virtual_fiber_count, 1)
-
-    distances = np.linalg.norm(np.cross((locations - starts), directions), axis=1)
-
-    distances = distances.reshape(virtual_fiber_count, locations_count)
-    return distances.T
-
-
-def get_voxelized_fiber_distances(synapse_counts,
-                                  virtual_fibers,
-                                  closest_count=CLOSEST_COUNT,
-                                  exclusion=EXCLUSION):
-    '''for each occupied voxel in `synapse_counts`, find the `closest_count` number
-    of virtual fibers to it
-
-    Returns:
-        dict(tuple(i, j, k) voxel -> idx into virtual_fibers
-    '''
-    ijks = np.transpose(np.nonzero(synapse_counts.raw))
-    pos = synapse_counts.indices_to_positions(ijks)
-    pos += synapse_counts.voxel_dimensions / 2.
-    distances = calc_distances(pos, virtual_fibers)
-
-    # shortcut: exclusion defines a cube around the point, the distance can't be
-    # more than the sqrt(2) from that
-    distances[1.41 * exclusion < distances] = np.nan
-
-    # check if there are intersections w/ the virtual_fibers and occupied voxels
-    # np.count_nonzero(np.any(np.invert(np.isnan(distances)), axis=1))
-
-    closest_count = min(closest_count, distances.shape[1] - 1)
-
-    # get closest_count closest virtual fibers
-    partition = np.argpartition(distances, closest_count, axis=1)[:, :closest_count]
-    ret = {tuple(ijk): p for ijk, p in zip(ijks, partition)}
-    return ret
-
-
-# from recipe/Projection_Recipes/Thalamocortical_VPM/
-# /thalamocorticalProjectionRecipe_O1_TCs2f_7synsPerConn*.xml
-SIGMA = 20.
-
-
-def assign_synapse_fiber(locations,
-                         synapse_counts,
-                         virtual_fibers,
-                         voxelized_fiber_distances,
-                         sigma=SIGMA,
-                         closest_count=CLOSEST_COUNT):
-    '''
-
-    Args:
-        locations(np.arraya of Nx3): xyz positions of synapses
-        synapse_counts(VoxelData): voxels occupied by synapses
-        virtual_fibers(np.array Nx6): point and direction vectors of virtual_fibers
-        voxelized_fiber_distances(dict tuple(ijk) -> idx of closest virtual fibers):
-        fast lookup for distances, computed with get_voxelized_fiber_distances
-        sigma(float): used for normal distribution
-    '''
-    default = np.zeros(closest_count)
-    fiber_idx = [voxelized_fiber_distances.get(tuple(ijk), default)
-                 for ijk in synapse_counts.positions_to_indices(locations)]
-    fiber_idx = np.vstack(fiber_idx).astype(np.int)
-
-    fibers = []
-    for loc, fidx in zip(locations, fiber_idx):
-        distances = calc_distances(loc[np.newaxis], virtual_fibers[fidx, :])
-        # want to choose the 'best' one based on a normal distribution based on distance
-        prob = norm.pdf(distances, 0, sigma)
-        prob = np.nan_to_num(prob)
-
-        idx = choice(prob)
-        fibers.append(fidx[idx[0]])
-
-    return fibers
-
-
 def mask_far_fibers(fibers, origin, exclusion_box):
     """Mask fibers outside of exclusion_box centered on origin"""
     fibers = np.rollaxis(fibers, 1)
     fibers = np.abs(fibers - origin) < exclusion_box
     return np.all(fibers, axis=2).T
-
-
-def choice(probabilities):
-    '''manually sample one of them: would use np.random.choice, but that's only the 1d case
-    '''
-    cum_distances = np.cumsum(probabilities, axis=1)
-    cum_distances = cum_distances / np.sum(probabilities, axis=1, keepdims=True)
-    rand_cutoff = np.random.random((len(cum_distances), 1))
-    idx = np.argmax(rand_cutoff < cum_distances, axis=1)
-    return idx

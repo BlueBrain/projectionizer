@@ -1,46 +1,31 @@
 #!/usr/bin/env python
-import argparse
 import logging
 import os
+from os.path import join
+
+import luigi
 import matplotlib.pyplot as plt
-from examples.decorators import load_feather
-from examples.analysis import synapse_density, syns_per_connection, plot_used_minicolumns, column_scatter_plots
+
+from apps.parser import common_parser, luigi_params
 
 L = logging.getLogger(__name__)
 
 
-def get_parser():
-    '''return the argument parser'''
-    parser = argparse.ArgumentParser()
-    parser.add_argument('input', help='Input file')
-
-    parser.add_argument('-o', '--output', default='.',
-                        help='Output directory')
-    parser.add_argument('-v', '--verbose', action='count', dest='verbose', default=0,
-                        help='-v for INFO, -vv for DEBUG')
-    parser.add_argument(
-        '-d', '--original', default='~/proj30/mgevaert/ncsThalamocortical_VPM_tcS2F_2p6_ps.feather', help='Path to the original data')
-    return parser
-
-
 def main(args):
-    logging.basicConfig(level=(logging.WARNING,
-                               logging.INFO,
-                               logging.DEBUG)[min(args.verbose, 2)])
+    logging.basicConfig(level=logging.DEBUG)
+    cmd = ['Analyse',
+           '--module', 'projectionizer.analysis',
+           '--folder', args.output, '--local-scheduler']
 
-    import pandas
-    orig_data = pandas.read_feather(os.path.expanduser(args.original))
-    keep_syn = load_feather(os.path.expanduser(args.input))
-    import examples.SSCX_Thalamocortical_VPM_S1HL as model
-
-    synapse_density(orig_data, keep_syn, model.get_distmap())
-    syns_per_connection(orig_data, keep_syn)
-    column_scatter_plots(keep_syn, args.output, fiber_locations=None)
-    plot_used_minicolumns(keep_syn)
-
-    plt.show()
+    cmd += luigi_params(join(args.output, 'config.yaml'), args)
+    L.debug('Running command: {}'.format(cmd))
+    luigi.run(cmd)
+    if args.show:
+        plt.show()
 
 
 if __name__ == '__main__':
-    PARSER = get_parser()
-    main(PARSER.parse_args())
+    parser = common_parser()
+    parser.add_argument('-s', '--show',  action='store_true', help='Call plt.show() at the end')
+
+    main(parser.parse_args())

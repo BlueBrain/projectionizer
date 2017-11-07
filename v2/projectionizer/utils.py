@@ -1,9 +1,19 @@
 '''Utils for projectionizer'''
-import numpy as np
+import json
+import os
+from multiprocessing import Pool
+from os.path import join
 
+import luigi
+import numpy as np
+import pandas as pd
+import voxcell
+import yaml
 from bluepy.v2.enums import Section, Segment
-from neurom import NeuriteType
 from dask.distributed import Client
+from luigi import IntParameter, Parameter
+from neurom import NeuriteType
+from voxcell import build
 
 
 class ErrorCloseToZero(Exception):
@@ -11,35 +21,66 @@ class ErrorCloseToZero(Exception):
     pass
 
 
-# bluepy.v2 returns a DataFrame with the start and endpoint of the segments when performing a query,
-# simplify addressing them using the following
-SEGMENT_START_COLS = [Segment.X1, Segment.Y1, Segment.Z1, ]
-SEGMENT_END_COLS = [Segment.X2, Segment.Y2, Segment.Z2, ]
+def _write_feather(name, df):
+    """Write a DataFrame to disk using feather serialization format"""
+    df = df.copy()
+    df.columns = map(str, df.columns)
+    df = df.reset_index(drop=True)
+    df.to_feather(name)
+
 
 IJK = list('ijk')
 X, Y, Z = 0, 1, 2
 
 
-def normalize_probability(p):
+class CommonParams(luigi.Config):
+    """Paramaters that must be passed to all Task"""
+    circuit_config = Parameter()
+    folder = Parameter()
+    geometry = Parameter()
+    n_total_chunks = IntParameter()
+    sgid_offset = luigi.IntParameter()
+
+    # S1HL region parameters
+    voxel_path = Parameter(default=None)
+    prefix = Parameter(default=None)
+    region_name = Parameter(default=None)
+    layer6_name = Parameter(default=None)
+
+
+def load(filename):
+    """Load a Pandas/Nrrd file based on the extension"""
+    if filename.endswith('feather'):
+        return pd.read_feather(filename)
+    elif filename.endswith('nrrd'):
+        return voxcell.VoxelData.load_nrrd(filename)
+    raise Exception('Do not know how open: {}'.format(filename))
+
+
+def load_all(inputs):
+    return [load(x.path) for x in inputs]
+
+
+def cloned_tasks(this, tasks):
+    '''Utils function for self.requires()
+    Returns: clone and returns a list of required tasks'''
+    return [this.clone(task) for task in tasks]
+
+
+def map_parallelize(func, *it):
+    pool = Pool(14)
+    ret = pool.map(func, *it)
+    pool.close()
+    pool.join()
+    return ret
+
+
+def normalize_probability(p, axis=None):
     """ Normalize vector of probabilities `p` so that sum(p) == 1. """
     norm = np.sum(p)
     if norm < 1e-7:
         raise ErrorCloseToZero("Could not normalize almost-zero vector")
     return p / norm
-
-
-def segment_pref(df):
-    '''don't want axons, assign probability of 0 to them, and 1 to other neurite types,
-    this will be normalized by the caller
-    '''
-    return (df[Section.NEURITE_TYPE] != NeuriteType.axon).astype(float)
-
-def segment_pref_length(df):
-    '''don't want axons, assign probability of 0 to them, and 1 to other neurite types,
-    multiplied by the length of the segment
-    this will be normalized by the caller
-    '''
-    return df['segment_length'] * (df[Section.NEURITE_TYPE] != NeuriteType.axon).astype(float)
 
 
 def in_bounding_box(min_xyz, max_xyz, df):
@@ -53,13 +94,27 @@ def in_bounding_box(min_xyz, max_xyz, df):
     return ret
 
 
-def map_func(parallelize):
-    if parallelize:
-        client = Client(memory_limit=5e9)
+def choice(probabilities):
+    '''Given an array of shape (N, M) of probabilities (not necessarily normalized)
+    returns an array of shape (N), with one element choosen from every rows according
+    to the probabilities normalized on this row
+    '''
+    cum_distances = np.cumsum(probabilities, axis=1)
+    cum_distances = cum_distances / np.sum(probabilities, axis=1, keepdims=True)
+    rand_cutoff = np.random.random((len(cum_distances), 1))
+    idx = np.argmax(rand_cutoff < cum_distances, axis=1)
+    return idx
 
-        def map_(func, it):
-            res = client.map(func, it)
-            return client.gather(res)
-        return map_
-    else:
-        return map
+
+def mask_by_region(region_name, path, prefix):
+    '''
+    Args:
+        region_name(str): name to look up in atlas
+        path(str): path to where nrrd files are, must include 'brain_regions.nrrd'
+        prefix(str): Prefix (ie: uuid) used to identify atlas/voxel set
+    '''
+    atlas = voxcell.VoxelData.load_nrrd(join(path, prefix + 'brain_regions.nrrd'))
+    with open(join(path, prefix[:-1] + '.json')) as fd:
+        hierarchy = voxcell.Hierarchy(json.load(fd))
+    mask = build.mask_by_region_names(atlas.raw, hierarchy, [region_name])
+    return mask
