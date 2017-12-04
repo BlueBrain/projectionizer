@@ -6,6 +6,7 @@ from bluepy.v2.circuit import Circuit
 from bluepy.v2.enums import Cell, Section, Segment
 from luigi import FloatParameter, Parameter
 from luigi.local_target import LocalTarget
+from neurom.core.dataformat import COLS
 from scipy.spatial.distance import cdist
 from scipy.stats import norm
 from voxcell import RegionMap, VoxelData
@@ -71,9 +72,9 @@ def get_segment_infos(gid, circuit, atlas, layer_map):
     '''Returns: a DataFrame with data about each segment for the given neurom.
     DataFrame columns are [Segment.LENGTH, Segment.REGION,
                            Section.NeuriteType, Section.BRANCH_ORDER]'''
+
     segment_features = circuit.morph.segment_features(
-        gid, [Segment.LENGTH, Segment.REGION], atlas=atlas
-    )
+        gid, [Segment.LENGTH, Segment.REGION], atlas=atlas)
     segment_features[Segment.REGION] = segment_features[Segment.REGION].map(layer_map)
     segment_features.dropna(inplace=True)
 
@@ -124,13 +125,8 @@ class BuildConnectivity(CommonParams):
             post_segment_info = get_segment_infos(post_gid, circuit, atlas, layer_map)
 
             n_synapses = sum(df.synapse_counts)
-            print('n_synapses: {}'.format(n_synapses))
             segments = choose_segments(n_synapses, post_segment_info, self.depth_profile)
-            dup = np.repeat(df.sgid, df.synapse_counts)
-            segments['sgid'] = dup.values
-            print(type(segments))
-            print(segments)
-            print(post_gid)
+            segments['sgid'] = np.repeat(df.sgid, df.synapse_counts).values
             segments['tgid'] = post_gid
 
             # TODO: remove this line
@@ -139,8 +135,16 @@ class BuildConnectivity(CommonParams):
             all_segments.append(segments)
 
         res = pd.concat(all_segments).convert_objects()
-        print(res)
-        _write_feather(self.output().path, res)
+
+        def pick_location(row):
+            neuron = circuit.morph.get(row.tgid)
+            segment_id = row[Segment.ID]
+            start, end = neuron.points[[segment_id, segment_id + 1], COLS.XYZ]
+            location = start + (end - start) * np.random.random()
+            return pd.Series(location)
+        locations = res.apply(pick_location, axis=1)
+        fat = res.join(locations).rename(columns={0: 'x', 1: 'y', 2: 'z'})
+        _write_feather(self.output().path, fat)
 
     def output(self):
         return LocalTarget('{}/synapses.feather'.format(self.folder))

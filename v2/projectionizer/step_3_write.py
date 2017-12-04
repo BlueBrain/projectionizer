@@ -205,21 +205,10 @@ class WriteUserTargetTxt(CommonParams):
     def run(self):
         synapses = load(self.input().path)
         with self.output().open('w') as outfile:
-            outfile.write('Target Cell proj_Thalamocortical_VPM_Source')
-            outfile.write('{\n')
+            outfile.write('Target Cell proj_Thalamocortical_VPM_Source {\n')
             for tgid in synapses.sgid.unique():
                 outfile.write('    a{}\n'.format(tgid))
             outfile.write('}\n')
 
     def output(self):
         return LocalTarget('{}/user.target'.format(self.folder))
-
-
-class DoAll(CommonParams):
-    """Launch the full projectionizer pipeline"""
-
-    def requires(self):
-        return [self.clone(WriteNrnH5, efferent=True),
-                self.clone(WriteNrnH5, efferent=False),
-                self.clone(WriteSummary),
-                self.clone(WriteUserTargetTxt)]

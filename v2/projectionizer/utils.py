@@ -39,6 +39,7 @@ class CommonParams(luigi.Config):
     geometry = luigi.Parameter()
     n_total_chunks = luigi.IntParameter()
     sgid_offset = luigi.IntParameter()
+    oversampling = luigi.FloatParameter()
 
     # S1HL/S1 region parameters
     voxel_path = luigi.Parameter(default=None)
@@ -51,6 +52,9 @@ def load(filename):
         return pd.read_feather(filename)
     elif filename.endswith('nrrd'):
         return voxcell.VoxelData.load_nrrd(filename)
+    elif filename.endswith('json'):
+        with open(filename) as infile:
+            return json.load(infile)
     raise Exception('Do not know how open: {}'.format(filename))
 
 

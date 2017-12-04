@@ -8,16 +8,17 @@ import luigi
 import numpy as np
 import pandas as pd
 import voxcell
+import yaml
 from bluepy.v2.circuit import Circuit
 from bluepy.v2.enums import Section, Segment
-from luigi import FloatParameter, IntParameter
+from luigi import FloatParameter, IntParameter, Parameter
 from neurom import NeuriteType
 from tqdm import tqdm
 
-from projectionizer.sscx import REGION_INFO, get_distmap
+from projectionizer.sscx import REGION_INFO, recipe_to_height_and_density
 from projectionizer.utils import (CommonParams, ErrorCloseToZero,
                                   _write_feather, in_bounding_box, load,
-                                  map_parallelize, mask_by_region,
+                                  load_all, map_parallelize, mask_by_region,
                                   normalize_probability)
 
 L = logging.getLogger(__name__)
@@ -46,14 +47,14 @@ class VoxelSynapseCountTask(CommonParams):
     oversampling = FloatParameter()
 
     def requires(self):
-        return self.clone(HeightTask)
+        return self.clone(HeightTask), self.clone(SynapseDensity)
 
     def run(self):
-        height = voxcell.VoxelData.load_nrrd(self.input().path)
+        height, synapse_density = load_all(self.input())
         raw = np.zeros_like(height.raw, dtype=np.uint)  # pylint: disable=no-member
 
         voxel_volume = np.prod(np.abs(height.voxel_dimensions))
-        for dist in get_distmap():
+        for dist in synapse_density:
             for (bottom, density), (top, _) in zip(dist[:-1], dist[1:]):
                 idx = np.nonzero((bottom < height.raw) & (height.raw < top))
                 raw[idx] = int(voxel_volume * density * self.oversampling)
@@ -208,3 +209,17 @@ class SampleChunkTask(CommonParams):
 
     def output(self):
         return luigi.local_target.LocalTarget('{}/sampling_{}.feather'.format(self.folder, self.chunk_num))
+
+
+class SynapseDensity(CommonParams):
+    density_params = Parameter()
+
+    def run(self):
+        density_params = yaml.load(self.density_params)
+        res = [recipe_to_height_and_density(data['low_layer'], data['low_fraction'],
+                                            data['high_layer'], data['high_fraction'], data['density_profile']) for data in density_params]
+        with self.output().open('w') as outfile:
+            json.dump(res, outfile)
+
+    def output(self):
+        return luigi.local_target.LocalTarget('{}/synaptic_density_profile.json'.format(self.folder))

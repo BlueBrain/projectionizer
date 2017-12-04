@@ -12,17 +12,17 @@ from projectionizer.utils import mask_by_region
 L = logging.getLogger(__name__)
 XYZUVW = list('xyzuvw')
 
-LAYERS = ('1', '2', '3', '4', '5', '6', )
+LAYERS = range(1, 7)
 # layer thickness from recipe
 LAYER_THICKNESS = np.array([164.94915873, 148.87602025, 352.92508322,
                             189.57183895, 525.05585701, 700.37845971, ])
 LAYER_BOUNDARIES = np.cumsum(list(reversed(LAYER_THICKNESS)))
-LAYER_STARTS = {'6': 0,
-                '5': LAYER_BOUNDARIES[0],
-                '4': LAYER_BOUNDARIES[1],
-                '3': LAYER_BOUNDARIES[2],
-                '2': LAYER_BOUNDARIES[3],
-                '1': LAYER_BOUNDARIES[4],
+LAYER_STARTS = {6: 0,
+                5: LAYER_BOUNDARIES[0],
+                4: LAYER_BOUNDARIES[1],
+                3: LAYER_BOUNDARIES[2],
+                2: LAYER_BOUNDARIES[3],
+                1: LAYER_BOUNDARIES[4],
                 }
 LAYER_THICKNESS = {name: float(thickness) for name, thickness in
                    zip(LAYERS, LAYER_THICKNESS)}
@@ -36,36 +36,6 @@ REGION_INFO = {'s1hl':
                 'layer6': [1124, 1130, 1142, 1148, ],
                 }
                }
-
-y_distmap_3_4 = (
-    (0.05, 0.01),
-    (0.15, 0.02),
-    (0.25, 0.03),
-    (0.35, 0.04),
-    (0.45, 0.04),
-    (0.55, 0.04),
-    (0.65, 0.03),
-    (0.75, 0.02),
-    (0.85, 0.01),
-    (0.95, 0.01),
-)
-y_distmap_5_6 = (
-    (0.05, 0.005),
-    (0.15, 0.01),
-    (0.25, 0.015),
-    (0.35, 0.02),
-    (0.45, 0.0225),
-    (0.55, 0.025),
-    (0.65, 0.0275),
-    (0.75, 0.03),
-    (0.85, 0.015),
-    (0.95, 0.005),
-)
-
-
-def get_distmap():
-    return [recipe_to_height_and_density('4', 0, '3', 0.5, y_distmap_3_4),
-            recipe_to_height_and_density('6', 0.85, '5', 0.6, y_distmap_5_6), ]
 
 
 def recipe_to_height_and_density(low_layer,
@@ -119,7 +89,7 @@ def load_s1_virtual_fibers(geometry, voxel_path, prefix):
     idx = np.transpose(np.nonzero(distance.raw == 0.0))
     fiber_pos = distance.indices_to_positions(idx)
 
-    count = None # should be a parameter
+    count = None  # should be a parameter
     if count is not None:
         fiber_pos = fiber_pos[np.random.choice(np.arange(len(fiber_pos)), count)]
 

@@ -12,3 +12,33 @@ BuildConnectivity:
     SR:  0.6793016311
     SP:  0.0705260740
     SO:  0.2475687265
+
+WriteNrnH5:
+  synapse_type: 120 # excitatory
+
+  # The following parameters are the mean and sigma of the gamma function (np.random.gamma) used
+  # to sample the synapse parameters
+
+  # peak synaptic conductance for generalized e-e after PSP scaling 0.792+-0.528 EM
+  gsyn_mean: 0.792
+  gsyn_sigma: 0.528
+
+  # Analogous to transmitter release probability SR
+  use_mean: 0.75
+  use_sigma: 0.02
+
+  # Time cproj_nrn.h5onstant for recovery from depression SR
+  D_mean: 671
+  D_sigma: 17
+
+  # Time constant for recovery from facilitation SR
+  F_mean: 17
+  F_sigma: 5
+
+  # decay time constant SR
+  DTC_mean: 1.74
+  DTC_sigma: 0.2
+
+  # Absolute synaptic efficacy - not used, but a placeholder continuing from legacy nrn.h5 SR
+  ASE_mean: 1
+  ASE_sigma: 0.01

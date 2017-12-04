@@ -4,6 +4,19 @@ CommonParams:
   n_total_chunks: 10 #  The number of chunks to create when splitting the full sample
   sgid_offset: 250000 # The offset from which to start numbering the fiber IDs
 
+SynapseDensity:
+  density_params:
+    - low_layer: 4
+      low_fraction: 0
+      high_layer: 3
+      high_fraction: 0.5
+      density_profile: [[0.05, 0.01], [0.15, 0.02], [0.25, 0.03], [0.35, 0.04], [0.45, 0.04], [0.55, 0.04], [0.65, 0.03], [0.75, 0.02], [0.85, 0.01], [0.95, 0.01]]
+    - low_layer: 6
+      low_fraction: 0.85
+      high_layer: 5
+      high_fraction: 0.6
+      density_profile: [[0.05, 0.005], [0.15, 0.01], [0.25, 0.015], [0.35, 0.02], [0.45, 0.0225], [0.55, 0.025], [0.65, 0.0275], [0.75, 0.03], [0.85, 0.015], [0.95, 0.005]]
+
 FullSampleTask:
   n_slices: -1 #  The number of voxels to sample (-1 = all)
 

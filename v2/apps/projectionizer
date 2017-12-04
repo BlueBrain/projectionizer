@@ -5,17 +5,49 @@ You can run this example like this:
             $ luigi --module examples.hello_world examples.HelloWorldTask --local-scheduler
 If that does not work, see :ref:`CommandLine`.
 """
+import argparse
 import logging
 import os
 import sys
+from os import getenv
 from os.path import dirname, join, realpath
 from shutil import copyfile
 
 import luigi
-
-from apps.parser import common_parser, luigi_params
+import matplotlib.pyplot as plt
+import yaml
 
 L = logging.getLogger(__name__)
+
+
+def common_parser():
+    '''return the argument parser'''
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-o', '--output', help='Output directory', required=True)
+    parser.add_argument('-c', '--config',  default=None,
+                        help='The projectionizer YAML config file. Must be passed when running the analysis for the first time. See templates/ folder for some examples')
+    parser.add_argument('-l', '--no-local-scheduler',  action='store_true',
+                        help='Do not use luigi\'s local scheduler (luigi daemon (luigid) must be running)')
+    parser.add_argument('-s', '--show',  action='store_true', help='Call plt.show() at the end')
+
+    return parser
+
+
+def luigi_params(config, args):
+    '''Prepare the list of parameters to be passed to luigi.run command'''
+    with open(config) as configfile:
+        config_list = yaml.load(configfile)
+
+    cmd = list()
+    for task, options in config_list.items():
+        for option, value in options.items():
+            prefix = task + '-' if task != 'CommonParams' else ''
+            cmd += ['--' + prefix + option.replace('_', '-'), str(value)]
+
+    if not args.no_local_scheduler:
+        cmd.append('--local-scheduler')
+
+    return cmd
 
 
 if __name__ == '__main__':
@@ -42,9 +74,8 @@ if __name__ == '__main__':
             args.config, args.output))
 
     cmd = ['DoAll', '--folder', args.output, '--module',
-           'projectionizer.step_3_write', '--workers', '1',
-           ]
+           'projectionizer.analysis', '--workers', '1', ]
 
     cmd += luigi_params(config, args)
     L.debug('Calling luigi.run() with the following params: {}'.format(' '.join(cmd)))
-    sys.exit(luigi.run(cmd) == 1)
+    luigi.run(cmd)

@@ -69,14 +69,13 @@ class CutoffMeans(CommonParams):
         synaptical_fraction(float): the wanted fraction of synapse below the cutoff
 
     Returns:
-        dict(mtype -> cutoff_mean) where cutoff_mean is the value for which the cumulated number          of synapses belonging to all connection having at maximum "cutoff_mean" synapses represents "synaptical_fraction" of the total number of synapse
+        dict(mtype -> cutoff_mean) where cutoff_mean is the value for which the cumulated number of synapses belonging to all connection having at maximum "cutoff_mean" synapses represents "fraction_to_remove" of the total number of synapse
 
     From thalamocortical_ps_s2f.py
         compute cutoff by inverse interpolation of target fraction on cumulative syncount
         distribution approximation: assumes hard cutoff, i.e. does not account for moments beyond
         mean.  Should be OK if dist is fairly symmetrical.
     '''
-    synaptical_fraction = luigi.FloatParameter()
 
     def requires(self):
         return self.clone(ReduceGroupByConnectionTask)
@@ -84,9 +83,11 @@ class CutoffMeans(CommonParams):
     def run(self):
         mtype_sgid_tgid = load(self.input().path)
         mtypes, dfs = zip(*filter(lambda (_, df): not df.empty, mtype_sgid_tgid.groupby('mtype')))
+        fraction_to_remove = 1 - 1 / self.oversampling
+        print('fraction_to_remove: {}'.format(fraction_to_remove))
         res = pd.DataFrame({'mtype': pd.Series(mtypes, dtype='category'),
                             'cutoff': [find_cutoff_mean_per_mtype(df.loc[:, '0'].value_counts(sort=False).sort_index(),
-                                                                  self.synaptical_fraction)
+                                                                  fraction_to_remove)
                                        for df in dfs]})
         _write_feather(self.output().path, res)
 
@@ -117,7 +118,6 @@ class ChooseConnectionsToKeep(CommonParams):
 
 
 class PruneChunk(CommonParams):
-
     chunk_num = luigi.IntParameter()
 
     def requires(self):
@@ -139,9 +139,7 @@ class PruneChunk(CommonParams):
 class ReducePrune(CommonParams):
 
     def requires(self):
-
-        return [self.clone(BuildConnectivity)] if self.geometry == "CA3_CA1" else \
-            [self.clone(PruneChunk, chunk_num=i) for i in range(self.n_total_chunks)]
+        return [self.clone(PruneChunk, chunk_num=i) for i in range(self.n_total_chunks)]
 
     def run(self):
         synapses = pd.concat(load_all(self.input())).rename(
