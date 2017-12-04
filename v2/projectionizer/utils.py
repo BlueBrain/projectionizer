@@ -1,18 +1,16 @@
 '''Utils for projectionizer'''
 import json
-import os
 from multiprocessing import Pool
 from os.path import join
+
+from types import StringTypes
 
 import luigi
 import numpy as np
 import pandas as pd
 import voxcell
-import yaml
-from bluepy.v2.enums import Section, Segment
 from dask.distributed import Client
 from luigi import IntParameter, Parameter
-from neurom import NeuriteType
 from voxcell import build
 
 
@@ -41,11 +39,9 @@ class CommonParams(luigi.Config):
     n_total_chunks = IntParameter()
     sgid_offset = luigi.IntParameter()
 
-    # S1HL region parameters
+    # S1HL/S1 region parameters
     voxel_path = Parameter(default=None)
     prefix = Parameter(default=None)
-    region_name = Parameter(default=None)
-    layer6_name = Parameter(default=None)
 
 
 def load(filename):
@@ -106,15 +102,22 @@ def choice(probabilities):
     return idx
 
 
-def mask_by_region(region_name, path, prefix):
+def mask_by_region(region, path, prefix):
     '''
     Args:
-        region_name(str): name to look up in atlas
+        region(str or list of region ids): name/ids to look up in atlas
         path(str): path to where nrrd files are, must include 'brain_regions.nrrd'
         prefix(str): Prefix (ie: uuid) used to identify atlas/voxel set
     '''
     atlas = voxcell.VoxelData.load_nrrd(join(path, prefix + 'brain_regions.nrrd'))
-    with open(join(path, prefix[:-1] + '.json')) as fd:
+    with open(join(path, 'hierarchy.json')) as fd:
         hierarchy = voxcell.Hierarchy(json.load(fd))
-    mask = build.mask_by_region_names(atlas.raw, hierarchy, [region_name])
+    if isinstance(region, StringTypes):
+        mask = build.mask_by_region_names(atlas.raw, hierarchy, [region])
+    else:
+        region_ids = []
+        for id_ in region:
+            region_ids.extend(hierarchy.collect('id', id_, 'id'))
+
+        mask = build.mask_by_region_ids(atlas.raw, region_ids)
     return mask

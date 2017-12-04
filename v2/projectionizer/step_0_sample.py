@@ -14,7 +14,7 @@ from luigi import FloatParameter, IntParameter
 from neurom import NeuriteType
 from tqdm import tqdm
 
-from projectionizer.sscx import get_distmap
+from projectionizer.sscx import REGION_INFO, get_distmap
 from projectionizer.utils import (CommonParams, ErrorCloseToZero,
                                   _write_feather, in_bounding_box, load,
                                   map_parallelize, mask_by_region,
@@ -77,12 +77,12 @@ class HeightTask(CommonParams):
     '''
 
     def run(self):
-        if self.geometry == 's1hl':
-            mask = mask_by_region(self.region_name,
-                                  self.voxel_path,
-                                  self.prefix)
+        if self.geometry in ('s1hl', 's1', ):
+            prefix = self.prefix or ''
+            region = REGION_INFO[self.geometry]['region']
+            mask = mask_by_region(region, self.voxel_path, prefix)
             distance = voxcell.VoxelData.load_nrrd(
-                join(self.voxel_path, self.prefix + 'distance.nrrd'))
+                join(self.voxel_path, prefix + 'distance.nrrd'))
             distance.raw[np.invert(mask)] = 0.
         elif self.geometry == 'hex':
             from examples.SSCX_Thalamocortical_VPM_hex import voxel_space
@@ -126,12 +126,12 @@ def pick_synapses_voxel(xyz_counts, circuit, segment_pref):
     if not len(segs_df[SEGMENT_START_COLS]):
         return None
 
-    diff = (segs_df[SEGMENT_END_COLS].values.astype(np.float) -
-            segs_df[SEGMENT_START_COLS].values.astype(np.float))
-    segs_df['segment_length'] = np.linalg.norm(diff, axis=1)
+    segs_df['segment_length'] = np.linalg.norm(
+        (segs_df[SEGMENT_END_COLS].values.astype(np.float) -
+         segs_df[SEGMENT_START_COLS].values.astype(np.float)),
+        axis=1)
 
     prob_density = segment_pref(segs_df)
-
     try:
         prob_density = normalize_probability(prob_density)
     except ErrorCloseToZero:

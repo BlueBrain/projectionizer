@@ -3,6 +3,9 @@ import logging
 
 import numpy as np
 
+
+L = logging.getLogger(__name__)
+
 LAYERS = ('1', '2', '3', '4', '5', '6', )
 # layer thickness from recipe
 LAYER_THICKNESS = np.array([164.94915873, 148.87602025, 352.92508322,
@@ -19,7 +22,16 @@ LAYER_THICKNESS = {name: float(thickness) for name, thickness in
                    zip(LAYERS, LAYER_THICKNESS)}
 
 EXCLUSION = 60  # 3 times std?
-L = logging.getLogger(__name__)
+
+REGION_INFO = {'s1hl':
+               {'region': 'primary somatosensory cortex, hindlimb region',
+                'layer6': 'primary somatosensory cortex, hindlimb region, layer 6',
+                },
+               's1':
+               {'region': [725, 726, 728, 730, ],
+                'layer6': [1124, 1130, 1142, 1148, ],
+                }
+               }
 
 y_distmap_3_4 = (
     (0.05, 0.01),

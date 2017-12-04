@@ -11,29 +11,32 @@ from projectionizer.step_0_sample import SampleChunkTask, VoxelSynapseCountTask
 from projectionizer.utils import (CommonParams, _write_feather, choice, load,
                                   load_all, mask_by_region)
 
-# from recipe/Projection_Recipes/Thalamocortical_VPM/
-# /thalamocorticalProjectionRecipe_O1_TCs2f_7synsPerConn*.xml
 L = logging.getLogger(__name__)
 
 
 class VirtualFibersTask(CommonParams):
-    '''returns a DataFrame with columns ['x', 'y', 'z', 'u', 'v', 'w'] containing the starting position and direction of each fiber
+    '''returns a DataFrame with columns ['x', 'y', 'z', 'u', 'v', 'w']
+    containing the starting position and direction of each fiber
     '''
 
     def run(self):
-        if self.geometry == 's1hl':
-            count = None
-            mask = mask_by_region(self.layer6_name, self.voxel_path, self.prefix)
-            distance_path = join(self.voxel_path, self.prefix + 'distance.nrrd')
+        if self.geometry in ('s1hl', 's1', ):
+            from projectionizer.sscx import REGION_INFO
+
+            prefix = self.prefix or ''
+            layer6_region = REGION_INFO[self.geometry]['layer6']
+            mask = mask_by_region(layer6_region, self.voxel_path, prefix)
+            distance_path = join(self.voxel_path, prefix + 'distance.nrrd')
             distance = voxcell.VoxelData.load_nrrd(distance_path)
             distance.raw[np.invert(mask)] = np.nan
             idx = np.transpose(np.nonzero(distance.raw == 0.0))
             fiber_pos = distance.indices_to_positions(idx)
 
+            count = None #should be a parameter
             if count is not None:
                 fiber_pos = fiber_pos[np.random.choice(np.arange(len(fiber_pos)), count)]
 
-            orientation_path = join(self.voxel_path, self.prefix + 'orientation.nrrd')
+            orientation_path = join(self.voxel_path, prefix + 'orientation.nrrd')
             orientation = voxcell.OrientationField.load_nrrd(orientation_path)
             orientation.raw = orientation.raw.astype(np.int8)
             orientations = orientation.lookup(fiber_pos)
@@ -180,10 +183,8 @@ def assign_synapse_fiber(candidates,
     the synapse and the fiber
 
     Args:
-        locations(np.arraya of Nx3): xyz positions of synapses
+        candidates(np.arraya of Nx3): xyz positions of synapses
         virtual_fibers(np.array Nx6): point and direction vectors of virtual_fibers
-        voxelized_fiber_distances(dict tuple(ijk) -> idx of closest virtual fibers):
-        fast lookup for distances, computed with closest_fibers_per_voxel
         sigma(float): used for normal distribution
     '''
 

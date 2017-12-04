@@ -42,9 +42,9 @@ if __name__ == '__main__':
             args.config, args.output))
 
     cmd = ['DoAll', '--folder', args.output, '--module',
-           'projectionizer.step_3_write', '--workers', '4',
+           'projectionizer.step_3_write', '--workers', '1',
            ]
 
     cmd += luigi_params(config, args)
-    L.debug('Calling luigi.run() with the following params: {}'.format(cmd))
+    L.debug('Calling luigi.run() with the following params: {}'.format(' '.join(cmd)))
     sys.exit(luigi.run(cmd) == 1)

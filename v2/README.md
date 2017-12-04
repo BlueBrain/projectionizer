@@ -21,7 +21,7 @@ This is to ensure that once a job has been started, the parameters won't change.
 # Configuration file
 CommonParams lists params than are common to all tasks.
 - circuit_config: the CircuitConfig absolute path.
-- geometry: the region geometry. Currently supports ('hex' (for hexagonal) and 's1hl' for S1 Hindlimb region).
+- geometry: the region geometry. Currently supports ('hex' (for hexagonal) and 's1hl' for S1 Hindlimb region, 's1' for current s1 defined in NSETM-94).
 - n_total_chunks: in order to prevent RAM from exploding, the computation is splitted into chunks. This is the number of chunks.
 
 # Algorithm
