@@ -1,10 +1,16 @@
 '''Data and geometry related to somatosensory cortex'''
 import logging
+import os
 
 import numpy as np
+import pandas as pd
+
+import voxcell
+from projectionizer.utils import mask_by_region
 
 
 L = logging.getLogger(__name__)
+XYZUVW = list('xyzuvw')
 
 LAYERS = ('1', '2', '3', '4', '5', '6', )
 # layer thickness from recipe
@@ -20,8 +26,6 @@ LAYER_STARTS = {'6': 0,
                 }
 LAYER_THICKNESS = {name: float(thickness) for name, thickness in
                    zip(LAYERS, LAYER_THICKNESS)}
-
-EXCLUSION = 60  # 3 times std?
 
 REGION_INFO = {'s1hl':
                {'region': 'primary somatosensory cortex, hindlimb region',
@@ -101,3 +105,30 @@ def mask_far_fibers(fibers, origin, exclusion_box):
     fibers = np.rollaxis(fibers, 1)
     fibers = np.abs(fibers - origin) < exclusion_box
     return np.all(fibers, axis=2).T
+
+
+def load_s1_virtual_fibers(geometry, voxel_path, prefix):
+    '''
+    '''
+    prefix = prefix or ''
+    layer6_region = REGION_INFO[geometry]['layer6']
+    mask = mask_by_region(layer6_region, voxel_path, prefix)
+    distance_path = os.path.join(voxel_path, prefix + 'distance.nrrd')
+    distance = voxcell.VoxelData.load_nrrd(distance_path)
+    distance.raw[np.invert(mask)] = np.nan
+    idx = np.transpose(np.nonzero(distance.raw == 0.0))
+    fiber_pos = distance.indices_to_positions(idx)
+
+    count = None # should be a parameter
+    if count is not None:
+        fiber_pos = fiber_pos[np.random.choice(np.arange(len(fiber_pos)), count)]
+
+    orientation_path = os.path.join(voxel_path, prefix + 'orientation.nrrd')
+    orientation = voxcell.OrientationField.load_nrrd(orientation_path)
+    orientation.raw = orientation.raw.astype(np.int8)
+    orientations = orientation.lookup(fiber_pos)
+    y_vec = np.array([0, 1, 0])
+    fiber_directions = -y_vec.dot(orientations)
+
+    df = pd.DataFrame(np.hstack((fiber_pos, fiber_directions)), columns=XYZUVW)
+    return df
