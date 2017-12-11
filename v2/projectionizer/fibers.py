@@ -1,9 +1,13 @@
+'''
+Functions related to calculating distances to straight fibers, like the ones used in the SSCX
+hex and S1
+'''
 import logging
 
 import numpy as np
 import pandas as pd
 
-from scipy.stats import norm
+from scipy.stats import norm  # pylint: disable=no-name-in-module
 
 from projectionizer.utils import choice
 

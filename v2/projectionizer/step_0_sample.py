@@ -1,8 +1,10 @@
+'''Step 0; sample segments from circuit to be used as potential synapses
+'''
 import json
 import logging
+import os
 from functools import partial
 from itertools import islice
-from os.path import join
 
 import luigi
 import numpy as np
@@ -83,7 +85,7 @@ class HeightTask(CommonParams):
             region = REGION_INFO[self.geometry]['region']
             mask = mask_by_region(region, self.voxel_path, prefix)
             distance = voxcell.VoxelData.load_nrrd(
-                join(self.voxel_path, prefix + 'distance.nrrd'))
+                os.path.join(self.voxel_path, prefix + 'distance.nrrd'))
             distance.raw[np.invert(mask)] = 0.
         elif self.geometry == 'hex':
             from examples.SSCX_Thalamocortical_VPM_hex import voxel_space
@@ -96,7 +98,8 @@ class HeightTask(CommonParams):
         distance.save_nrrd(self.output().path)
 
     def output(self):
-        return luigi.local_target.LocalTarget('{}/get-heights.nrrd'.format(self.folder))
+        name = '{}/get-heights.nrrd'.format(self.folder)
+        return luigi.local_target.LocalTarget(name)
 
 
 def pick_synapses_voxel(xyz_counts, circuit, segment_pref):
@@ -119,6 +122,7 @@ def pick_synapses_voxel(xyz_counts, circuit, segment_pref):
     segs_df = pd.concat([segs_df, pd.DataFrame(means, columns=list('xyz'))], axis=1)
 
     def _min_max_axis(min_xyz, max_xyz):
+        '''get min/max axis'''
         return np.minimum(min_xyz, max_xyz), np.maximum(min_xyz, max_xyz)
 
     in_bb = in_bounding_box(*_min_max_axis(min_xyz, max_xyz), df=segs_df)
@@ -149,11 +153,14 @@ def pick_synapses(circuit, synapse_counts, n_islice):
     '''Sample segments from circuit
     Args:
         circuit(Circuit): The circuit to sample segment from
-        synapse_counts(VoxelData): A VoxelData containing the number of segment to be sampled in each voxel
-        n_islice(int|None): Number of voxels to fill, default to None=all. To be used for testing purposes.
+        synapse_counts(VoxelData):
+            A VoxelData containing the number of segment to be sampled in each voxel
+        n_islice(int|None):
+            Number of voxels to fill, default to None=all. To be used for testing purposes.
 
     Returns:
-        a DataFrame with the following columns: ['tgid', 'Section.ID', 'Segment.ID', 'segment_length', 'x', 'y', 'z']
+        a DataFrame with the following columns:
+            ['tgid', 'Section.ID', 'Segment.ID', 'segment_length', 'x', 'y', 'z']
     '''
 
     idx = np.nonzero(synapse_counts.raw)
@@ -173,12 +180,16 @@ def pick_synapses(circuit, synapse_counts, n_islice):
 
 
 class FullSampleTask(CommonParams):
+    '''Sample segments from circuit
+    '''
     n_slices = IntParameter()
 
     def requires(self):
         return self.clone(VoxelSynapseCountTask)
 
     def run(self):
+        # pylint thinks load() isn't returning a DataFrame
+        # pylint: disable=maybe-no-member
         voxels = load(self.input().path)
         # Hack, cause I don't know how to pass a None IntParameter to luigi -__-
         n_slices = self.n_slices if self.n_slices > 0 else None
@@ -190,7 +201,8 @@ class FullSampleTask(CommonParams):
         _write_feather(self.output().path, synapses)
 
     def output(self):
-        return luigi.local_target.LocalTarget('{}/full_sample.feather'.format(self.folder))
+        name = '{}/full_sample.feather'.format(self.folder)
+        return luigi.local_target.LocalTarget(name)
 
 
 class SampleChunkTask(CommonParams):
@@ -201,6 +213,8 @@ class SampleChunkTask(CommonParams):
         return self.clone(FullSampleTask)
 
     def run(self):
+        # pylint thinks load() isn't returning a DataFrame
+        # pylint: disable=maybe-no-member
         full_sample = load(self.input().path)
         chunk_size = (len(full_sample) / self.n_total_chunks) + 1
         start, end = np.array([self.chunk_num, self.chunk_num + 1]) * chunk_size
@@ -208,18 +222,23 @@ class SampleChunkTask(CommonParams):
         _write_feather(self.output().path, chunk_df)
 
     def output(self):
-        return luigi.local_target.LocalTarget('{}/sampling_{}.feather'.format(self.folder, self.chunk_num))
+        name = '{}/sampling_{}.feather'.format(self.folder, self.chunk_num)
+        return luigi.local_target.LocalTarget(name)
 
 
 class SynapseDensity(CommonParams):
+    '''Return the synaptic density profile'''
     density_params = Parameter()
 
     def run(self):
         density_params = yaml.load(self.density_params)
         res = [recipe_to_height_and_density(data['low_layer'], data['low_fraction'],
-                                            data['high_layer'], data['high_fraction'], data['density_profile']) for data in density_params]
+                                            data['high_layer'], data['high_fraction'],
+                                            data['density_profile'])
+               for data in density_params]
         with self.output().open('w') as outfile:
             json.dump(res, outfile)
 
     def output(self):
-        return luigi.local_target.LocalTarget('{}/synaptic_density_profile.json'.format(self.folder))
+        name = '{}/synaptic_density_profile.json'.format(self.folder)
+        return luigi.local_target.LocalTarget(name)

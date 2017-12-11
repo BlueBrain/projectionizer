@@ -1,7 +1,8 @@
 '''Utils for projectionizer'''
 import json
+import os
+
 from multiprocessing import Pool
-from os.path import join
 
 from types import StringTypes
 
@@ -9,7 +10,6 @@ import luigi
 import numpy as np
 import pandas as pd
 import voxcell
-from dask.distributed import Client
 
 
 IJK = list('ijk')
@@ -59,6 +59,7 @@ def load(filename):
 
 
 def load_all(inputs):
+    '''load all `inputs`'''
     return [load(x.path) for x in inputs]
 
 
@@ -69,6 +70,10 @@ def cloned_tasks(this, tasks):
 
 
 def map_parallelize(func, *it):
+    '''apply func to all items in it, using a process pool
+
+    Watch the memory usage!
+    '''
     pool = Pool(14)
     ret = pool.map(func, *it)
     pool.close()
@@ -76,7 +81,7 @@ def map_parallelize(func, *it):
     return ret
 
 
-def normalize_probability(p, axis=None):
+def normalize_probability(p):
     """ Normalize vector of probabilities `p` so that sum(p) == 1. """
     norm = np.sum(p)
     if norm < 1e-7:
@@ -114,8 +119,8 @@ def mask_by_region(region, path, prefix):
         path(str): path to where nrrd files are, must include 'brain_regions.nrrd'
         prefix(str): Prefix (ie: uuid) used to identify atlas/voxel set
     '''
-    atlas = voxcell.VoxelData.load_nrrd(join(path, prefix + 'brain_regions.nrrd'))
-    with open(join(path, 'hierarchy.json')) as fd:
+    atlas = voxcell.VoxelData.load_nrrd(os.path.join(path, prefix + 'brain_regions.nrrd'))
+    with open(os.path.join(path, 'hierarchy.json')) as fd:
         hierarchy = voxcell.Hierarchy(json.load(fd))
     if isinstance(region, StringTypes):
         mask = voxcell.build.mask_by_region_names(atlas.raw, hierarchy, [region])

@@ -46,14 +46,14 @@ def test_all_data():
               2: {'start': 4.5, 'end': 4.7, 'thickness': 0.2},
               1: {'start': 4.7, 'end': 4.9, 'thickness': 0.2}}
 
-    npt.assert_array_almost_equal(data[4]['density'], [[2.8,  0.1],
-                                                       [3.1,  0.2],
-                                                       [3.4,  0.3],
-                                                       [4.,  0.5]])
-    npt.assert_array_almost_equal(data[6]['density'], [[0.68,  0.1],
-                                                       [0.935,  0.2],
-                                                       [1.19,  0.3],
-                                                       [1.7,  0.5]])
+    npt.assert_array_almost_equal(data[4]['density'], [[2.8, 0.1],
+                                                       [3.1, 0.2],
+                                                       [3.4, 0.3],
+                                                       [4., 0.5]])
+    npt.assert_array_almost_equal(data[6]['density'], [[0.68, 0.1],
+                                                       [0.935, 0.2],
+                                                       [1.19, 0.3],
+                                                       [1.7, 0.5]])
 
     for layer in result.keys():
         if 'density' in data[layer]:

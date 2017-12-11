@@ -1,3 +1,5 @@
+'''Step 3: write nrn files
+'''
 import logging
 import os
 import traceback
@@ -9,7 +11,7 @@ from luigi import BoolParameter, FloatParameter, IntParameter
 from luigi.local_target import LocalTarget
 
 from projectionizer.step_2_prune import ReducePrune
-from projectionizer.utils import CommonParams, cloned_tasks, load
+from projectionizer.utils import CommonParams, load
 
 L = logging.getLogger(__name__)
 
@@ -120,10 +122,13 @@ def write_synapses_summary(path, itr):
 
 
 class WriteSummary(CommonParams):
+    '''write proj_nrn_summary.h5'''
     def requires(self):
         return self.clone(ReducePrune)
 
     def run(self):
+        # pylint thinks load() isn't returning a DataFrame
+        # pylint: disable=maybe-no-member
         synapses = load(self.input().path)
         efferent = synapses.groupby(["sgid", "tgid"]).count()["segment_id"].reset_index()
         efferent.columns = ["dataset", "connecting", "efferent"]
@@ -146,6 +151,7 @@ class WriteSummary(CommonParams):
 
 
 class WriteNrnH5(CommonParams):
+    '''write proj_nrn.h5 or proj_nrn_efferent.h5'''
     efferent = BoolParameter()
     synapse_type = IntParameter()
     gsyn_mean = FloatParameter()
@@ -167,7 +173,9 @@ class WriteNrnH5(CommonParams):
     ASE_sigma = FloatParameter()
 
     def get_synapse_parameters(self):
+        '''get the synapses paramaters based on config'''
         def get_gamma_parameters(mn, sd):
+            '''transform mean/sigma parameters as per original projectionizer code'''
             return ((mn / sd) ** 2, (sd ** 2) / mn)  # k, theta or shape, scale
 
         return {
@@ -185,6 +193,8 @@ class WriteNrnH5(CommonParams):
 
     def run(self):
         try:
+            # pylint thinks load() isn't returning a DataFrame
+            # pylint: disable=maybe-no-member
             itr = load(self.input().path).groupby('sgid' if self.efferent else 'tgid')
             params = self.get_synapse_parameters()
             write_synapses(self.output().path, itr, params, efferent=self.efferent)
@@ -199,10 +209,13 @@ class WriteNrnH5(CommonParams):
 
 
 class WriteUserTargetTxt(CommonParams):
+    '''write user.target'''
     def requires(self):
         return self.clone(ReducePrune)
 
     def run(self):
+        # pylint thinks load() isn't returning a DataFrame
+        # pylint: disable=maybe-no-member
         synapses = load(self.input().path)
         with self.output().open('w') as outfile:
             outfile.write('Target Cell proj_Thalamocortical_VPM_Source {\n')

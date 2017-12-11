@@ -78,13 +78,14 @@ def mask_far_fibers(fibers, origin, exclusion_box):
 
 
 def load_s1_virtual_fibers(geometry, voxel_path, prefix):
-    '''
+    '''get the s1 virtual fibers
+
+    One is 'created' for every voxel that is in layer 6 and has distance 0
     '''
     prefix = prefix or ''
     layer6_region = REGION_INFO[geometry]['layer6']
     mask = mask_by_region(layer6_region, voxel_path, prefix)
-    distance_path = os.path.join(voxel_path, prefix + 'distance.nrrd')
-    distance = voxcell.VoxelData.load_nrrd(distance_path)
+    distance = voxcell.VoxelData.load_nrrd(os.path.join(voxel_path, prefix + 'distance.nrrd'))
     distance.raw[np.invert(mask)] = np.nan
     idx = np.transpose(np.nonzero(distance.raw == 0.0))
     fiber_pos = distance.indices_to_positions(idx)
@@ -93,12 +94,10 @@ def load_s1_virtual_fibers(geometry, voxel_path, prefix):
     if count is not None:
         fiber_pos = fiber_pos[np.random.choice(np.arange(len(fiber_pos)), count)]
 
-    orientation_path = os.path.join(voxel_path, prefix + 'orientation.nrrd')
-    orientation = voxcell.OrientationField.load_nrrd(orientation_path)
+    orientation = voxcell.OrientationField.load_nrrd(
+        os.path.join(voxel_path, prefix + 'orientation.nrrd'))
     orientation.raw = orientation.raw.astype(np.int8)
-    orientations = orientation.lookup(fiber_pos)
     y_vec = np.array([0, 1, 0])
-    fiber_directions = -y_vec.dot(orientations)
+    fiber_directions = -y_vec.dot(orientation.lookup(fiber_pos))
 
-    df = pd.DataFrame(np.hstack((fiber_pos, fiber_directions)), columns=XYZUVW)
-    return df
+    return pd.DataFrame(np.hstack((fiber_pos, fiber_directions)), columns=XYZUVW)

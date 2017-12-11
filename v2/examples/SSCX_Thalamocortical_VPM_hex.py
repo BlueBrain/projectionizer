@@ -36,9 +36,8 @@ def voxel_space():
     return VoxelData(raw, [VOXEL_SIZE_UM] * 3, (tiles[:, 0].min(), 0, tiles[:, 1].min()))
 
 
-def get_minicol_virtual_fibers():
+def get_minicol_virtual_fibers(apron_size):
     """returns Nx6 matrix: first 3 columns are XYZ pos of fibers, last 3 are direction vector"""
-    apron_size = 50.
 
     fibers = set(tuple(loc) for loc in get_virtual_fiber_locations())
     extra_fibers = set(tuple(loc) for loc in get_virtual_fiber_locations(apron_size)) - fibers

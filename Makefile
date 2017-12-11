@@ -10,7 +10,9 @@ COVER_PACKAGES=v2/projectionizer
 #documentation to build
 DOC_MODULES=
 
-IGNORE_LINT=v1
+IGNORE_LINT=v1|v2/examples
+
+PYTHON_PIP_VERSION="pip==9.0.1"
 
 ##### DO NOT MODIFY BELOW #####################
 
