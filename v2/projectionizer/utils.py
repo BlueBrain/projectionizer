@@ -10,8 +10,10 @@ import numpy as np
 import pandas as pd
 import voxcell
 from dask.distributed import Client
-from luigi import IntParameter, Parameter
-from voxcell import build
+
+
+IJK = list('ijk')
+X, Y, Z = 0, 1, 2
 
 
 class ErrorCloseToZero(Exception):
@@ -20,28 +22,27 @@ class ErrorCloseToZero(Exception):
 
 
 def _write_feather(name, df):
-    """Write a DataFrame to disk using feather serialization format"""
-    df = df.copy()
+    """Write a DataFrame to disk using feather serialization format
+
+    Note: This performs destructive changes to the dataframe, caller must
+    save it if they need an unchanged version
+    """
     df.columns = map(str, df.columns)
     df = df.reset_index(drop=True)
     df.to_feather(name)
 
 
-IJK = list('ijk')
-X, Y, Z = 0, 1, 2
-
-
 class CommonParams(luigi.Config):
     """Paramaters that must be passed to all Task"""
-    circuit_config = Parameter()
-    folder = Parameter()
-    geometry = Parameter()
-    n_total_chunks = IntParameter()
+    circuit_config = luigi.Parameter()
+    folder = luigi.Parameter()
+    geometry = luigi.Parameter()
+    n_total_chunks = luigi.IntParameter()
     sgid_offset = luigi.IntParameter()
 
     # S1HL/S1 region parameters
-    voxel_path = Parameter(default=None)
-    prefix = Parameter(default=None)
+    voxel_path = luigi.Parameter(default=None)
+    prefix = luigi.Parameter(default=None)
 
 
 def load(filename):
@@ -113,11 +114,11 @@ def mask_by_region(region, path, prefix):
     with open(join(path, 'hierarchy.json')) as fd:
         hierarchy = voxcell.Hierarchy(json.load(fd))
     if isinstance(region, StringTypes):
-        mask = build.mask_by_region_names(atlas.raw, hierarchy, [region])
+        mask = voxcell.build.mask_by_region_names(atlas.raw, hierarchy, [region])
     else:
         region_ids = []
         for id_ in region:
             region_ids.extend(hierarchy.collect('id', id_, 'id'))
 
-        mask = build.mask_by_region_ids(atlas.raw, region_ids)
+        mask = voxcell.build.mask_by_region_ids(atlas.raw, region_ids)
     return mask

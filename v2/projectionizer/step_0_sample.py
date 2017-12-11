@@ -163,8 +163,6 @@ def pick_synapses(circuit, synapse_counts, n_islice):
     xyz_counts = list(islice(zip(min_xyzs, max_xyzs, synapse_counts.raw[idx]), n_islice))
     L.debug(len(xyz_counts))
 
-    from dask.distributed import Client
-    _ = Client()
     synapses = map_parallelize(partial(pick_synapses_voxel,
                                        circuit=circuit,
                                        segment_pref=segment_pref_length),
