@@ -18,10 +18,10 @@ from neurom import NeuriteType
 from tqdm import tqdm
 
 from projectionizer.sscx import REGION_INFO, recipe_to_height_and_density
-from projectionizer.utils import (CommonParams, ErrorCloseToZero,
-                                  _write_feather, in_bounding_box, load,
-                                  load_all, map_parallelize, mask_by_region,
-                                  normalize_probability)
+from projectionizer.utils import (ErrorCloseToZero, FeatherTask, JsonTask,
+                                  NrrdTask, _write_feather, in_bounding_box,
+                                  load, load_all, map_parallelize,
+                                  mask_by_region, normalize_probability)
 
 L = logging.getLogger(__name__)
 
@@ -43,15 +43,24 @@ def segment_pref_length(df):
     return df['segment_length'] * (df[Section.NEURITE_TYPE] != NeuriteType.axon).astype(float)
 
 
-class VoxelSynapseCountTask(CommonParams):
+class VoxelSynapseCount(NrrdTask):
     """Generate the VoxelData containing the number
     of segment to be sampled in each voxel"""
     oversampling = FloatParameter()
 
     def requires(self):
-        return self.clone(HeightTask), self.clone(SynapseDensity)
+        if self.geometry == 'CA3_CA1':
+            return self.clone(SynapseDensity)
+        return self.clone(Height), self.clone(SynapseDensity)
 
     def run(self):
+        if self.geometry == 'CA3_CA1':
+            self._run_CA3_CA1()
+        else:
+            self._run_default()
+
+    def _run_default(self):
+        '''Build voxel count from densities according to the height along the column'''
         height, synapse_density = load_all(self.input())
         raw = np.zeros_like(height.raw, dtype=np.uint)  # pylint: disable=no-member
 
@@ -63,11 +72,23 @@ class VoxelSynapseCountTask(CommonParams):
 
         height.with_data(raw).save_nrrd(self.output().path)
 
-    def output(self):
-        return luigi.local_target.LocalTarget('{}/voxel-counts.nrrd'.format(self.folder))
+    def _run_CA3_CA1(self):
+        '''Build voxel count from densities according to regions'''
+        synapse_density = load(self.input().path)
+        atlas = voxcell.VoxelData.load_nrrd(os.path.join(
+            self.voxel_path, self.prefix + 'brain_regions.nrrd'))
+        raw = np.zeros_like(atlas.raw, dtype=np.uint)
+        with open(os.path.join(self.voxel_path, 'hierarchy.json')) as fd:
+            region_data = json.load(fd)
+
+        for region in region_data['children']:
+            for sub_region in region['children']:
+                mask = mask_by_region([sub_region['id']], self.voxel_path, self.prefix)
+                raw[mask] = int(synapse_density[sub_region['name']] * atlas.voxel_volume)
+        atlas.with_data(raw).save_nrrd(self.output().path)
 
 
-class HeightTask(CommonParams):
+class Height(NrrdTask):
     '''return a VoxelData instance w/ all the heights for given region_name
 
     distance is defined as from the voxel to the bottom of L6, voxels
@@ -80,7 +101,7 @@ class HeightTask(CommonParams):
     '''
 
     def run(self):
-        if self.geometry in ('s1hl', 's1', ):
+        if self.geometry in ('s1hl', 's1', 'CA3_CA1'):
             prefix = self.prefix or ''
             region = REGION_INFO[self.geometry]['region']
             mask = mask_by_region(region, self.voxel_path, prefix)
@@ -96,10 +117,6 @@ class HeightTask(CommonParams):
         else:
             raise Exception('Unknown geometry: {}'.format(self.geometry))
         distance.save_nrrd(self.output().path)
-
-    def output(self):
-        name = '{}/get-heights.nrrd'.format(self.folder)
-        return luigi.local_target.LocalTarget(name)
 
 
 def pick_synapses_voxel(xyz_counts, circuit, segment_pref):
@@ -179,13 +196,13 @@ def pick_synapses(circuit, synapse_counts, n_islice):
     return pd.concat(synapses)
 
 
-class FullSampleTask(CommonParams):
+class FullSample(FeatherTask):
     '''Sample segments from circuit
     '''
     n_slices = IntParameter()
 
     def requires(self):
-        return self.clone(VoxelSynapseCountTask)
+        return self.clone(VoxelSynapseCount)
 
     def run(self):
         # pylint thinks load() isn't returning a DataFrame
@@ -200,17 +217,13 @@ class FullSampleTask(CommonParams):
         synapses.rename(columns={'gid': 'tgid'}, inplace=True)
         _write_feather(self.output().path, synapses)
 
-    def output(self):
-        name = '{}/full_sample.feather'.format(self.folder)
-        return luigi.local_target.LocalTarget(name)
 
-
-class SampleChunkTask(CommonParams):
+class SampleChunk(FeatherTask):
     """Split the big sample into chunks"""
     chunk_num = luigi.IntParameter()
 
     def requires(self):
-        return self.clone(FullSampleTask)
+        return self.clone(FullSample)
 
     def run(self):
         # pylint thinks load() isn't returning a DataFrame
@@ -221,24 +234,19 @@ class SampleChunkTask(CommonParams):
         chunk_df = full_sample.iloc[start: end]
         _write_feather(self.output().path, chunk_df)
 
-    def output(self):
-        name = '{}/sampling_{}.feather'.format(self.folder, self.chunk_num)
-        return luigi.local_target.LocalTarget(name)
 
-
-class SynapseDensity(CommonParams):
+class SynapseDensity(JsonTask):
     '''Return the synaptic density profile'''
     density_params = Parameter()
 
     def run(self):
-        density_params = yaml.load(self.density_params)
-        res = [recipe_to_height_and_density(data['low_layer'], data['low_fraction'],
-                                            data['high_layer'], data['high_fraction'],
-                                            data['density_profile'])
-               for data in density_params]
+        if self.geometry == 'CA3_CA1':
+            res = yaml.load(self.density_params)
+        else:
+            density_params = yaml.load(self.density_params)
+            res = [recipe_to_height_and_density(data['low_layer'], data['low_fraction'],
+                                                data['high_layer'], data['high_fraction'],
+                                                data['density_profile'])
+                   for data in density_params]
         with self.output().open('w') as outfile:
             json.dump(res, outfile)
-
-    def output(self):
-        name = '{}/synaptic_density_profile.json'.format(self.folder)
-        return luigi.local_target.LocalTarget(name)

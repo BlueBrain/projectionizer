@@ -3,15 +3,28 @@ CommonParams:
   geometry: CA3_CA1
   n_total_chunks: 1
   sgid_offset: 0 # The offset from which to start numbering the fiber IDs
+  voxel_path: /gpfs/bbp.cscs.ch/project/proj42/atlas/9B1F97DD-13B8-4FCF-B9B1-59E4EBE4B5D8/CA1/
+  prefix: ''
+  oversampling: 1.0
 
-BuildConnectivity:
-  atlas: /gpfs/bbp.cscs.ch/project/proj42/CircuitRelease/r2017.06b/volume/volume.nrrd
-  region_map: /gpfs/bbp.cscs.ch/project/proj42/atlas/9B1F97DD-13B8-4FCF-B9B1-59E4EBE4B5D8/CA1/hierarchy.json
-  depth_profile: # Bezaire and Soltezs 2013
+SynapseDensity:
+  density_params: # Bezaire and Soltezs 2013
     SLM: 0.0026035684
     SR:  0.6793016311
     SP:  0.0705260740
     SO:  0.2475687265
+
+FullSample:
+  n_slices: -1 #  The number of voxels to sample (-1 = all)
+
+FiberAssignment:
+  sigma: 20 # The probability of pairing between a fiber and a synapse is proportional to a gaussian of the distance fiber-synapse parameter. This is its sigma.
+
+ClosestFibersPerVoxel:
+  closest_count: 25 # closest_count is the maximum number of the closest fibers to consider for the pairing with a synapse
+
+ChooseConnectionsToKeep:
+  cutoff_var: 1.0 # the sigma of the normal cumulative distribution function used for selecting if connections are kept or not
 
 WriteNrnH5:
   synapse_type: 120 # excitatory

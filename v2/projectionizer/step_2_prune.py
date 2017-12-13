@@ -11,20 +11,20 @@ import pandas as pd
 from bluepy.v2.circuit import Circuit
 from scipy.stats import norm  # pylint: disable=no-name-in-module
 
-from projectionizer.step_0_sample import SampleChunkTask
-from projectionizer.step_1_assign import FiberAssignementTask
-from projectionizer.utils import CommonParams, _write_feather, load, load_all
+from projectionizer.step_0_sample import SampleChunk
+from projectionizer.step_1_assign import FiberAssignment, VirtualFibersNoOffset
+from projectionizer.utils import FeatherTask, _write_feather, load, load_all
 
 L = logging.getLogger(__name__)
 
 
-class GroupByConnectionTask(CommonParams):
+class GroupByConnection(FeatherTask):
     """Returns a DataFrame containing the number of synapses per connection for each tuple mtype,
     neuron ID, fiber ID: (mtype, tgid, sgid)"""
     chunk_num = luigi.IntParameter()
 
     def requires(self):
-        return self.clone(SampleChunkTask), self.clone(FiberAssignementTask)
+        return self.clone(SampleChunk), self.clone(FiberAssignment)
 
     def run(self):
         synapses, sgids = load_all(self.input())
@@ -38,26 +38,18 @@ class GroupByConnectionTask(CommonParams):
         res = tgid_sgid_mtype[['mtype', 'tgid', 'sgid']]
         _write_feather(self.output().path, res)
 
-    def output(self):
-        name = '{}/group-by-connection_{}.feather'.format(self.folder, self.chunk_num)
-        return luigi.local_target.LocalTarget(name)
 
-
-class ReduceGroupByConnectionTask(CommonParams):
+class ReduceGroupByConnection(FeatherTask):
     """Merge the group-by of all chunks"""
 
     def requires(self):
-        return [self.clone(GroupByConnectionTask, chunk_num=i) for i in range(self.n_total_chunks)]
+        return [self.clone(GroupByConnection, chunk_num=i) for i in range(self.n_total_chunks)]
 
     def run(self):
         dfs = load_all(self.input())
         fat = pd.concat(dfs, ignore_index=True)
         res = fat.groupby(['mtype', 'sgid', 'tgid']).size().reset_index()
         _write_feather(self.output().path, res)
-
-    def output(self):
-        name = '{}/reduce-group-by-connection.feather'.format(self.folder)
-        return luigi.local_target.LocalTarget(name)
 
 
 def find_cutoff_mean_per_mtype(value_count, synaptical_fraction):
@@ -72,7 +64,7 @@ def find_cutoff_mean_per_mtype(value_count, synaptical_fraction):
     return np.interp(synaptical_fraction, xp=x, fp=value_count.index)
 
 
-class CutoffMeans(CommonParams):
+class CutoffMeans(FeatherTask):
     '''For each mtype, find its unique cutoff_mean
 
     Args:
@@ -91,7 +83,7 @@ class CutoffMeans(CommonParams):
     '''
 
     def requires(self):
-        return self.clone(ReduceGroupByConnectionTask)
+        return self.clone(ReduceGroupByConnection)
 
     def run(self):
         # pylint thinks load() isn't returning a DataFrame
@@ -113,12 +105,8 @@ class CutoffMeans(CommonParams):
                             })
         _write_feather(self.output().path, res)
 
-    def output(self):
-        name = '{}/cutoff-means.feather'.format(self.folder)
-        return luigi.local_target.LocalTarget(name)
 
-
-class ChooseConnectionsToKeep(CommonParams):
+class ChooseConnectionsToKeep(FeatherTask):
     '''
     Args:
         cutoff_var(float):
@@ -126,7 +114,7 @@ class ChooseConnectionsToKeep(CommonParams):
     cutoff_var = luigi.FloatParameter()
 
     def requires(self):
-        return self.clone(CutoffMeans), self.clone(ReduceGroupByConnectionTask)
+        return self.clone(CutoffMeans), self.clone(ReduceGroupByConnection)
 
     def run(self):
         '''Based on the frequency of mtypes, and the synapses/connection frequency,
@@ -142,12 +130,8 @@ class ChooseConnectionsToKeep(CommonParams):
         df['kept'] = df['random'] < df['proba']
         _write_feather(self.output().path, df)
 
-    def output(self):
-        name = '{}/choose-connections-to-keep.feather'.format(self.folder)
-        return luigi.local_target.LocalTarget(name)
 
-
-class PruneChunk(CommonParams):
+class PruneChunk(FeatherTask):
     '''
     Args:
         chunk_num(float):
@@ -155,28 +139,28 @@ class PruneChunk(CommonParams):
     chunk_num = luigi.IntParameter()
 
     def requires(self):
-        return (self.clone(ChooseConnectionsToKeep),
-                self.clone(SampleChunkTask),
-                self.clone(FiberAssignementTask),
-                )
+        return (self.clone(task) for task in [ChooseConnectionsToKeep,
+                                              SampleChunk,
+                                              FiberAssignment,
+                                              VirtualFibersNoOffset])
 
     def run(self):
         # pylint thinks load_all() isn't returning a DataFrame
         # pylint: disable=maybe-no-member
-        connections, sample, sgids = load_all(self.input())
+        connections, sample, sgids, fibers = load_all(self.input())
         sample.rename(columns={'gid': 'tgid'}, inplace=True)
         is_kept = connections[['sgid', 'tgid', 'kept']]
         assert len(sgids) == len(sample)
         fat = sample.join(sgids).merge(is_kept, how='left', on=['tgid', 'sgid'])
         pruned = fat[fat['kept']]
-        _write_feather(self.output().path, pruned.drop('kept', axis=1))
+        pruned_no_apron = pd.merge(pruned, fibers[~fibers.apron][['apron']],
+                                   left_on='sgid', right_index=True) \
+            .drop(['kept', 'apron'], axis=1).reset_index(drop=True)
 
-    def output(self):
-        name = '{}/pruned_chunk_{}.feather'.format(self.folder, self.chunk_num)
-        return luigi.local_target.LocalTarget(name)
+        _write_feather(self.output().path, pruned_no_apron)
 
 
-class ReducePrune(CommonParams):
+class ReducePrune(FeatherTask):
     '''Load all pruned chunks, and concat them together
     '''
 
@@ -200,7 +184,3 @@ class ReducePrune(CommonParams):
         synapses['neurite_type'] = 1
         synapses.reset_index(inplace=True)
         _write_feather(self.output().path, synapses)
-
-    def output(self):
-        name = '{}/pruned_reshaped.feather'.format(self.folder)
-        return luigi.local_target.LocalTarget(name)

@@ -4,12 +4,13 @@ import logging
 import luigi
 import numpy as np
 import pandas as pd
-from luigi.local_target import LocalTarget
+from voxcell import VoxelData
 
 from projectionizer.fibers import (FIBER_COLS, IJK, XYZ, assign_synapse_fiber,
                                    closest_fibers_per_voxel)
-from projectionizer.step_0_sample import SampleChunkTask, VoxelSynapseCountTask
-from projectionizer.utils import CommonParams, _write_feather, choice, load_all
+from projectionizer.step_0_sample import SampleChunk, VoxelSynapseCount
+from projectionizer.utils import (FeatherTask, NrrdTask, _write_feather,
+                                  choice, load_all)
 
 L = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ TRANSVERSE_AXIS = 1
 RADIAL_AXIS = 2
 
 
-class VirtualFibersTask(CommonParams):
+class VirtualFibersNoOffset(FeatherTask):
     '''returns a DataFrame with columns ['x', 'y', 'z', 'u', 'v', 'w']
     containing the starting position and direction of each fiber
     '''
@@ -33,9 +34,6 @@ class VirtualFibersTask(CommonParams):
             apron = 50
             df = get_minicol_virtual_fibers(apron)
         _write_feather(self.output().path, df)
-
-    def output(self):
-        return LocalTarget('{}/virtual-fibers.feather'.format(self.folder))
 
 
 def calc_distances(locations, virtual_fibers):
@@ -61,28 +59,25 @@ def calc_distances(locations, virtual_fibers):
     return distances.T
 
 
-class ClosestFibersPerVoxel(CommonParams):
+class ClosestFibersPerVoxel(FeatherTask):
     """Return a DataFrame with the ID of the `closest_count` fibers for each voxel"""
     closest_count = luigi.IntParameter()
 
     def requires(self):
-        return self.clone(VoxelSynapseCountTask), self.clone(VirtualFibersTask)
+        return self.clone(VoxelSynapseCount), self.clone(VirtualFibersNoOffset)
 
     def run(self):
         voxels, fibers = load_all(self.input())
         res = closest_fibers_per_voxel(voxels, fibers, self.closest_count)
         _write_feather(self.output().path, res)
 
-    def output(self):
-        return LocalTarget('{}/closest-fibers-per-voxel.feather'.format(self.folder))
 
-
-class SynapseIndicesTask(CommonParams):
+class SynapseIndices(FeatherTask):
     """Return a DataFrame with the voxels indices (i,j,k) into which each synapse is"""
     chunk_num = luigi.IntParameter()
 
     def requires(self):
-        return self.clone(VoxelSynapseCountTask), self.clone(SampleChunkTask)
+        return self.clone(VoxelSynapseCount), self.clone(SampleChunk)
 
     def run(self):
         voxels, synapses = load_all(self.input())
@@ -90,20 +85,15 @@ class SynapseIndicesTask(CommonParams):
         res = pd.DataFrame(data, columns=IJK)
         _write_feather(self.output().path, res)
 
-    def output(self):
-        name = '{}/synapse_voxel_indices_{}.feather'.format(self.folder,
-                                                            self.chunk_num)
-        return luigi.local_target.LocalTarget(name)
 
-
-class CandidateFibersPerSynapse(CommonParams):
+class CandidateFibersPerSynapse(FeatherTask):
     """Returns a DataFrame with the ID of the 25 closest fibers for each synapse"""
     chunk_num = luigi.IntParameter()
 
     def requires(self):
         return (self.clone(ClosestFibersPerVoxel),
-                self.clone(SynapseIndicesTask),
-                self.clone(SampleChunkTask),)
+                self.clone(SynapseIndices),
+                self.clone(SampleChunk),)
 
     def run(self):
         closest_fibers_per_vox, synapses_indices, synapse_position = load_all(self.input())
@@ -126,11 +116,6 @@ class CandidateFibersPerSynapse(CommonParams):
                       .join(synapse_position.reset_index(drop=True)))
         candidates.drop(IJK, inplace=True, axis=1)
         _write_feather(self.output().path, candidates)
-
-    def output(self):
-        name = '{}/candidate_fibers_per_synapse_{}.feather'.format(self.folder,
-                                                                   self.chunk_num)
-        return luigi.local_target.LocalTarget(name)
 
 
 def calc_distances_vectorized(candidates, virtual_fibers):
@@ -159,7 +144,7 @@ def distance_to_centroid(candidates, fiber_centroids):
     return (synapse_position - fiber_coord.transpose(1, 0, 2)).transpose(1, 0, 2)
 
 
-class Centroids(CommonParams):
+class Centroids(FeatherTask):
     '''Build a DataFrame with the mean and std values of the 2D(longitudinal, transveral) gaussians
     that describes the probability for each fiber to make a connection
     Here is the text that describes the connection
@@ -186,7 +171,7 @@ class Centroids(CommonParams):
     '''
 
     # def requires(self):
-    #     return self.clone(VirtualFibersTask)
+    #     return self.clone(VirtualFibersNoOffset)
 
     def run(self):
         # fibers = load(self.input().path)
@@ -200,69 +185,57 @@ class Centroids(CommonParams):
         transverse_peak_means = transverse_start + \
             np.random.random((len(fibers),)) * (transverse_end - transverse_start)
         longitudinal_peak_means = fibers.loc[:, LONGITUDINAL_AXIS]
-        res = pd.DataFrame({'transverse_mean': transverse_peak_means,
+        res = pd.DataFrame({'transversal_mean': transverse_peak_means,
                             'radial_mean': 0,
                             'longitudinal_mean': longitudinal_peak_means,
-                            'transverse_sigma': 0.2,
+                            'transversal_sigma': 0.2,
                             'radial_sigma': 1,
                             'longitudinal_sigma': 0.1, })
         _write_feather(self.output().path, res)
 
-    def output(self):
-        return LocalTarget('{}/fiber-connection-distributions.feather'.format(self.folder))
 
-
-class SynapticDistributionPerAxon(CommonParams):
+class SynapticDistributionPerAxon(NrrdTask):
     '''4D array with the 3D synaptic density distribution of each neuron'''
 
     def requires(self):
-        return self.clone(VoxelSynapseCountTask)
+        return self.clone(Centroids), self.clone(VoxelSynapseCount)
 
-    def run(self):
-        pass
-        # voxels = load(self.input().path)
-        # xyz = voxels.indices_to_positions(np.indices(
-        #     voxels.raw.shape).transpose(1, 2, 3, 0))
-        # dimension_x, dimension_y, _ = voxels.voxel_dimensions
-        # x = xyz[:, :, :, 0]
-        # y = xyz[:, :, :, 1]
-        # neurons = np.arange(17)
-        # probs = list()
-        # print(voxels.voxel_dimensions)
+    def run(self):  # pylint: disable=too-many-locals
+        centroids, voxels = load_all(self.input())
+        xyz = voxels.indices_to_positions(np.indices(
+            voxels.raw.shape).transpose(1, 2, 3, 0))
+        dimension_x, dimension_y, _ = voxels.voxel_dimensions
+        x = xyz[:, :, :, 0]
+        y = xyz[:, :, :, 1]
+        probs = list()
 
-        # start_time = time.time()
-        # for _ in neurons:
-        #     mean_x = 400
-        #     sigma_x = 50
-        #     mean_y = 1000
-        #     sigma_y = 200
-        #     prob = (norm.cdf(x + dimension_x, loc=mean_x, scale=sigma_x) -
-        #             norm.cdf(x, loc=mean_x, scale=sigma_x)) * \
-        #            (norm.cdf(y + dimension_y, loc=mean_y, scale=sigma_y) -
-        #             norm.cdf(y, loc=mean_y, scale=sigma_y))
-        #     prob /= prob.sum()
-        #     probs.append(prob)
-        # loop_time = time.time()
-        # L.debug('For loop time: {}'.format(loop_time - start_time))
-        # prob_array = np.stack(probs).transpose((1, 2, 3, 0))
-        # prob_array /= prob_array.sum(axis=3)[:, :, :, np.newaxis]
-        # res = voxcell.VoxelData(prob_array, voxel_dimensions=(1, 1, 1, 1))
-        # res.save_nrrd(self.output().path)
-        # L.debug('write time: {}'.format(time.time() - loop_time))
-
-    def output(self):
-        return LocalTarget('{}/synaptic-distribution.nrrd'.format(self.folder))
+        for centroid in centroids:
+            mean_x = centroid['longitudinal_mean']
+            sigma_x = centroid['longitudinal_sigma']
+            mean_y = centroid['transveral_mean']
+            sigma_y = centroid['transveral_mean']
+            # pylint: disable=undefined-variable
+            prob = (norm.cdf(x + dimension_x, loc=mean_x, scale=sigma_x) -
+                    norm.cdf(x, loc=mean_x, scale=sigma_x)) * \
+                   (norm.cdf(y + dimension_y, loc=mean_y, scale=sigma_y) -
+                    norm.cdf(y, loc=mean_y, scale=sigma_y))
+            prob /= prob.sum()
+            probs.append(prob)
+        prob_array = np.stack(probs).transpose((1, 2, 3, 0))
+        prob_array /= prob_array.sum(axis=3)[:, :, :, np.newaxis]
+        res = VoxelData(prob_array, voxel_dimensions=(1, 1, 1, 1))
+        res.save_nrrd(self.output().path)
 
 
-class FiberAssignementTask(CommonParams):
+class FiberAssignment(FeatherTask):
     """Returns a DataFrame containing the ID of the fiber associated to each synapse"""
     chunk_num = luigi.IntParameter()
     sigma = luigi.FloatParameter()
 
     def requires(self):
         if self.geometry != 'CA3_CA1':
-            return self.clone(CandidateFibersPerSynapse), self.clone(VirtualFibersTask)
-        return self.clone(SynapticDistributionPerAxon), self.clone(SynapseIndicesTask)
+            return self.clone(CandidateFibersPerSynapse), self.clone(VirtualFibersNoOffset)
+        return self.clone(SynapticDistributionPerAxon), self.clone(SynapseIndices)
 
     def run(self):
         if self.geometry != 'CA3_CA1':
@@ -274,50 +247,3 @@ class FiberAssignementTask(CommonParams):
             sgids = pd.DataFrame({'sgids': idx})
 
         _write_feather(self.output().path, sgids)
-
-    def output(self):
-        name = '{}/assigned-fibers-{}.feather'.format(self.folder, self.chunk_num)
-        return luigi.local_target.LocalTarget(name)
-
-# class FiberAssignementTask(CommonParams):
-#     """Returns a DataFrame containing the ID of the fiber associated to each synapse"""
-#     chunk_num = luigi.IntParameter()
-#     # transverse_sigma = luigi.FloatParameter()
-#     # longitudinal_sigma = luigi.FloatParameter()
-#     sigma = luigi.FloatParameter()
-
-#     def requires(self):
-#         # return self.clone(CandidateFibersPerSynapse), self.clone(VirtualFibersTask)
-#         return self.clone(Centroids)
-
-#     def run(self):
-#         '''
-#         Assign each synapse with a closeby fiber.
-#         The probability of pairing follows a Normal law with the distance between
-#         the synapse and the fiber
-#         '''
-#         # candidates, virtual_fibers = load_all(self.input())
-#         centroids = load(self.input().path)
-#         candidates = pd.DataFrame(np.random.randint(100, size=(1234, 25)),
-#                                   columns=[str(i) for i in range(25)])
-#         candidates['x'] = np.random.random()
-#         candidates['y'] = np.random.random()
-#         candidates['z'] = np.random.random()
-
-#         distances = distance_to_centroid(candidates, centroids)
-#         theta_Z_distances = distances[:, :, [TRANSVERSE_AXIS, LONGITUDINAL_AXIS]]
-#         prob = multivariate_normal.pdf(theta_Z_distances, mean=(
-#             0, 0), cov=np.diag([self.transverse_sigma, self.longitudinal_sigma]))
-
-#         prob = np.nan_to_num(prob)
-
-#         idx = choice(prob)
-#         data = candidates.loc[:, map(str, range(25))].values[np.arange(len(idx)), idx]
-#         sgids = pd.DataFrame(data,
-#                              columns=['sgid'])
-
-#         _write_feather(self.output().path, sgids)
-
-#     def output(self):
-#         name = '{}/assigned-fibers-{}.feather'.format(self.folder, self.chunk_num)
-#         return luigi.local_target.LocalTarget(name)

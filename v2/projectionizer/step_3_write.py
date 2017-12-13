@@ -10,8 +10,10 @@ import pandas as pd
 from luigi import BoolParameter, FloatParameter, IntParameter
 from luigi.local_target import LocalTarget
 
+from projectionizer.step_1_assign import VirtualFibersNoOffset
 from projectionizer.step_2_prune import ReducePrune
-from projectionizer.utils import CommonParams, load
+from projectionizer.utils import (CommonParams, FeatherTask, _write_feather,
+                                  load)
 
 L = logging.getLogger(__name__)
 
@@ -123,6 +125,7 @@ def write_synapses_summary(path, itr):
 
 class WriteSummary(CommonParams):
     '''write proj_nrn_summary.h5'''
+
     def requires(self):
         return self.clone(ReducePrune)
 
@@ -210,6 +213,8 @@ class WriteNrnH5(CommonParams):
 
 class WriteUserTargetTxt(CommonParams):
     '''write user.target'''
+    extension = 'target'
+
     def requires(self):
         return self.clone(ReducePrune)
 
@@ -219,9 +224,18 @@ class WriteUserTargetTxt(CommonParams):
         synapses = load(self.input().path)
         with self.output().open('w') as outfile:
             outfile.write('Target Cell proj_Thalamocortical_VPM_Source {\n')
-            for tgid in synapses.sgid.unique():
+            for tgid in sorted(synapses.sgid.unique()):
                 outfile.write('    a{}\n'.format(tgid))
             outfile.write('}\n')
 
-    def output(self):
-        return LocalTarget('{}/user.target'.format(self.folder))
+
+class VirtualFibers(FeatherTask):
+    '''Same as VirtualFibersNoOffset but with the sgid_offset'''
+
+    def requires(self):
+        return self.clone(VirtualFibersNoOffset)
+
+    def run(self):
+        fibers = load(self.input().path)
+        fibers.index += self.sgid_offset  # pylint: disable=maybe-no-member
+        _write_feather(self.output().path, fibers)

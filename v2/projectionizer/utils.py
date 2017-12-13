@@ -1,16 +1,16 @@
 '''Utils for projectionizer'''
 import json
 import os
-
+import re
 from multiprocessing import Pool
-
 from types import StringTypes
 
 import luigi
 import numpy as np
 import pandas as pd
 import voxcell
-
+from luigi.local_target import LocalTarget
+from voxcell import build
 
 IJK = list('ijk')
 X, Y, Z = 0, 1, 2
@@ -18,7 +18,6 @@ X, Y, Z = 0, 1, 2
 
 class ErrorCloseToZero(Exception):
     '''Raised if normalizing if sum of probabilities is close to zero'''
-    pass
 
 
 def _write_feather(name, df):
@@ -42,8 +41,38 @@ class CommonParams(luigi.Config):
     oversampling = luigi.FloatParameter()
 
     # S1HL/S1 region parameters
-    voxel_path = luigi.Parameter(default=None)
-    prefix = luigi.Parameter(default=None)
+    voxel_path = luigi.Parameter(default='j')
+    prefix = luigi.Parameter(default='')
+
+    extension = None
+
+    def output(self):
+        def convert(name):
+            '''Camel case to snake case'''
+            s1 = re.sub('(.)([A-Z][a-z]+)', r'\1-\2', name)
+            return re.sub('([a-z0-9])([A-Z])', r'\1-\2', s1).lower()
+        name = convert(self.__class__.__name__)
+        if hasattr(self, 'chunk_num'):
+            return LocalTarget('{}/{}-{}.{}'.format(self.folder,
+                                                    name,
+                                                    getattr(self, 'chunk_num'),
+                                                    self.extension))
+        return LocalTarget('{}/{}.{}'.format(self.folder, name, self.extension))
+
+
+class FeatherTask(CommonParams):
+    '''Task returning a feather file'''
+    extension = 'feather'
+
+
+class JsonTask(CommonParams):
+    '''Task returning a JSON file'''
+    extension = 'json'
+
+
+class NrrdTask(CommonParams):
+    '''Task returning a Nrrd file'''
+    extension = 'nrrd'
 
 
 def load(filename):
@@ -123,7 +152,7 @@ def mask_by_region(region, path, prefix):
     with open(os.path.join(path, 'hierarchy.json')) as fd:
         hierarchy = voxcell.Hierarchy(json.load(fd))
     if isinstance(region, StringTypes):
-        mask = voxcell.build.mask_by_region_names(atlas.raw, hierarchy, [region])
+        mask = build.mask_by_region_names(atlas.raw, hierarchy, [region])
     else:
         region_ids = []
         for id_ in region:

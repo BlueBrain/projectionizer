@@ -13,11 +13,11 @@ from luigi import Parameter
 from luigi.contrib.simulate import RunAnywayTarget
 
 from examples.mini_col_locations import get_virtual_fiber_locations, hexagon
-from projectionizer.step_0_sample import FullSampleTask, SynapseDensity
+from projectionizer.step_0_sample import FullSample, SynapseDensity
 from projectionizer.step_2_prune import (ChooseConnectionsToKeep, CutoffMeans,
                                          ReducePrune)
-from projectionizer.step_3_write import (WriteNrnH5, WriteSummary,
-                                         WriteUserTargetTxt)
+from projectionizer.step_3_write import (VirtualFibers, WriteNrnH5,
+                                         WriteSummary, WriteUserTargetTxt)
 from projectionizer.utils import CommonParams, load, load_all
 
 L = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ def synapse_density_per_voxel(folder, synapses, distmap, oversampling, prefix=''
     ax = fig.add_subplot(1, 1, 1)
     title = "Synaptic density per voxel"
     ax.set_title(title)
-    heights = load(os.path.join(folder, 'get-heights.nrrd'))
+    heights = load(os.path.join(folder, 'height.nrrd'))
     voxel_volume = np.prod(np.abs(heights.voxel_dimensions))
     counts = fill_voxels(heights, synapses[list('xyz')].values).raw / voxel_volume
     heights_counts = np.stack((heights.raw, counts), axis=3).reshape(-1, 2)
@@ -109,7 +109,7 @@ def synapse_density(orig_data, keep_syn, distmap, bin_width=25, oversampling=1, 
     bins = np.arange(600, 1600, bin_width)
 
     df = pd.DataFrame(index=bins[:-1])
-    if orig_data:
+    if orig_data is not None:
         df['Original'] = _make_hist(orig_data.y.values, bins) / vol(orig_data)
     df['New'] = _make_hist(keep_syn.y.values, bins) / vol(keep_syn)
 
@@ -141,8 +141,8 @@ def fraction_pruned_vs_height(folder, n_chunks):
     kept = pd.read_feather('{}/choose-connections-to-keep.feather'.format(folder))
     chunks = list()
     for i in range(n_chunks):
-        df = pd.read_feather('{}/sampling_{}.feather'.format(folder, i))
-        sgid = pd.read_feather('{}/assigned-fibers-{}.feather'.format(folder, i))
+        df = pd.read_feather('{}/sample-chunk-{}.feather'.format(folder, i))
+        sgid = pd.read_feather('{}/fiber-assignment-{}.feather'.format(folder, i))
         chunks.append(df[['tgid', 'y']].join(sgid))
 
     fat = pd.merge(pd.concat(chunks),
@@ -187,7 +187,7 @@ def syns_per_connection(orig_data, choose_connections, cutoffs, folder):
     bins_syn = np.linspace(0, max_synapses, 50)
     choose_connections[choose_connections.kept].loc[:, '0'].hist(bins=bins_syn)
 
-    if orig_data:
+    if orig_data is not None:
         orig_counts = orig_data.groupby(['tgid', 'sgid']).size()
         _make_hist(orig_counts, bins_syn)
 
@@ -200,7 +200,7 @@ def syns_per_connection(orig_data, choose_connections, cutoffs, folder):
     l4_pc_cells = choose_connections[choose_connections.mtype.isin(
         ['L4_PC', 'L4_UPC', 'L4_TPC'])]
     l4_pc_cells[choose_connections.kept].loc[:, '0'].hist(bins=np.arange(max_synapses))
-    mean_value = l4_pc_cells.loc[:, '0'].mean()
+    mean_value = l4_pc_cells[choose_connections.kept].loc[:, '0'].mean()
     plt.axvline(x=mean_value, color='red')
     ax.set_xlabel('Synapse count per connection')
     ax.set_title('Number of synapses/connection for L4_PC cells\nmean value = {}'
@@ -253,8 +253,8 @@ def efferent_neuron_per_fiber(df, folder, sgid_offset, cell_data=True):
             [1073.9399, 0.0269],
             [1084.7088, 0.0768],
         ]
-    x_cell_paper, y_cell_paper = zip(*data_cell_paper)
-    plt.plot(x_cell_paper, np.array(y_cell_paper) * 2.4, label='Cell paper data (norm.)')
+        x_cell_paper, y_cell_paper = zip(*data_cell_paper)
+        plt.plot(x_cell_paper, np.array(y_cell_paper) * 2.4, label='Cell paper data (norm.)')
     plt.legend()
     fig.savefig(os.path.join(folder, 'efferent_count_1d.png'))
 
@@ -343,7 +343,7 @@ class Analyse(CommonParams):
     def requires(self):
         if self.geometry != 's1':
             return [self.clone(task) for task in [ReducePrune,
-                                                  FullSampleTask,
+                                                  FullSample,
                                                   ChooseConnectionsToKeep,
                                                   CutoffMeans,
                                                   SynapseDensity,
@@ -381,9 +381,11 @@ class Analyse(CommonParams):
         synapse_density_per_voxel(self.folder, pruned_no_edge, distmap, 1., 'pruned')
         synapse_density(original, pruned_no_edge, distmap, folder=self.folder)
         syns_per_connection(original, connections, cutoffs, self.folder)
-        column_scatter_plots(pruned, self.folder, fiber_locations=None)
+        # column_scatter_plots(pruned, self.folder, fiber_locations=None)
+
         # plot_used_minicolumns(pruned)
-        efferent_neuron_per_fiber(pruned, self.folder, self.sgid_offset, cell_data=False)
+        efferent_neuron_per_fiber(pruned, self.folder, self.sgid_offset,
+                                  cell_data=(False if self.geometry == 's1' else True))
 
         self.output().done()
 
@@ -395,7 +397,8 @@ class DoAll(CommonParams):
     """Launch the full projectionizer pipeline"""
 
     def requires(self):
-        return [self.clone(WriteNrnH5, efferent=True),
+        return [self.clone(VirtualFibers),
+                self.clone(WriteNrnH5, efferent=True),
                 self.clone(WriteNrnH5, efferent=False),
                 self.clone(WriteSummary),
                 self.clone(WriteUserTargetTxt),

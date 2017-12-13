@@ -4,10 +4,9 @@ import os
 
 import numpy as np
 import pandas as pd
-
 import voxcell
-from projectionizer.utils import mask_by_region
 
+from projectionizer.utils import mask_by_region
 
 L = logging.getLogger(__name__)
 XYZUVW = list('xyzuvw')
@@ -32,6 +31,10 @@ REGION_INFO = {'s1hl':
                 'layer6': 'primary somatosensory cortex, hindlimb region, layer 6',
                 },
                's1':
+               {'region': [725, 726, 728, 730, ],
+                'layer6': [1124, 1130, 1142, 1148, ],
+                },
+               'CA3_CA1':
                {'region': [725, 726, 728, 730, ],
                 'layer6': [1124, 1130, 1142, 1148, ],
                 }
