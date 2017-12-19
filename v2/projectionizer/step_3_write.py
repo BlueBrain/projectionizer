@@ -101,7 +101,7 @@ def write_synapses(path, itr, synapse_params, efferent=False):
             if efferent:
                 N = len(synapses["syn_ids"])
                 h5.create_dataset('a%d_afferentIndices' %
-                                  gid, data=synapses["syn_ids"].reshape((N, 1)))
+                                  gid, data=synapses["syn_ids"].values.reshape((N, 1)))
 
 
 def write_synapses_summary(path, itr):
@@ -126,7 +126,7 @@ def write_synapses_summary(path, itr):
 class WriteSummary(CommonParams):
     '''write proj_nrn_summary.h5'''
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return self.clone(ReducePrune)
 
     def run(self):
@@ -144,8 +144,11 @@ class WriteSummary(CommonParams):
         try:
             write_synapses_summary(path=self.output().path,
                                    itr=summary.groupby("dataset"))
-        except Exception as e:
-            os.remove(self.output().path)
+        except OSError as e:
+            try:
+                os.remove(self.output().path)
+            except Exception:  # pylint: disable=broad-except
+                pass
             traceback.print_exc()
             raise e
 
@@ -191,10 +194,10 @@ class WriteNrnH5(CommonParams):
             'Ase': get_gamma_parameters(self.ASE_mean, self.ASE_sigma),
         }
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return self.clone(ReducePrune)
 
-    def run(self):
+    def run(self):  # pragma: no cover
         try:
             # pylint thinks load() isn't returning a DataFrame
             # pylint: disable=maybe-no-member
@@ -215,10 +218,10 @@ class WriteUserTargetTxt(CommonParams):
     '''write user.target'''
     extension = 'target'
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return self.clone(ReducePrune)
 
-    def run(self):
+    def run(self):  # pragma: no cover
         # pylint thinks load() isn't returning a DataFrame
         # pylint: disable=maybe-no-member
         synapses = load(self.input().path)
@@ -232,10 +235,10 @@ class WriteUserTargetTxt(CommonParams):
 class VirtualFibers(FeatherTask):
     '''Same as VirtualFibersNoOffset but with the sgid_offset'''
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return self.clone(VirtualFibersNoOffset)
 
-    def run(self):
+    def run(self):  # pragma: no cover
         fibers = load(self.input().path)
         fibers.index += self.sgid_offset  # pylint: disable=maybe-no-member
         _write_feather(self.output().path, fibers)

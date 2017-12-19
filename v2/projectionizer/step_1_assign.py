@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from voxcell import VoxelData
 
-from projectionizer.fibers import (FIBER_COLS, IJK, XYZ, assign_synapse_fiber,
+from projectionizer.fibers import (IJK, XYZ, assign_synapse_fiber,
                                    closest_fibers_per_voxel)
 from projectionizer.step_0_sample import SampleChunk, VoxelSynapseCount
 from projectionizer.utils import (FeatherTask, NrrdTask, _write_feather,
@@ -25,10 +25,11 @@ class VirtualFibersNoOffset(FeatherTask):
     containing the starting position and direction of each fiber
     '''
 
-    def run(self):
+    def run(self):  # pragma: no cover
         if self.geometry in ('s1hl', 's1', ):
             from projectionizer.sscx import load_s1_virtual_fibers
             df = load_s1_virtual_fibers(self.geometry, self.voxel_path, self.prefix)
+            df['apron'] = False
         elif self.geometry == 'hex':
             from examples.SSCX_Thalamocortical_VPM_hex import get_minicol_virtual_fibers
             apron = 50
@@ -36,37 +37,14 @@ class VirtualFibersNoOffset(FeatherTask):
         _write_feather(self.output().path, df)
 
 
-def calc_distances(locations, virtual_fibers):
-    '''find closest point from locations to fibers
-
-    virtual_fibers is a Nx6 matrix, w/ 0:3 being the start positions,
-    and 3:6 being the direction vector
-    '''
-    locations_count = len(locations)
-    virtual_fiber_count = len(virtual_fibers)
-
-    starts = virtual_fibers[:, 0:3]
-    directions = virtual_fibers[:, 3:6]
-    directions /= np.linalg.norm(directions, axis=1)[:, np.newaxis]
-
-    starts = np.repeat(starts, len(locations), axis=0)
-    directions = np.repeat(directions, len(locations), axis=0)
-    locations = np.matlib.repmat(locations, virtual_fiber_count, 1)
-
-    distances = np.linalg.norm(np.cross((locations - starts), directions), axis=1)
-
-    distances = distances.reshape(virtual_fiber_count, locations_count)
-    return distances.T
-
-
 class ClosestFibersPerVoxel(FeatherTask):
     """Return a DataFrame with the ID of the `closest_count` fibers for each voxel"""
     closest_count = luigi.IntParameter()
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return self.clone(VoxelSynapseCount), self.clone(VirtualFibersNoOffset)
 
-    def run(self):
+    def run(self):  # pragma: no cover
         voxels, fibers = load_all(self.input())
         res = closest_fibers_per_voxel(voxels, fibers, self.closest_count)
         _write_feather(self.output().path, res)
@@ -76,10 +54,10 @@ class SynapseIndices(FeatherTask):
     """Return a DataFrame with the voxels indices (i,j,k) into which each synapse is"""
     chunk_num = luigi.IntParameter()
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return self.clone(VoxelSynapseCount), self.clone(SampleChunk)
 
-    def run(self):
+    def run(self):  # pragma: no cover
         voxels, synapses = load_all(self.input())
         data = voxels.positions_to_indices(synapses[XYZ].values)
         res = pd.DataFrame(data, columns=IJK)
@@ -90,12 +68,12 @@ class CandidateFibersPerSynapse(FeatherTask):
     """Returns a DataFrame with the ID of the 25 closest fibers for each synapse"""
     chunk_num = luigi.IntParameter()
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return (self.clone(ClosestFibersPerVoxel),
                 self.clone(SynapseIndices),
                 self.clone(SampleChunk),)
 
-    def run(self):
+    def run(self):  # pragma: no cover
         closest_fibers_per_vox, synapses_indices, synapse_position = load_all(self.input())
         synapse_position = synapse_position[XYZ]
 
@@ -105,7 +83,8 @@ class CandidateFibersPerSynapse(FeatherTask):
         # Pandas bug: merging change dtypes to float.
         # Should be solved soon:
         # http://pandas-docs.github.io/pandas-docs-travis/whatsnew.html#merging-changes
-        candidates.loc[:, FIBER_COLS] = candidates.loc[:, FIBER_COLS].astype(int)
+        cols = candidates.columns[:-3]
+        candidates.loc[:, cols] = candidates.loc[:, cols].astype(int)
         del synapses_indices
 
         L.debug('Joining the synapse position')
@@ -116,17 +95,6 @@ class CandidateFibersPerSynapse(FeatherTask):
                       .join(synapse_position.reset_index(drop=True)))
         candidates.drop(IJK, inplace=True, axis=1)
         _write_feather(self.output().path, candidates)
-
-
-def calc_distances_vectorized(candidates, virtual_fibers):
-    '''For every synapse compute the distance to each candidate fiber'''
-    idx = candidates.loc[:, map(str, range(25))].fillna(0).values.astype(int)
-    fiber_coord = virtual_fibers[list('xyzuvw')].values[idx]
-    starts = fiber_coord[:, :, 0:3]
-    directions = fiber_coord[:, :, 3:6]
-    synapse_position = candidates.loc[:, ['x', 'y', 'z']].values
-    distance_to_start = (synapse_position - starts.transpose(1, 0, 2)).transpose(1, 0, 2)
-    return np.linalg.norm(np.cross(distance_to_start, directions), axis=2)
 
 
 def to_cylindrical_coordinates(xyz_coordinates):
@@ -170,10 +138,10 @@ class Centroids(FeatherTask):
     For this reason we dont need to take it into account her.
     '''
 
-    # def requires(self):
+    # def requires(self): # pragma: no cover
     #     return self.clone(VirtualFibersNoOffset)
 
-    def run(self):
+    def run(self):  # pragma: no cover
         # fibers = load(self.input().path)
 
         size = 100
@@ -197,10 +165,10 @@ class Centroids(FeatherTask):
 class SynapticDistributionPerAxon(NrrdTask):
     '''4D array with the 3D synaptic density distribution of each neuron'''
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return self.clone(Centroids), self.clone(VoxelSynapseCount)
 
-    def run(self):  # pylint: disable=too-many-locals
+    def run(self):  # pragma: no cover  # pylint: disable=too-many-locals
         centroids, voxels = load_all(self.input())
         xyz = voxels.indices_to_positions(np.indices(
             voxels.raw.shape).transpose(1, 2, 3, 0))
@@ -232,12 +200,12 @@ class FiberAssignment(FeatherTask):
     chunk_num = luigi.IntParameter()
     sigma = luigi.FloatParameter()
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         if self.geometry != 'CA3_CA1':
             return self.clone(CandidateFibersPerSynapse), self.clone(VirtualFibersNoOffset)
         return self.clone(SynapticDistributionPerAxon), self.clone(SynapseIndices)
 
-    def run(self):
+    def run(self):  # pragma: no cover
         if self.geometry != 'CA3_CA1':
             candidates, virtual_fibers = load_all(self.input())
             sgids = assign_synapse_fiber(candidates, virtual_fibers, self.sigma)

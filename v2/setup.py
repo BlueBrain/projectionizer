@@ -1,21 +1,21 @@
 #!/usr/bin/env python
 ''' projectionizer setup '''
 import os
+from optparse import Option
 
+import pip
+from pip.req import parse_requirements
 from setuptools import setup
+
 import projectionizer
 
 VERSION = projectionizer.__version__
 
-############ REQUIREMENTS FINDING
+# REQUIREMENTS FINDING
 BASEDIR = os.path.dirname(os.path.abspath(__file__))
 REQS = []
 EXTRA_REQS_PREFIX = 'requirements_'
 EXTRA_REQS = {}
-
-import pip
-from pip.req import parse_requirements
-from optparse import Option
 
 
 def parse_reqs(reqs_file):
@@ -34,9 +34,10 @@ def parse_reqs(reqs_file):
                                           session=PipSession)
     return [str(ir.req) for ir in install_reqs]
 
+
 REQS = parse_reqs(os.path.join(BASEDIR, 'requirements.txt'))
 
-#look for extra requirements (ex: requirements_bbp.txt)
+# look for extra requirements (ex: requirements_bbp.txt)
 for file_name in os.listdir(BASEDIR):
     if not file_name.startswith(EXTRA_REQS_PREFIX):
         continue
@@ -50,8 +51,7 @@ setup(
     version=VERSION,
     install_requires=REQS,
     extras_require=EXTRA_REQS,
-    packages=['projectionizer',
-              ],
+    packages=['projectionizer', ],
     include_package_data=True,
     author='BlueBrain NSE',
     author_email='bbp-ou-nse@groupes.epfl.ch',

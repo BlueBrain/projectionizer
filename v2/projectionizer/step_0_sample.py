@@ -6,7 +6,6 @@ import os
 from functools import partial
 from itertools import islice
 
-import luigi
 import numpy as np
 import pandas as pd
 import voxcell
@@ -43,49 +42,55 @@ def segment_pref_length(df):
     return df['segment_length'] * (df[Section.NEURITE_TYPE] != NeuriteType.axon).astype(float)
 
 
+def _build_synapses_default(height, synapse_density, oversampling):
+    '''Build voxel count from densities according to the height along the column'''
+    raw = np.zeros_like(height.raw, dtype=np.uint)  # pylint: disable=no-member
+
+    voxel_volume = np.prod(np.abs(height.voxel_dimensions))
+    for dist in synapse_density:
+        for (bottom, density), (top, _) in zip(dist[:-1], dist[1:]):
+            idx = np.nonzero((bottom < height.raw) & (height.raw < top))
+            raw[idx] = int(voxel_volume * density * oversampling)
+
+    return height.with_data(raw)
+
+
+def _build_synapses_CA3_CA1(synapse_density, voxel_path, prefix, oversampling):
+    '''Build voxel count from densities according to regions'''
+
+    atlas = voxcell.VoxelData.load_nrrd(os.path.join(
+        voxel_path, prefix + 'brain_regions.nrrd'))
+    raw = np.zeros_like(atlas.raw, dtype=np.uint)
+    with open(os.path.join(voxel_path, 'hierarchy.json')) as fd:
+        region_data = json.load(fd)
+
+    for region in region_data['children']:
+        for sub_region in region['children']:
+            mask = mask_by_region([sub_region['id']], voxel_path, prefix)
+            raw[mask] = int(synapse_density[sub_region['name']] * atlas.voxel_volume * oversampling)
+    return atlas.with_data(raw)
+
+
 class VoxelSynapseCount(NrrdTask):
     """Generate the VoxelData containing the number
     of segment to be sampled in each voxel"""
     oversampling = FloatParameter()
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         if self.geometry == 'CA3_CA1':
             return self.clone(SynapseDensity)
         return self.clone(Height), self.clone(SynapseDensity)
 
-    def run(self):
+    def run(self):  # pragma: no cover
         if self.geometry == 'CA3_CA1':
-            self._run_CA3_CA1()
+            synapse_density = load(self.input().path)
+            res = _build_synapses_CA3_CA1(synapse_density, self.voxel_path,
+                                          self.prefix, self.oversampling)
+            res.save_nrrd(self.output().path)
         else:
-            self._run_default()
-
-    def _run_default(self):
-        '''Build voxel count from densities according to the height along the column'''
-        height, synapse_density = load_all(self.input())
-        raw = np.zeros_like(height.raw, dtype=np.uint)  # pylint: disable=no-member
-
-        voxel_volume = np.prod(np.abs(height.voxel_dimensions))
-        for dist in synapse_density:
-            for (bottom, density), (top, _) in zip(dist[:-1], dist[1:]):
-                idx = np.nonzero((bottom < height.raw) & (height.raw < top))
-                raw[idx] = int(voxel_volume * density * self.oversampling)
-
-        height.with_data(raw).save_nrrd(self.output().path)
-
-    def _run_CA3_CA1(self):
-        '''Build voxel count from densities according to regions'''
-        synapse_density = load(self.input().path)
-        atlas = voxcell.VoxelData.load_nrrd(os.path.join(
-            self.voxel_path, self.prefix + 'brain_regions.nrrd'))
-        raw = np.zeros_like(atlas.raw, dtype=np.uint)
-        with open(os.path.join(self.voxel_path, 'hierarchy.json')) as fd:
-            region_data = json.load(fd)
-
-        for region in region_data['children']:
-            for sub_region in region['children']:
-                mask = mask_by_region([sub_region['id']], self.voxel_path, self.prefix)
-                raw[mask] = int(synapse_density[sub_region['name']] * atlas.voxel_volume)
-        atlas.with_data(raw).save_nrrd(self.output().path)
+            height, synapse_density = load_all(self.input())
+            res = _build_synapses_default(height, synapse_density, self.oversampling)
+            res.save_nrrd(self.output().path)
 
 
 class Height(NrrdTask):
@@ -100,7 +105,7 @@ class Height(NrrdTask):
         prefix(str): Prefix (ie: uuid) used to identify atlas/voxel set
     '''
 
-    def run(self):
+    def run(self):  # pragma: no cover
         if self.geometry in ('s1hl', 's1', 'CA3_CA1'):
             prefix = self.prefix or ''
             region = REGION_INFO[self.geometry]['region']
@@ -119,6 +124,11 @@ class Height(NrrdTask):
         distance.save_nrrd(self.output().path)
 
 
+def _min_max_axis(min_xyz, max_xyz):
+    '''get min/max axis'''
+    return np.minimum(min_xyz, max_xyz), np.maximum(min_xyz, max_xyz)
+
+
 def pick_synapses_voxel(xyz_counts, circuit, segment_pref):
     '''Select `count` synapses from the `circuit` that lie between `min_xyz` and `max_xyz`
 
@@ -132,20 +142,16 @@ def pick_synapses_voxel(xyz_counts, circuit, segment_pref):
         DataFrame with `WANTED_COLS`
     '''
     min_xyz, max_xyz, count = xyz_counts
+
     segs_df = circuit.morph.spatial_index.q_window(min_xyz, max_xyz)
 
     means = 0.5 * (segs_df[SEGMENT_START_COLS].values +
                    segs_df[SEGMENT_END_COLS].values)
     segs_df = pd.concat([segs_df, pd.DataFrame(means, columns=list('xyz'))], axis=1)
-
-    def _min_max_axis(min_xyz, max_xyz):
-        '''get min/max axis'''
-        return np.minimum(min_xyz, max_xyz), np.maximum(min_xyz, max_xyz)
-
     in_bb = in_bounding_box(*_min_max_axis(min_xyz, max_xyz), df=segs_df)
     segs_df = segs_df[in_bb]
 
-    if not len(segs_df[SEGMENT_START_COLS]):
+    if not segs_df[SEGMENT_START_COLS].size:
         return None
 
     segs_df['segment_length'] = np.linalg.norm(
@@ -186,7 +192,6 @@ def pick_synapses(circuit, synapse_counts, n_islice):
     max_xyzs = min_xyzs + synapse_counts.voxel_dimensions
 
     xyz_counts = list(islice(zip(min_xyzs, max_xyzs, synapse_counts.raw[idx]), n_islice))
-    L.debug(len(xyz_counts))
 
     synapses = map_parallelize(partial(pick_synapses_voxel,
                                        circuit=circuit,
@@ -201,10 +206,10 @@ class FullSample(FeatherTask):
     '''
     n_slices = IntParameter()
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return self.clone(VoxelSynapseCount)
 
-    def run(self):
+    def run(self):  # pragma: no cover
         # pylint thinks load() isn't returning a DataFrame
         # pylint: disable=maybe-no-member
         voxels = load(self.input().path)
@@ -220,12 +225,12 @@ class FullSample(FeatherTask):
 
 class SampleChunk(FeatherTask):
     """Split the big sample into chunks"""
-    chunk_num = luigi.IntParameter()
+    chunk_num = IntParameter()
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return self.clone(FullSample)
 
-    def run(self):
+    def run(self):  # pragma: no cover
         # pylint thinks load() isn't returning a DataFrame
         # pylint: disable=maybe-no-member
         full_sample = load(self.input().path)
@@ -239,7 +244,7 @@ class SynapseDensity(JsonTask):
     '''Return the synaptic density profile'''
     density_params = Parameter()
 
-    def run(self):
+    def run(self):  # pragma: no cover
         if self.geometry == 'CA3_CA1':
             res = yaml.load(self.density_params)
         else:

@@ -2,15 +2,15 @@
 import json
 import os
 import re
+from itertools import chain
 from multiprocessing import Pool
 from types import StringTypes
 
-import luigi
 import numpy as np
 import pandas as pd
-import voxcell
+from luigi import Config, FloatParameter, IntParameter, Parameter
 from luigi.local_target import LocalTarget
-from voxcell import build
+from voxcell import Hierarchy, VoxelData, build
 
 IJK = list('ijk')
 X, Y, Z = 0, 1, 2
@@ -31,27 +31,30 @@ def _write_feather(name, df):
     df.to_feather(name)
 
 
-class CommonParams(luigi.Config):
+def _camel_case_to_spinal_case(name):
+    '''Camel case to snake case'''
+    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1-\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1-\2', s1).lower()
+
+
+class CommonParams(Config):
     """Paramaters that must be passed to all Task"""
-    circuit_config = luigi.Parameter()
-    folder = luigi.Parameter()
-    geometry = luigi.Parameter()
-    n_total_chunks = luigi.IntParameter()
-    sgid_offset = luigi.IntParameter()
-    oversampling = luigi.FloatParameter()
+    circuit_config = Parameter()
+    folder = Parameter()
+    geometry = Parameter()
+    n_total_chunks = IntParameter()
+    sgid_offset = IntParameter()
+    oversampling = FloatParameter()
 
     # S1HL/S1 region parameters
-    voxel_path = luigi.Parameter(default='j')
-    prefix = luigi.Parameter(default='')
+    voxel_path = Parameter(default='j')
+    prefix = Parameter(default='')
 
     extension = None
 
     def output(self):
-        def convert(name):
-            '''Camel case to snake case'''
-            s1 = re.sub('(.)([A-Z][a-z]+)', r'\1-\2', name)
-            return re.sub('([a-z0-9])([A-Z])', r'\1-\2', s1).lower()
-        name = convert(self.__class__.__name__)
+
+        name = _camel_case_to_spinal_case(self.__class__.__name__)
         if hasattr(self, 'chunk_num'):
             return LocalTarget('{}/{}-{}.{}'.format(self.folder,
                                                     name,
@@ -80,11 +83,11 @@ def load(filename):
     if filename.endswith('feather'):
         return pd.read_feather(filename)
     elif filename.endswith('nrrd'):
-        return voxcell.VoxelData.load_nrrd(filename)
+        return VoxelData.load_nrrd(filename)
     elif filename.endswith('json'):
         with open(filename) as infile:
             return json.load(infile)
-    raise Exception('Do not know how open: {}'.format(filename))
+    raise NotImplementedError('Do not know how open: {}'.format(filename))
 
 
 def load_all(inputs):
@@ -104,7 +107,7 @@ def map_parallelize(func, *it):
     Watch the memory usage!
     '''
     pool = Pool(14)
-    ret = pool.map(func, *it)
+    ret = pool.map(func, *it)  # pylint: disable=no-value-for-parameter
     pool.close()
     pool.join()
     return ret
@@ -148,15 +151,14 @@ def mask_by_region(region, path, prefix):
         path(str): path to where nrrd files are, must include 'brain_regions.nrrd'
         prefix(str): Prefix (ie: uuid) used to identify atlas/voxel set
     '''
-    atlas = voxcell.VoxelData.load_nrrd(os.path.join(path, prefix + 'brain_regions.nrrd'))
+    atlas = VoxelData.load_nrrd(os.path.join(path, prefix + 'brain_regions.nrrd'))
     with open(os.path.join(path, 'hierarchy.json')) as fd:
-        hierarchy = voxcell.Hierarchy(json.load(fd))
+        hierarchy = Hierarchy(json.load(fd))
     if isinstance(region, StringTypes):
         mask = build.mask_by_region_names(atlas.raw, hierarchy, [region])
     else:
-        region_ids = []
-        for id_ in region:
-            region_ids.extend(hierarchy.collect('id', id_, 'id'))
+        region_ids = list(chain.from_iterable(hierarchy.collect('id', id_, 'id')
+                                              for id_ in region))
 
-        mask = voxcell.build.mask_by_region_ids(atlas.raw, region_ids)
+        mask = build.mask_by_region_ids(atlas.raw, region_ids)
     return mask

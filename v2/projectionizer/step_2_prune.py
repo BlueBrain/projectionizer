@@ -23,10 +23,10 @@ class GroupByConnection(FeatherTask):
     neuron ID, fiber ID: (mtype, tgid, sgid)"""
     chunk_num = luigi.IntParameter()
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return self.clone(SampleChunk), self.clone(FiberAssignment)
 
-    def run(self):
+    def run(self):  # pragma: no cover
         synapses, sgids = load_all(self.input())
 
         synapses.rename(columns={'gid': 'tgid'}, inplace=True)
@@ -42,10 +42,10 @@ class GroupByConnection(FeatherTask):
 class ReduceGroupByConnection(FeatherTask):
     """Merge the group-by of all chunks"""
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return [self.clone(GroupByConnection, chunk_num=i) for i in range(self.n_total_chunks)]
 
-    def run(self):
+    def run(self):  # pragma: no cover
         dfs = load_all(self.input())
         fat = pd.concat(dfs, ignore_index=True)
         res = fat.groupby(['mtype', 'sgid', 'tgid']).size().reset_index()
@@ -82,10 +82,10 @@ class CutoffMeans(FeatherTask):
         mean.  Should be OK if dist is fairly symmetrical.
     '''
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return self.clone(ReduceGroupByConnection)
 
-    def run(self):
+    def run(self):  # pragma: no cover
         # pylint thinks load() isn't returning a DataFrame
         # pylint: disable=maybe-no-member
         mtype_sgid_tgid = load(self.input().path)
@@ -96,13 +96,11 @@ class CutoffMeans(FeatherTask):
         mtypes, dfs = zip(*not_emtpy_mtypes)
 
         fraction_to_remove = 1 - 1 / self.oversampling
-        print('fraction_to_remove: {}'.format(fraction_to_remove))
         cutoffs = [find_cutoff_mean_per_mtype(df.loc[:, '0'].value_counts(sort=False).sort_index(),
                                               fraction_to_remove)
                    for df in dfs]
         res = pd.DataFrame({'mtype': pd.Series(mtypes, dtype='category'),
-                            'cutoff': cutoffs,
-                            })
+                            'cutoff': cutoffs})
         _write_feather(self.output().path, res)
 
 
@@ -113,10 +111,10 @@ class ChooseConnectionsToKeep(FeatherTask):
     '''
     cutoff_var = luigi.FloatParameter()
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return self.clone(CutoffMeans), self.clone(ReduceGroupByConnection)
 
-    def run(self):
+    def run(self):  # pragma: no cover
         '''Based on the frequency of mtypes, and the synapses/connection frequency,
         probabilistically remove *connections* (ie: groups of synapses in a (sgid, tgid) pair
         '''
@@ -138,13 +136,13 @@ class PruneChunk(FeatherTask):
     '''
     chunk_num = luigi.IntParameter()
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return (self.clone(task) for task in [ChooseConnectionsToKeep,
                                               SampleChunk,
                                               FiberAssignment,
                                               VirtualFibersNoOffset])
 
-    def run(self):
+    def run(self):  # pragma: no cover
         # pylint thinks load_all() isn't returning a DataFrame
         # pylint: disable=maybe-no-member
         connections, sample, sgids, fibers = load_all(self.input())
@@ -164,10 +162,10 @@ class ReducePrune(FeatherTask):
     '''Load all pruned chunks, and concat them together
     '''
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return [self.clone(PruneChunk, chunk_num=i) for i in range(self.n_total_chunks)]
 
-    def run(self):
+    def run(self):  # pragma: no cover
         synapses = pd.concat(load_all(self.input())).rename(
             columns={'Segment.ID': 'segment_id', 'Section.ID': 'section_id'})
 

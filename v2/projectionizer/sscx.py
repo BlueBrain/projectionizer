@@ -14,31 +14,24 @@ XYZUVW = list('xyzuvw')
 LAYERS = range(1, 7)
 # layer thickness from recipe
 LAYER_THICKNESS = np.array([164.94915873, 148.87602025, 352.92508322,
-                            189.57183895, 525.05585701, 700.37845971, ])
+                            189.57183895, 525.05585701, 700.37845971])
 LAYER_BOUNDARIES = np.cumsum(list(reversed(LAYER_THICKNESS)))
 LAYER_STARTS = {6: 0,
                 5: LAYER_BOUNDARIES[0],
                 4: LAYER_BOUNDARIES[1],
                 3: LAYER_BOUNDARIES[2],
                 2: LAYER_BOUNDARIES[3],
-                1: LAYER_BOUNDARIES[4],
-                }
+                1: LAYER_BOUNDARIES[4]}
+
 LAYER_THICKNESS = {name: float(thickness) for name, thickness in
                    zip(LAYERS, LAYER_THICKNESS)}
 
-REGION_INFO = {'s1hl':
-               {'region': 'primary somatosensory cortex, hindlimb region',
-                'layer6': 'primary somatosensory cortex, hindlimb region, layer 6',
-                },
-               's1':
-               {'region': [725, 726, 728, 730, ],
-                'layer6': [1124, 1130, 1142, 1148, ],
-                },
-               'CA3_CA1':
-               {'region': [725, 726, 728, 730, ],
-                'layer6': [1124, 1130, 1142, 1148, ],
-                }
-               }
+REGION_INFO = {'s1hl': {'region': 'primary somatosensory cortex, hindlimb region',
+                        'layer6': 'primary somatosensory cortex, hindlimb region, layer 6'},
+               's1': {'region': [725, 726, 728, 730, ],
+                      'layer6': [1124, 1130, 1142, 1148, ], },
+               'CA3_CA1': {'region': [725, 726, 728, 730, ],
+                           'layer6': [1124, 1130, 1142, 1148, ], }}
 
 
 def recipe_to_height_and_density(low_layer,
@@ -71,13 +64,6 @@ def recipe_to_height_and_density(low_layer,
     diff = top - bottom
     return [(bottom + diff * low, density)
             for low, density in zip(heights, density)]
-
-
-def mask_far_fibers(fibers, origin, exclusion_box):
-    """Mask fibers outside of exclusion_box centered on origin"""
-    fibers = np.rollaxis(fibers, 1)
-    fibers = np.abs(fibers - origin) < exclusion_box
-    return np.all(fibers, axis=2).T
 
 
 def load_s1_virtual_fibers(geometry, voxel_path, prefix):

@@ -340,7 +340,7 @@ class Analyse(CommonParams):
         default=('/gpfs/bbp.cscs.ch/project/proj30/mgevaert/'
                  'ncsThalamocortical_VPM_tcS2F_2p6_ps.feather'))
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         if self.geometry != 's1':
             return [self.clone(task) for task in [ReducePrune,
                                                   FullSample,
@@ -358,7 +358,7 @@ class Analyse(CommonParams):
                                               SynapseDensity]]
         # return [self.clone(task) for task in [ChooseConnectionsToKeep, CutoffMeans]]
 
-    def run(self):
+    def run(self):  # pragma: no cover
         apron_size = 50
         if self.geometry != 's1':
             pruned, sampled, connections, cutoffs, distmap = load_all(self.input()[:-1])
@@ -396,7 +396,7 @@ class Analyse(CommonParams):
 class DoAll(CommonParams):
     """Launch the full projectionizer pipeline"""
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return [self.clone(VirtualFibers),
                 self.clone(WriteNrnH5, efferent=True),
                 self.clone(WriteNrnH5, efferent=False),
@@ -404,7 +404,7 @@ class DoAll(CommonParams):
                 self.clone(WriteUserTargetTxt),
                 self.clone(Analyse)]
 
-    def run(self):
+    def run(self):  # pragma: no cover
         self.output().done()
 
     def output(self):

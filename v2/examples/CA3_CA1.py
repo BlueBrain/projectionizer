@@ -17,7 +17,7 @@ from projectionizer.utils import (CommonParams, _write_feather, choice,
 
 
 class PreGIDs(CommonParams):
-    def run(self):
+    def run(self):  # pragma: no cover
         res = pd.DataFrame({'sgid': np.arange(10, 15)})
         _write_feather(self.output().path, res)
 
@@ -26,7 +26,7 @@ class PreGIDs(CommonParams):
 
 
 class PostGIDs(CommonParams):
-    def run(self):
+    def run(self):  # pragma: no cover
         res = pd.DataFrame({'tgid': np.arange(20, 30)})
         _write_feather(self.output().path, res)
 
@@ -48,10 +48,10 @@ class ChoosePostSynapticGIDs(CommonParams):
     sigma = FloatParameter(default=100)
     poisson_lambda = FloatParameter(default=1.5)
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return cloned_tasks(self, [PreGIDs, PostGIDs])
 
-    def run(self):
+    def run(self):  # pragma: no cover
         """ Choose some gids from `post_gids` to be connected to `pre_gid`. """
         pre_gids, post_gids = load_all(self.input())
         cells = Circuit(self.circuit_config).cells()
@@ -103,10 +103,10 @@ class BuildConnectivity(CommonParams):
     region_map = Parameter()
     depth_profile = Parameter()
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return self.clone(ChoosePostSynapticGIDs)
 
-    def run(self):
+    def run(self):  # pragma: no cover
         """
             Generate synapses between `pre_gid` and `post_gid`.
 

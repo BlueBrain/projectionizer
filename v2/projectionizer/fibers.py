@@ -6,7 +6,6 @@ import logging
 
 import numpy as np
 import pandas as pd
-
 from scipy.stats import norm  # pylint: disable=no-name-in-module
 
 from projectionizer.utils import choice
@@ -16,10 +15,10 @@ L = logging.getLogger(__name__)
 XYZUVW = list('xyzuvw')
 IJK = list('ijk')
 XYZ = list('xyz')
-FIBER_COLS = map(str, range(25))  # TODO: this shouldn't be hard-coded
 
 VF_STARTS = slice(0, 3)
 VF_DIRS = slice(3, 6)
+NOT_CANDIDATE_STARTS = -3  # Columns not storing candidates ids
 
 
 def calc_distances(locations, virtual_fibers):
@@ -68,7 +67,7 @@ def closest_fibers_per_voxel(synapse_counts, virtual_fibers, closest_count):
 
 def calc_distances_vectorized(candidates, virtual_fibers):
     '''For every synapse compute the distance to each candidate fiber'''
-    idx = candidates.loc[:, FIBER_COLS].fillna(0).values.astype(int)
+    idx = candidates.loc[:, candidates.columns[:NOT_CANDIDATE_STARTS]].fillna(0).values.astype(int)
     fiber_coord = virtual_fibers[XYZUVW].values[idx]
     starts = fiber_coord[:, :, VF_STARTS]
     directions = fiber_coord[:, :, VF_DIRS]
@@ -95,5 +94,6 @@ def assign_synapse_fiber(candidates, virtual_fibers, sigma):
     prob = np.nan_to_num(prob)
 
     idx = choice(prob)
-    sgids = candidates.loc[:, FIBER_COLS].values[np.arange(len(idx)), idx]
+    sgids = candidates.loc[:, candidates.columns[:-NOT_CANDIDATE_STARTS]
+                           ].values[np.arange(len(idx)), idx]
     return pd.DataFrame({'sgid': sgids})

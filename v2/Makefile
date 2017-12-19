@@ -21,7 +21,7 @@ PYTHON_PIP_VERSION="pip==9.0.1"
 
 CI_REPO?=ssh://bbpcode.epfl.ch/platform/ContinuousIntegration.git
 CI_DIR?=ContinuousIntegration
-
+CI_REQS=requirements_dev.txt
 FETCH_CI := $(shell \
         if [ ! -d $(CI_DIR) ]; then \
             git clone $(CI_REPO) $(CI_DIR) > /dev/null ;\
