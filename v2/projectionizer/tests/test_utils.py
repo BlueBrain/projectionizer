@@ -1,34 +1,29 @@
+import json
 import numpy as np
 import pandas as pd
 from nose.tools import eq_, ok_, raises
 from numpy.testing import assert_equal
 from voxcell import VoxelData
 
-from projectionizer.utils import *
-from projectionizer.utils import _camel_case_to_spinal_case, _write_feather
+from projectionizer import utils
 
 
 def test_write_feather():
-    _write_feather('/tmp/projectionizer_test_write.feather',
-                   pd.DataFrame({'a': [1, 2, 3, 4]}))
-    ok_(True)
-
-
-def test_camel_case_to_snake_case():
-    assert_equal(_camel_case_to_spinal_case('CamelCase'),
-                 'camel-case')
+    #TODO: round trip this, and put in temp directory
+    utils.write_feather('/tmp/projectionizer_test_write.feather',
+                        pd.DataFrame({'a': [1, 2, 3, 4]}))
 
 
 def test_normalize_probability():
     p = np.array([1, 0])
-    ret = normalize_probability(p)
+    ret = utils.normalize_probability(p)
     assert_equal(p, ret)
 
 
-@raises(ErrorCloseToZero)
+@raises(utils.ErrorCloseToZero)
 def test_normalize_probability_raises():
     p = np.array([1e-10, -2e-12])
-    normalize_probability(p)
+    utils.normalize_probability(p)
 
 
 def test_load():
@@ -38,21 +33,20 @@ def test_load():
     feather_obj = pd.DataFrame({'a': [1, 2, 3, 4]})
     voxcell_obj = VoxelData(np.array([[[1, 1, 1]]]), (1, 1, 1))
     json_obj = {'a': 1}
-    _write_feather(feather_file,
-                   feather_obj)
+    utils.write_feather(feather_file, feather_obj)
     voxcell_obj.save_nrrd(nrrd_file)
     with open(json_file, 'w') as outputf:
         json.dump(json_obj, outputf)
 
-    isinstance(load(feather_file), pd.DataFrame)
-    isinstance(load(nrrd_file), VoxelData)
-    isinstance(load(json_file), dict)
+    ok_(isinstance(utils.load(feather_file), pd.DataFrame))
+    ok_(isinstance(utils.load(nrrd_file), VoxelData))
+    ok_(isinstance(utils.load(json_file), dict))
 
-    class Task:
+    class Task(object):
         def __init__(self, _path):
             self.path = _path
 
-    f, v, j = load_all([Task(feather_file), Task(nrrd_file), Task(json_file)])
+    f, v, j = utils.load_all([Task(feather_file), Task(nrrd_file), Task(json_file)])
     ok_(feather_obj.equals(f))
     assert_equal(voxcell_obj.raw, v.raw)
     eq_(json_obj, j)
@@ -60,15 +54,7 @@ def test_load():
 
 @raises(NotImplementedError)
 def test_load_raise():
-    load('file.blabla')
-
-
-def test_cloned_tasks():
-    class Class:
-        def clone(self, x):
-            return x
-    assert_equal(cloned_tasks(Class(), [1, 2, 3]),
-                 [1, 2, 3])
+    utils.load('file.blabla')
 
 
 def times_two(x):
@@ -77,11 +63,12 @@ def times_two(x):
 
 def test_map_parallelize():
     a = np.arange(10)
-    assert_equal(map_parallelize(times_two, a),
+    assert_equal(utils.map_parallelize(times_two, a),
                  a * 2)
 
 
 def test_in_bounding_box():
+    in_bounding_box = utils.in_bounding_box
     min_xyz = np.array([0, 0, 0], dtype=float)
     max_xyz = np.array([10, 10, 10], dtype=float)
 
@@ -112,26 +99,3 @@ def test_in_bounding_box():
                               True, True, True, True,
                               False, False, False, False, False,  # y/z > 9
                               ])
-
-
-def test_common_params():
-    class BlaBlaTask(CommonParams):
-        circuit_config = 'circuit'
-        folder = '/tmp'
-        extension = 'ext'
-        geometry = 'geo'
-        n_total_chunks = 'n_chunks'
-        sgid_offset = 0
-        oversampling = 0
-        voxel_path = ''
-        prefix = ''
-        extension = 'out'
-
-    task = BlaBlaTask()
-    assert_equal(task.output().path, '/tmp/bla-bla-task.out')
-
-    class BlaBlaChunk(BlaBlaTask):
-        chunk_num = 42
-
-    chunked_task = BlaBlaChunk()
-    assert_equal(chunked_task.output().path, '/tmp/bla-bla-chunk-42.out')

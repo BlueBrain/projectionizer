@@ -9,8 +9,8 @@ from voxcell import VoxelData
 from projectionizer.fibers import (IJK, XYZ, assign_synapse_fiber,
                                    closest_fibers_per_voxel)
 from projectionizer.step_0_sample import SampleChunk, VoxelSynapseCount
-from projectionizer.utils import (FeatherTask, NrrdTask, _write_feather,
-                                  choice, load_all)
+from projectionizer.utils import (write_feather, choice, load_all)
+from projectionizer.luigi_utils import FeatherTask, NrrdTask
 
 L = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class VirtualFibersNoOffset(FeatherTask):
             from examples.SSCX_Thalamocortical_VPM_hex import get_minicol_virtual_fibers
             apron = 50
             df = get_minicol_virtual_fibers(apron)
-        _write_feather(self.output().path, df)
+        write_feather(self.output().path, df)
 
 
 class ClosestFibersPerVoxel(FeatherTask):
@@ -47,7 +47,7 @@ class ClosestFibersPerVoxel(FeatherTask):
     def run(self):  # pragma: no cover
         voxels, fibers = load_all(self.input())
         res = closest_fibers_per_voxel(voxels, fibers, self.closest_count)
-        _write_feather(self.output().path, res)
+        write_feather(self.output().path, res)
 
 
 class SynapseIndices(FeatherTask):
@@ -61,7 +61,7 @@ class SynapseIndices(FeatherTask):
         voxels, synapses = load_all(self.input())
         data = voxels.positions_to_indices(synapses[XYZ].values)
         res = pd.DataFrame(data, columns=IJK)
-        _write_feather(self.output().path, res)
+        write_feather(self.output().path, res)
 
 
 class CandidateFibersPerSynapse(FeatherTask):
@@ -94,7 +94,7 @@ class CandidateFibersPerSynapse(FeatherTask):
                       .reset_index(drop=True)
                       .join(synapse_position.reset_index(drop=True)))
         candidates.drop(IJK, inplace=True, axis=1)
-        _write_feather(self.output().path, candidates)
+        write_feather(self.output().path, candidates)
 
 
 def to_cylindrical_coordinates(xyz_coordinates):
@@ -159,7 +159,7 @@ class Centroids(FeatherTask):
                             'transversal_sigma': 0.2,
                             'radial_sigma': 1,
                             'longitudinal_sigma': 0.1, })
-        _write_feather(self.output().path, res)
+        write_feather(self.output().path, res)
 
 
 class SynapticDistributionPerAxon(NrrdTask):
@@ -214,4 +214,4 @@ class FiberAssignment(FeatherTask):
             idx = choice(proba[indices.i, indices.j, indices.k])
             sgids = pd.DataFrame({'sgids': idx})
 
-        _write_feather(self.output().path, sgids)
+        write_feather(self.output().path, sgids)

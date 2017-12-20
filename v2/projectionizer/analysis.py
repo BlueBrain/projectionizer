@@ -18,7 +18,9 @@ from projectionizer.step_2_prune import (ChooseConnectionsToKeep, CutoffMeans,
                                          ReducePrune)
 from projectionizer.step_3_write import (VirtualFibers, WriteNrnH5,
                                          WriteSummary, WriteUserTargetTxt)
-from projectionizer.utils import CommonParams, load, load_all
+from projectionizer.utils import load, load_all
+from projectionizer.luigi_utils import (CommonParams,
+                                        )
 
 L = logging.getLogger(__name__)
 L.setLevel(logging.DEBUG)
@@ -348,15 +350,10 @@ class Analyse(CommonParams):
                                                   CutoffMeans,
                                                   SynapseDensity,
                                                   WriteNrnH5]]
-        # return [self.clone(PruneChunk, chunk_num=0)] \
-        #     + [self.clone(task) for task in [ChooseConnectionsToKeep,
-        #                                      CutoffMeans,
-        #                                      SynapseDensity, ]]
         return [self.clone(task) for task in [ReducePrune,
                                               ChooseConnectionsToKeep,
                                               CutoffMeans,
                                               SynapseDensity]]
-        # return [self.clone(task) for task in [ChooseConnectionsToKeep, CutoffMeans]]
 
     def run(self):  # pragma: no cover
         apron_size = 50

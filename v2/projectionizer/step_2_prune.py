@@ -13,7 +13,8 @@ from scipy.stats import norm  # pylint: disable=no-name-in-module
 
 from projectionizer.step_0_sample import SampleChunk
 from projectionizer.step_1_assign import FiberAssignment, VirtualFibersNoOffset
-from projectionizer.utils import FeatherTask, _write_feather, load, load_all
+from projectionizer.utils import write_feather, load, load_all
+from projectionizer.luigi_utils import FeatherTask
 
 L = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ class GroupByConnection(FeatherTask):
             'len(synapses): {} != len(sgids): {}'.format(len(synapses), len(sgids))
         tgid_sgid_mtype = synapses[['tgid']].join(sgids).join(mtypes, on='tgid')
         res = tgid_sgid_mtype[['mtype', 'tgid', 'sgid']]
-        _write_feather(self.output().path, res)
+        write_feather(self.output().path, res)
 
 
 class ReduceGroupByConnection(FeatherTask):
@@ -49,7 +50,7 @@ class ReduceGroupByConnection(FeatherTask):
         dfs = load_all(self.input())
         fat = pd.concat(dfs, ignore_index=True)
         res = fat.groupby(['mtype', 'sgid', 'tgid']).size().reset_index()
-        _write_feather(self.output().path, res)
+        write_feather(self.output().path, res)
 
 
 def find_cutoff_mean_per_mtype(value_count, synaptical_fraction):
@@ -101,7 +102,7 @@ class CutoffMeans(FeatherTask):
                    for df in dfs]
         res = pd.DataFrame({'mtype': pd.Series(mtypes, dtype='category'),
                             'cutoff': cutoffs})
-        _write_feather(self.output().path, res)
+        write_feather(self.output().path, res)
 
 
 class ChooseConnectionsToKeep(FeatherTask):
@@ -126,7 +127,7 @@ class ChooseConnectionsToKeep(FeatherTask):
         df['random'] = np.random.random(size=len(df))
         df['proba'] = norm.cdf(df.loc[:, '0'], df['cutoff'], self.cutoff_var)
         df['kept'] = df['random'] < df['proba']
-        _write_feather(self.output().path, df)
+        write_feather(self.output().path, df)
 
 
 class PruneChunk(FeatherTask):
@@ -155,7 +156,7 @@ class PruneChunk(FeatherTask):
                                    left_on='sgid', right_index=True) \
             .drop(['kept', 'apron'], axis=1).reset_index(drop=True)
 
-        _write_feather(self.output().path, pruned_no_apron)
+        write_feather(self.output().path, pruned_no_apron)
 
 
 class ReducePrune(FeatherTask):
@@ -181,4 +182,4 @@ class ReducePrune(FeatherTask):
         synapses['location'] = 1
         synapses['neurite_type'] = 1
         synapses.reset_index(inplace=True)
-        _write_feather(self.output().path, synapses)
+        write_feather(self.output().path, synapses)

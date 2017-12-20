@@ -12,8 +12,8 @@ from luigi.local_target import LocalTarget
 
 from projectionizer.step_1_assign import VirtualFibersNoOffset
 from projectionizer.step_2_prune import ReducePrune
-from projectionizer.utils import (CommonParams, FeatherTask, _write_feather,
-                                  load)
+from projectionizer.utils import (write_feather, load)
+from projectionizer.luigi_utils import (CommonParams, FeatherTask, )
 
 L = logging.getLogger(__name__)
 
@@ -241,4 +241,4 @@ class VirtualFibers(FeatherTask):
     def run(self):  # pragma: no cover
         fibers = load(self.input().path)
         fibers.index += self.sgid_offset  # pylint: disable=maybe-no-member
-        _write_feather(self.output().path, fibers)
+        write_feather(self.output().path, fibers)

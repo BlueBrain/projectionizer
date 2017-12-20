@@ -11,15 +11,18 @@ from scipy.spatial.distance import cdist
 from scipy.stats import norm
 from voxcell import RegionMap, VoxelData
 
-from projectionizer.utils import (CommonParams, _write_feather, choice,
-                                  cloned_tasks, load, load_all,
-                                  normalize_probability)
+from projectionizer.luigi import (CommonParams, cloned_tasks,
+                                  )
+from projectionizer.utils import (write_feather, choice,
+                                  load, load_all,
+                                  normalize_probability,
+                                  )
 
 
 class PreGIDs(CommonParams):
     def run(self):  # pragma: no cover
         res = pd.DataFrame({'sgid': np.arange(10, 15)})
-        _write_feather(self.output().path, res)
+        write_feather(self.output().path, res)
 
     def output(self):
         return LocalTarget('{}/pre_gids.feather'.format(self.folder))
@@ -28,7 +31,7 @@ class PreGIDs(CommonParams):
 class PostGIDs(CommonParams):
     def run(self):  # pragma: no cover
         res = pd.DataFrame({'tgid': np.arange(20, 30)})
-        _write_feather(self.output().path, res)
+        write_feather(self.output().path, res)
 
     def output(self):
         return LocalTarget('{}/post_gids.feather'.format(self.folder))
@@ -62,7 +65,7 @@ class ChoosePostSynapticGIDs(CommonParams):
         assigned_tgids = post_gids.iloc[tgid_idx].reset_index(drop=True)
         res = pre_gids.join(assigned_tgids)
         res['synapse_counts'] = non_nil_poisson_distrib(self.poisson_lambda, len(res))
-        _write_feather(self.output().path, res)
+        write_feather(self.output().path, res)
 
     def output(self):
         return LocalTarget('{}/connections.feather'.format(self.folder))
@@ -144,7 +147,7 @@ class BuildConnectivity(CommonParams):
             return pd.Series(location)
         locations = res.apply(pick_location, axis=1)
         fat = res.join(locations).rename(columns={0: 'x', 1: 'y', 2: 'z'})
-        _write_feather(self.output().path, fat)
+        write_feather(self.output().path, fat)
 
     def output(self):
         return LocalTarget('{}/synapses.feather'.format(self.folder))
