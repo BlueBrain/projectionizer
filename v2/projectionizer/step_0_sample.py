@@ -4,22 +4,17 @@ import json
 import os
 
 import numpy as np
-
 import voxcell
 import yaml
 from bluepy.v2.circuit import Circuit
-from luigi import FloatParameter, IntParameter, Parameter
 
+from luigi import FloatParameter, IntParameter, Parameter
+from projectionizer.luigi_utils import FeatherTask, JsonTask, NrrdTask
 from projectionizer.sscx import REGION_INFO, recipe_to_height_and_density
-from projectionizer.luigi_utils import (FeatherTask, JsonTask, NrrdTask,
-                                        )
-from projectionizer.utils import (write_feather, load, load_all,
-                                  mask_by_region,
-                                  )
-from projectionizer.synapses import (build_synapses_default, build_synapses_CA3_CA1,
-                                     pick_synapses,
-                                     SEGMENT_START_COLS, SEGMENT_END_COLS,
-                                     )
+from projectionizer.synapses import (SEGMENT_END_COLS, SEGMENT_START_COLS,
+                                     build_synapses_CA3_CA1,
+                                     build_synapses_default, pick_synapses)
+from projectionizer.utils import load, load_all, mask_by_region, write_feather
 
 
 class VoxelSynapseCount(NrrdTask):

@@ -94,6 +94,6 @@ def assign_synapse_fiber(candidates, virtual_fibers, sigma):
     prob = np.nan_to_num(prob)
 
     idx = choice(prob)
-    sgids = candidates.loc[:, candidates.columns[:-NOT_CANDIDATE_STARTS]
-                           ].values[np.arange(len(idx)), idx]
+    cols = candidates.columns[:NOT_CANDIDATE_STARTS]
+    sgids = candidates.loc[:, cols].values[np.arange(len(idx)), idx]
     return pd.DataFrame({'sgid': sgids})

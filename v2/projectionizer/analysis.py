@@ -13,14 +13,12 @@ from luigi import Parameter
 from luigi.contrib.simulate import RunAnywayTarget
 
 from examples.mini_col_locations import get_virtual_fiber_locations, hexagon
+from projectionizer.luigi_utils import CommonParams
 from projectionizer.step_0_sample import FullSample, SynapseDensity
 from projectionizer.step_2_prune import (ChooseConnectionsToKeep, CutoffMeans,
                                          ReducePrune)
-from projectionizer.step_3_write import (VirtualFibers, WriteNrnH5,
-                                         WriteSummary, WriteUserTargetTxt)
+from projectionizer.step_3_write import VirtualFibers, WriteAll
 from projectionizer.utils import load, load_all
-from projectionizer.luigi_utils import (CommonParams,
-                                        )
 
 L = logging.getLogger(__name__)
 L.setLevel(logging.DEBUG)
@@ -220,7 +218,7 @@ def syns_per_connection(orig_data, choose_connections, cutoffs, folder):
     fig.savefig(os.path.join(folder, 'syns_per_connection_L4_PC_pre_pruning.png'))
 
 
-def efferent_neuron_per_fiber(df, folder, sgid_offset, cell_data=True):
+def efferent_neuron_per_fiber(df, fibers, folder, sgid_offset, cell_data=True):
     '''1D distribution of the number of neuron connected to a fiber averaged on all fibers'''
     title = "Efferent neuron count (averaged)"
     fig = plt.figure(title)
@@ -264,7 +262,6 @@ def efferent_neuron_per_fiber(df, folder, sgid_offset, cell_data=True):
     fig = plt.figure(title)
     ax = fig.add_subplot(1, 1, 1)
     ax.set_title(title)
-    fibers = pd.read_feather(os.path.join(folder, 'virtual-fibers.feather'))
     fibers.index += sgid_offset
     df = fibers.join(neuron_efferent_count).fillna(0)
     plt.scatter(df.x, df.z, s=80, c=df.tgid)
@@ -348,19 +345,19 @@ class Analyse(CommonParams):
                                                   FullSample,
                                                   ChooseConnectionsToKeep,
                                                   CutoffMeans,
-                                                  SynapseDensity,
-                                                  WriteNrnH5]]
+                                                  SynapseDensity, VirtualFibers]]
+
         return [self.clone(task) for task in [ReducePrune,
                                               ChooseConnectionsToKeep,
                                               CutoffMeans,
-                                              SynapseDensity]]
+                                              SynapseDensity, VirtualFibers]]
 
     def run(self):  # pragma: no cover
         apron_size = 50
         if self.geometry != 's1':
-            pruned, sampled, connections, cutoffs, distmap = load_all(self.input()[:-1])
+            pruned, sampled, connections, cutoffs, distmap, fibers = load_all(self.input())
         else:
-            pruned, connections, cutoffs, distmap = load_all(self.input())
+            pruned, connections, cutoffs, distmap, fibers = load_all(self.input())
             # connections, cutoffs = load_all(self.input())
 
         connections.sgid += self.sgid_offset
@@ -381,7 +378,7 @@ class Analyse(CommonParams):
         # column_scatter_plots(pruned, self.folder, fiber_locations=None)
 
         # plot_used_minicolumns(pruned)
-        efferent_neuron_per_fiber(pruned, self.folder, self.sgid_offset,
+        efferent_neuron_per_fiber(pruned, fibers, self.folder, self.sgid_offset,
                                   cell_data=(False if self.geometry == 's1' else True))
 
         self.output().done()
@@ -393,13 +390,8 @@ class Analyse(CommonParams):
 class DoAll(CommonParams):
     """Launch the full projectionizer pipeline"""
 
-    def requires(self):  # pragma: no cover
-        return [self.clone(VirtualFibers),
-                self.clone(WriteNrnH5, efferent=True),
-                self.clone(WriteNrnH5, efferent=False),
-                self.clone(WriteSummary),
-                self.clone(WriteUserTargetTxt),
-                self.clone(Analyse)]
+    def requires(self):
+        return self.clone(WriteAll), self.clone(Analyse)
 
     def run(self):  # pragma: no cover
         self.output().done()

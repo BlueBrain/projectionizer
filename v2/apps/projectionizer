@@ -9,12 +9,10 @@ import argparse
 import logging
 import os
 import sys
-from os import getenv
 from os.path import dirname, join, realpath
 from shutil import copyfile
 
 import luigi
-import matplotlib.pyplot as plt
 import yaml
 
 L = logging.getLogger(__name__)
@@ -28,7 +26,14 @@ def common_parser():
                         help='The projectionizer YAML config file. Must be passed when running the analysis for the first time. See templates/ folder for some examples')
     parser.add_argument('-l', '--no-local-scheduler',  action='store_true',
                         help='Do not use luigi\'s local scheduler (luigi daemon (luigid) must be running)')
-    parser.add_argument('-s', '--show',  action='store_true', help='Call plt.show() at the end')
+    parser.add_argument('-d', '--dichotomy',  action='store_true',
+                        help=('Run the dichotomy algorithm that will generate projections until '
+                              'they match the target mean connectivity(number of synapses per connections) for L4 PC cells'))
+    parser.add_argument('-t', '--connectivity-target',
+                        help='The number of synpase per connection to reach with the dichotomy')
+    parser.add_argument('-s', '--min-param',  help='Starting range of the dichotomy')
+    parser.add_argument('-e', '--max-param',  help='End range of the dichotomy')
+    parser.add_argument('-m', '--target-margin',  help='Tolerance of the dichotomy')
 
     return parser
 
@@ -73,8 +78,16 @@ if __name__ == '__main__':
         L.warning('Custom config: {} won\'t be used as {} already have a config file'.format(
             args.config, args.output))
 
-    cmd = ['DoAll', '--folder', args.output, '--module',
-           'projectionizer.analysis', '--workers', '1', ]
+    if args.dichotomy:
+        cmd = ['Dichotomy', '--folder', args.output, '--module',
+               'projectionizer.dichotomy', '--workers', '1',
+               '--Dichotomy-connectivity-target', args.connectivity_target,
+               '--Dichotomy-min-param', args.min_param,
+               '--Dichotomy-max-param', args.max_param,
+               '--Dichotomy-target-margin', args.target_margin]
+    else:
+        cmd = ['DoAll', '--folder', args.output, '--module',
+               'projectionizer.analysis', '--workers', '1', ]
 
     cmd += luigi_params(config, args)
     L.debug('Calling luigi.run() with the following params: {}'.format(' '.join(cmd)))

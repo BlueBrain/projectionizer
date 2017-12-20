@@ -2,21 +2,19 @@
 import json
 import logging
 import os
-
 from functools import partial
 from itertools import islice
 
 import numpy as np
 import pandas as pd
-
-from projectionizer.utils import (map_parallelize, in_bounding_box, mask_by_region,
-                                  normalize_probability, ErrorCloseToZero,
-                                  )
-
+import voxcell
 from bluepy.v2.enums import Section, Segment
 from neurom import NeuriteType
 from tqdm import tqdm
-import voxcell
+
+from projectionizer.utils import (ErrorCloseToZero, in_bounding_box,
+                                  map_parallelize, mask_by_region,
+                                  normalize_probability)
 
 L = logging.getLogger(__name__)
 

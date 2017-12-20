@@ -1,5 +1,6 @@
 '''Step 3: write nrn files
 '''
+import json
 import logging
 import os
 import traceback
@@ -8,12 +9,13 @@ import h5py
 import numpy as np
 import pandas as pd
 from luigi import BoolParameter, FloatParameter, IntParameter
+from luigi.contrib.simulate import RunAnywayTarget
 from luigi.local_target import LocalTarget
 
+from projectionizer.luigi_utils import CommonParams, FeatherTask, JsonTask
 from projectionizer.step_1_assign import VirtualFibersNoOffset
-from projectionizer.step_2_prune import ReducePrune
-from projectionizer.utils import (write_feather, load)
-from projectionizer.luigi_utils import (CommonParams, FeatherTask, )
+from projectionizer.step_2_prune import ChooseConnectionsToKeep, ReducePrune
+from projectionizer.utils import load, write_feather
 
 L = logging.getLogger(__name__)
 
@@ -231,6 +233,9 @@ class WriteUserTargetTxt(CommonParams):
                 outfile.write('    a{}\n'.format(tgid))
             outfile.write('}\n')
 
+    def output(self):
+        return LocalTarget('{}/user.target'.format(self.folder))
+
 
 class VirtualFibers(FeatherTask):
     '''Same as VirtualFibersNoOffset but with the sgid_offset'''
@@ -242,3 +247,39 @@ class VirtualFibers(FeatherTask):
         fibers = load(self.input().path)
         fibers.index += self.sgid_offset  # pylint: disable=maybe-no-member
         write_feather(self.output().path, fibers)
+
+
+class SynapseCountPerConnectionL4PC(JsonTask):
+    '''Compute the mean number of synapses per connection for L4 PC cells'''
+
+    def requires(self):
+        return self.clone(ChooseConnectionsToKeep)
+
+    def run(self):
+        connections = load(self.input().path)
+        l4_pc_mtypes = ['L4_PC', 'L4_UPC', 'L4_TPC']
+        # pylint: disable=maybe-no-member
+        l4_pc_cells = connections[(connections.mtype.isin(l4_pc_mtypes)) &
+                                  (connections.kept)]
+        mean = l4_pc_cells.loc[:, '0'].mean()
+        if np.isnan(mean):
+            raise Exception('SynapseCountPerConnectionL4PC returned NaN')
+        with self.output().open('w') as outputf:
+            json.dump({'result': mean}, outputf)
+
+
+class WriteAll(CommonParams):
+    """Run all write tasks"""
+
+    def requires(self):
+        return [self.clone(WriteNrnH5, efferent=True),
+                self.clone(WriteNrnH5, efferent=False),
+                self.clone(WriteSummary),
+                self.clone(WriteUserTargetTxt),
+                self.clone(SynapseCountPerConnectionL4PC)]
+
+    def run(self):
+        self.output().done()
+
+    def output(self):
+        return RunAnywayTarget(self)

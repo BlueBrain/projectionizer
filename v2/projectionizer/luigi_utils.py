@@ -1,7 +1,8 @@
 '''Luigi related utils'''
+import os
 import re
 
-from luigi import Config, FloatParameter, IntParameter, Parameter
+from luigi import Config, FloatParameter, IntParameter, Parameter, Task
 from luigi.local_target import LocalTarget
 
 
@@ -15,6 +16,17 @@ def _camel_case_to_spinal_case(name):
     '''Camel case to snake case'''
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1-\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1-\2', s1).lower()
+
+
+class FolderTask(Task):
+    '''Simple dependency task to create missing folders'''
+    folder = Parameter()
+
+    def run(self):
+        os.makedirs(self.folder)
+
+    def output(self):
+        return LocalTarget(self.folder)
 
 
 class CommonParams(Config):
@@ -40,6 +52,9 @@ class CommonParams(Config):
                                                     getattr(self, 'chunk_num'),
                                                     self.extension))
         return LocalTarget('{}/{}.{}'.format(self.folder, name, self.extension))
+
+    def requires(self):
+        return FolderTask(folder=self.folder)
 
 
 class FeatherTask(CommonParams):

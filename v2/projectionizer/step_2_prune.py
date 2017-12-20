@@ -5,16 +5,16 @@ distribution shape
 
 import logging
 
-import luigi
 import numpy as np
 import pandas as pd
 from bluepy.v2.circuit import Circuit
 from scipy.stats import norm  # pylint: disable=no-name-in-module
 
+import luigi
+from projectionizer.luigi_utils import FeatherTask
 from projectionizer.step_0_sample import SampleChunk
 from projectionizer.step_1_assign import FiberAssignment, VirtualFibersNoOffset
-from projectionizer.utils import write_feather, load, load_all
-from projectionizer.luigi_utils import FeatherTask
+from projectionizer.utils import load, load_all, write_feather
 
 L = logging.getLogger(__name__)
 
