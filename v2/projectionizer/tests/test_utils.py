@@ -1,4 +1,6 @@
 import json
+import os
+
 import numpy as np
 import pandas as pd
 from nose.tools import eq_, ok_, raises
@@ -6,12 +8,16 @@ from numpy.testing import assert_equal
 from voxcell import VoxelData
 
 from projectionizer import utils
+from utils import setup_tempdir
 
 
 def test_write_feather():
-    #TODO: round trip this, and put in temp directory
-    utils.write_feather('/tmp/projectionizer_test_write.feather',
-                        pd.DataFrame({'a': [1, 2, 3, 4]}))
+    with setup_tempdir('test_utils') as path:
+        path = os.path.join(path, 'projectionizer_test_write.feather')
+        data = pd.DataFrame({'a': [1, 2, 3, 4]})
+        utils.write_feather(path, data)
+        new_data = utils.load(path)
+        pd.testing.assert_frame_equal(data, new_data)
 
 
 def test_normalize_probability():
@@ -27,29 +33,30 @@ def test_normalize_probability_raises():
 
 
 def test_load():
-    feather_file = '/tmp/test_load.feather'
-    nrrd_file = '/tmp/test_load.nrrd'
-    json_file = '/tmp/test_load.json'
-    feather_obj = pd.DataFrame({'a': [1, 2, 3, 4]})
-    voxcell_obj = VoxelData(np.array([[[1, 1, 1]]]), (1, 1, 1))
-    json_obj = {'a': 1}
-    utils.write_feather(feather_file, feather_obj)
-    voxcell_obj.save_nrrd(nrrd_file)
-    with open(json_file, 'w') as outputf:
-        json.dump(json_obj, outputf)
+    with setup_tempdir('test_utils') as path:
+        feather_file = os.path.join(path, 'test_load.feather')
+        nrrd_file = os.path.join(path, 'test_load.nrrd')
+        json_file = os.path.join(path, 'test_load.json')
+        feather_obj = pd.DataFrame({'a': [1, 2, 3, 4]})
+        voxcell_obj = VoxelData(np.array([[[1, 1, 1]]]), (1, 1, 1))
+        json_obj = {'a': 1}
+        utils.write_feather(feather_file, feather_obj)
+        voxcell_obj.save_nrrd(nrrd_file)
+        with open(json_file, 'w') as outputf:
+            json.dump(json_obj, outputf)
 
-    ok_(isinstance(utils.load(feather_file), pd.DataFrame))
-    ok_(isinstance(utils.load(nrrd_file), VoxelData))
-    ok_(isinstance(utils.load(json_file), dict))
+        ok_(isinstance(utils.load(feather_file), pd.DataFrame))
+        ok_(isinstance(utils.load(nrrd_file), VoxelData))
+        ok_(isinstance(utils.load(json_file), dict))
 
-    class Task(object):
-        def __init__(self, _path):
-            self.path = _path
+        class Task(object):
+            def __init__(self, _path):
+                self.path = _path
 
-    f, v, j = utils.load_all([Task(feather_file), Task(nrrd_file), Task(json_file)])
-    ok_(feather_obj.equals(f))
-    assert_equal(voxcell_obj.raw, v.raw)
-    eq_(json_obj, j)
+        f, v, j = utils.load_all([Task(feather_file), Task(nrrd_file), Task(json_file)])
+        ok_(feather_obj.equals(f))
+        assert_equal(voxcell_obj.raw, v.raw)
+        eq_(json_obj, j)
 
 
 @raises(NotImplementedError)

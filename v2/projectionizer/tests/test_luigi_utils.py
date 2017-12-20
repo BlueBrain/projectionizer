@@ -19,7 +19,7 @@ def test_cloned_tasks():
 def test_common_params():
     class BlaBlaTask(lu.CommonParams):
         circuit_config = 'circuit'
-        folder = '/tmp'
+        folder = '/none/existant/path'
         extension = 'ext'
         geometry = 'geo'
         n_total_chunks = 'n_chunks'
@@ -30,10 +30,10 @@ def test_common_params():
         extension = 'out'
 
     task = BlaBlaTask()
-    eq_(task.output().path, '/tmp/bla-bla-task.out')
+    eq_(task.output().path, '/none/existant/path/bla-bla-task.out')
 
     class BlaBlaChunk(BlaBlaTask):
         chunk_num = 42
 
     chunked_task = BlaBlaChunk()
-    eq_(chunked_task.output().path, '/tmp/bla-bla-chunk-42.out')
+    eq_(chunked_task.output().path, '/none/existant/path/bla-bla-chunk-42.out')
