@@ -240,3 +240,22 @@ def main(args):
 if __name__ == '__main__':
     PARSER = get_parser()
     main(PARSER.parse_args())
+#def test_build_voxel_synapse_count():
+#    distmap = [[(27, 1.5), (79, 3.4), (147, 7.8), (238, 1)]]
+#    voxel_size = 25
+#    voxel_volume = voxel_size**3
+#    count_per_slice = (np.array([1.5, 3.4, 7.8]) * voxel_volume).astype(int)
+#    result = build_voxel_synapse_count(distmap, voxel_size, 1).raw
+#    npt.assert_equal(result[0][:10],
+#                     np.array([[0],
+#                               [count_per_slice[0]],
+#                               [count_per_slice[0]],
+#                               [count_per_slice[1]],
+#                               [count_per_slice[1]],
+#                               [count_per_slice[2]],
+#                               [count_per_slice[2]],
+#                               [count_per_slice[2]],
+#                               [count_per_slice[2]],
+#                               [0]]))
+#
+#

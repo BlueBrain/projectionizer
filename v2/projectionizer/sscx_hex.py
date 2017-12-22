@@ -1,7 +1,16 @@
+'''SSCX functions related to working w/ hex'''
 import numpy as np
+import pandas as pd
+
+from voxcell import VoxelData
+
+from projectionizer import sscx
+
+VOXEL_SIZE_UM = 10
+
 
 # from proj1/circuits/SomatosensoryCxS1-v5.r0/O1/merged_circuit/circuit.mvd2
-locations = np.array([(352.268, 202.034), (340.422, 184.203), (363.994, 216.486),
+LOCATIONS = np.array([(352.268, 202.034), (340.422, 184.203), (363.994, 216.486),
                       (372.338, 195.883), (321.824, 188.071), (347.074, 229.682),
                       (327.913, 224.298), (316.180, 206.540), (351.366, 168.444),
                       (369.407, 177.818), (324.749, 170.118), (375.946, 230.254),
@@ -735,26 +744,22 @@ LATTICE_VECTORS = {
 HEXAGON_SIDE = np.linalg.norm(LATTICE_VECTORS['a1'])
 
 
-def hexagon():
+def hexagon(hexagon_side=HEXAGON_SIDE):
     '''make central column hexagon'''
     angles = np.arange(6 + 1) * ((2 * np.pi) / 6)
-    points = HEXAGON_SIDE * np.array([np.cos(angles), np.sin(angles)]).transpose()
+    points = hexagon_side * np.array([np.cos(angles), np.sin(angles)]).transpose()
     return points
-
-
-def hexagon_area():
-    return HEXAGON_SIDE**2 * 3 / 2 * np.sqrt(3)
 
 
 def get_virtual_fiber_locations(apron_size=0.0):
     '''get locations in bounding box of central column'''
     points = hexagon()
-    mean_locations = np.mean(locations, axis=0)
+    mean_locations = np.mean(LOCATIONS, axis=0)
     min_xz = np.min(points, axis=0) + mean_locations - apron_size
     max_xz = np.max(points, axis=0) + mean_locations + apron_size
 
-    idx = np.all((min_xz <= locations) & (locations <= max_xz), axis=1)
-    return locations[idx]
+    idx = np.all((min_xz <= LOCATIONS) & (LOCATIONS <= max_xz), axis=1)
+    return LOCATIONS[idx]
 
 
 def tiled_locations(voxel_size, hull=None):
@@ -782,3 +787,44 @@ def tiled_locations(voxel_size, hull=None):
         grid = grid[0 <= hull.find_simplex(grid_at_origin)]
 
     return grid
+
+
+def voxel_space(voxel_size_um=VOXEL_SIZE_UM):
+    '''returns VoxelData with the densities from `distmap`
+
+    This is a 'stack' of (x == z == y == voxel_size) voxels stacked to
+    the full y-height of the hexagon.  It can then be tiled across a whole
+    space to get the desired density.
+
+    Args:
+        distmap: list of results of recipe_to_height_and_density()
+        voxel_size(int): in um
+    '''
+    xz_extent = 1
+    shape = (xz_extent, int(sscx.LAYER_BOUNDARIES[-1] // voxel_size_um), xz_extent)
+    raw = np.zeros(shape=shape, dtype=np.int)
+
+    tiles = tiled_locations(voxel_size_um)
+    n_tile_x, n_tile_y = (tiles.max(axis=0) -
+                          tiles.min(axis=0)) / voxel_size_um
+    raw = raw.repeat(n_tile_x, axis=0).repeat(n_tile_y, axis=2)
+    return VoxelData(raw, [voxel_size_um] * 3, (tiles[:, 0].min(), 0, tiles[:, 1].min()))
+
+
+def get_minicol_virtual_fibers(apron_size):
+    """returns Nx6 matrix: first 3 columns are XYZ pos of fibers, last 3 are direction vector"""
+
+    fibers = set(tuple(loc) for loc in get_virtual_fiber_locations())
+    extra_fibers = set(tuple(loc) for loc in get_virtual_fiber_locations(apron_size)) - fibers
+
+    def to_dataframe(points, outsider):
+        '''return fibers in a dataframe'''
+        df = pd.DataFrame(columns=list('xyzuvw') + ['apron'])
+        if not points:
+            return df
+        df.x, df.z = zip(*points)
+        df.v = 1  # all direction vectors point straight up
+        df.apron = outsider
+        return df.fillna(0)
+
+    return pd.concat((to_dataframe(fibers, False), to_dataframe(extra_fibers, True)))
