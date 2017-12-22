@@ -1,16 +1,16 @@
 '''Luigi tasks that given segments, assign them to the fibers'''
 import logging
 
-import luigi
 import numpy as np
 import pandas as pd
 from voxcell import VoxelData
 
+from luigi import FloatParameter, IntParameter
 from projectionizer.fibers import (IJK, XYZ, assign_synapse_fiber,
                                    closest_fibers_per_voxel)
-from projectionizer.step_0_sample import SampleChunk, VoxelSynapseCount
-from projectionizer.utils import (write_feather, choice, load_all)
 from projectionizer.luigi_utils import FeatherTask, NrrdTask
+from projectionizer.step_0_sample import SampleChunk, VoxelSynapseCount
+from projectionizer.utils import choice, load_all, write_feather
 
 L = logging.getLogger(__name__)
 
@@ -28,7 +28,8 @@ class VirtualFibersNoOffset(FeatherTask):
     def run(self):  # pragma: no cover
         if self.geometry in ('s1hl', 's1', ):
             from projectionizer.sscx import load_s1_virtual_fibers
-            df = load_s1_virtual_fibers(self.geometry, self.voxel_path, self.prefix)
+            df = load_s1_virtual_fibers(
+                self.geometry, self.voxel_path, self.prefix)
             df['apron'] = False
         elif self.geometry == 'hex':
             from projectionizer.sscx_hex import get_minicol_virtual_fibers
@@ -39,7 +40,7 @@ class VirtualFibersNoOffset(FeatherTask):
 
 class ClosestFibersPerVoxel(FeatherTask):
     """Return a DataFrame with the ID of the `closest_count` fibers for each voxel"""
-    closest_count = luigi.IntParameter()
+    closest_count = IntParameter()
 
     def requires(self):  # pragma: no cover
         return self.clone(VoxelSynapseCount), self.clone(VirtualFibersNoOffset)
@@ -52,7 +53,7 @@ class ClosestFibersPerVoxel(FeatherTask):
 
 class SynapseIndices(FeatherTask):
     """Return a DataFrame with the voxels indices (i,j,k) into which each synapse is"""
-    chunk_num = luigi.IntParameter()
+    chunk_num = IntParameter()
 
     def requires(self):  # pragma: no cover
         return self.clone(VoxelSynapseCount), self.clone(SampleChunk)
@@ -66,7 +67,7 @@ class SynapseIndices(FeatherTask):
 
 class CandidateFibersPerSynapse(FeatherTask):
     """Returns a DataFrame with the ID of the 25 closest fibers for each synapse"""
-    chunk_num = luigi.IntParameter()
+    chunk_num = IntParameter()
 
     def requires(self):  # pragma: no cover
         return (self.clone(ClosestFibersPerVoxel),
@@ -74,7 +75,8 @@ class CandidateFibersPerSynapse(FeatherTask):
                 self.clone(SampleChunk),)
 
     def run(self):  # pragma: no cover
-        closest_fibers_per_vox, synapses_indices, synapse_position = load_all(self.input())
+        closest_fibers_per_vox, synapses_indices, synapse_position = load_all(
+            self.input())
         synapse_position = synapse_position[XYZ]
 
         L.debug('Joining the synapses with their potential fibers')
@@ -107,7 +109,8 @@ def distance_to_centroid(candidates, fiber_centroids):
     idx = candidates.loc[:, map(str, range(25))].fillna(0).values.astype(int)
     fiber_coord = fiber_centroids[['radial_mean',
                                    'transverse_mean', 'longitudinal_mean']].values[idx]
-    synapse_position = to_cylindrical_coordinates(candidates.loc[:, ['x', 'y', 'z']].values)
+    synapse_position = to_cylindrical_coordinates(
+        candidates.loc[:, ['x', 'y', 'z']].values)
 
     return (synapse_position - fiber_coord.transpose(1, 0, 2)).transpose(1, 0, 2)
 
@@ -151,7 +154,8 @@ class Centroids(FeatherTask):
         transverse_start = 0
         transverse_end = 180
         transverse_peak_means = transverse_start + \
-            np.random.random((len(fibers),)) * (transverse_end - transverse_start)
+            np.random.random((len(fibers),)) * \
+            (transverse_end - transverse_start)
         longitudinal_peak_means = fibers.loc[:, LONGITUDINAL_AXIS]
         res = pd.DataFrame({'transversal_mean': transverse_peak_means,
                             'radial_mean': 0,
@@ -197,8 +201,8 @@ class SynapticDistributionPerAxon(NrrdTask):
 
 class FiberAssignment(FeatherTask):
     """Returns a DataFrame containing the ID of the fiber associated to each synapse"""
-    chunk_num = luigi.IntParameter()
-    sigma = luigi.FloatParameter()
+    chunk_num = IntParameter()
+    sigma = FloatParameter()
 
     def requires(self):  # pragma: no cover
         if self.geometry != 'CA3_CA1':
@@ -208,7 +212,8 @@ class FiberAssignment(FeatherTask):
     def run(self):  # pragma: no cover
         if self.geometry != 'CA3_CA1':
             candidates, virtual_fibers = load_all(self.input())
-            sgids = assign_synapse_fiber(candidates, virtual_fibers, self.sigma)
+            sgids = assign_synapse_fiber(
+                candidates, virtual_fibers, self.sigma)
         else:
             proba, indices = load_all(self.input())
             idx = choice(proba[indices.i, indices.j, indices.k])

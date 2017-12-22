@@ -7,15 +7,15 @@ import traceback
 
 import numpy as np
 import pandas as pd
+
 from luigi import BoolParameter, FloatParameter, IntParameter
 from luigi.contrib.simulate import RunAnywayTarget
 from luigi.local_target import LocalTarget
-
 from projectionizer.luigi_utils import CommonParams, FeatherTask, JsonTask
 from projectionizer.step_1_assign import VirtualFibersNoOffset
 from projectionizer.step_2_prune import ChooseConnectionsToKeep, ReducePrune
 from projectionizer.utils import load, write_feather
-from projectionizer.write_nrn import write_synapses_summary, write_synapses
+from projectionizer.write_nrn import write_synapses, write_synapses_summary
 
 L = logging.getLogger(__name__)
 
@@ -30,12 +30,13 @@ class WriteSummary(CommonParams):
         # pylint thinks load() isn't returning a DataFrame
         # pylint: disable=maybe-no-member
         synapses = load(self.input().path)
-
         efferent = synapses.groupby(["sgid", "tgid"]).count()["segment_id"].reset_index()
         efferent.columns = ["dataset", "connecting", "efferent"]
-        afferent = synapses.groupby(["tgid", "sgid"]).count()["segment_id"].reset_index()
+        afferent = synapses.groupby(["tgid", "sgid"]).count()[
+            "segment_id"].reset_index()
         afferent.columns = ["dataset", "connecting", "afferent"]
-        summary = pd.merge(efferent, afferent, on=["dataset", "connecting"], how="outer")
+        summary = pd.merge(efferent, afferent, on=["dataset", "connecting"],
+                           how="outer")
         summary.fillna(0, inplace=True)
         summary["efferent"] = summary["efferent"].astype(np.int32)
         summary["afferent"] = summary["afferent"].astype(np.int32)
@@ -100,9 +101,11 @@ class WriteNrnH5(CommonParams):
         try:
             # pylint thinks load() isn't returning a DataFrame
             # pylint: disable=maybe-no-member
-            itr = load(self.input().path).groupby('sgid' if self.efferent else 'tgid')
+            itr = load(self.input().path).groupby(
+                'sgid' if self.efferent else 'tgid')
             params = self.get_synapse_parameters()
-            write_synapses(self.output().path, itr, params, efferent=self.efferent)
+            write_synapses(self.output().path, itr,
+                           params, efferent=self.efferent)
         except Exception as e:
             os.remove(self.output().path)
             traceback.print_exc()
@@ -155,6 +158,15 @@ class SynapseCountPerConnectionL4PC(JsonTask):
     def run(self):
         connections = load(self.input().path)
         l4_pc_mtypes = ['L4_PC', 'L4_UPC', 'L4_TPC']
+
+        # TODO: will be removed next commit
+        # l4_pc_mtypes = [u'L4_BP', u'L4_BTC', u'L4_LBC', u'L4_MC', u'L4_SBC', u'L5_BP',
+        #                 u'L5_BTC', u'L5_ChC', u'L5_DBC', u'L5_LBC', u'L5_MC', u'L5_NBC',
+        #                 u'L5_SBC', u'L5_STPC', u'L5_TTPC1', u'L5_TTPC2', u'L5_UTPC',
+        #                 u'L6_BP', u'L6_BPC', u'L6_BTC', u'L6_ChC', u'L6_DBC', u'L6_IPC',
+        #                 u'L6_LBC', u'L6_MC', u'L6_NBC', u'L6_SBC', u'L6_TPC_L1',
+        #                 u'L6_TPC_L4', u'L6_UTPC']
+
         # pylint: disable=maybe-no-member
         l4_pc_cells = connections[(connections.mtype.isin(l4_pc_mtypes)) &
                                   (connections.kept)]

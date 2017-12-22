@@ -4,11 +4,12 @@ import json
 import os
 
 import numpy as np
+import pandas as pd
 import voxcell
 import yaml
 from bluepy.v2.circuit import Circuit
 
-from luigi import FloatParameter, IntParameter, Parameter
+from luigi import BoolParameter, FloatParameter, IntParameter, Parameter
 from projectionizer.luigi_utils import FeatherTask, JsonTask, NrrdTask
 from projectionizer.sscx import REGION_INFO, recipe_to_height_and_density
 from projectionizer.synapses import (SEGMENT_END_COLS, SEGMENT_START_COLS,
@@ -35,7 +36,8 @@ class VoxelSynapseCount(NrrdTask):
             res.save_nrrd(self.output().path)
         else:
             height, synapse_density = load_all(self.input())
-            res = build_synapses_default(height, synapse_density, self.oversampling)
+            res = build_synapses_default(
+                height, synapse_density, self.oversampling)
             res.save_nrrd(self.output().path)
 
 
@@ -74,22 +76,30 @@ class FullSample(FeatherTask):
     '''Sample segments from circuit
     '''
     n_slices = IntParameter()
+    from_chunks = BoolParameter(default=False)
 
     def requires(self):  # pragma: no cover
+        if self.from_chunks:
+            return [self.clone(SampleChunk, chunk_num=i) for i in range(self.n_total_chunks)]
         return self.clone(VoxelSynapseCount)
 
     def run(self):  # pragma: no cover
-        # pylint thinks load() isn't returning a DataFrame
-        # pylint: disable=maybe-no-member
-        voxels = load(self.input().path)
-        # Hack, cause I don't know how to pass a None IntParameter to luigi -__-
-        n_slices = self.n_slices if self.n_slices > 0 else None
-        synapses = pick_synapses(Circuit(self.circuit_config), voxels, n_slices)
+        if self.from_chunks:
+            # pylint: disable=maybe-no-member
+            chunks = load(self.input().path)
+            write_feather(self.output().path, pd.concat(chunks))
+        else:
+            # pylint: disable=maybe-no-member
+            voxels = load(self.input().path)
+            # Hack, cause I don't know how to pass a None IntParameter to luigi -__-
+            n_slices = self.n_slices if self.n_slices > 0 else None
+            synapses = pick_synapses(
+                Circuit(self.circuit_config), voxels, n_slices)
 
-        remove_cols = SEGMENT_START_COLS + SEGMENT_END_COLS
-        synapses.drop(remove_cols, axis=1, inplace=True)
-        synapses.rename(columns={'gid': 'tgid'}, inplace=True)
-        write_feather(self.output().path, synapses)
+            remove_cols = SEGMENT_START_COLS + SEGMENT_END_COLS
+            synapses.drop(remove_cols, axis=1, inplace=True)
+            synapses.rename(columns={'gid': 'tgid'}, inplace=True)
+            write_feather(self.output().path, synapses)
 
 
 class SampleChunk(FeatherTask):
@@ -104,7 +114,8 @@ class SampleChunk(FeatherTask):
         # pylint: disable=maybe-no-member
         full_sample = load(self.input().path)
         chunk_size = (len(full_sample) / self.n_total_chunks) + 1
-        start, end = np.array([self.chunk_num, self.chunk_num + 1]) * chunk_size
+        start, end = np.array(
+            [self.chunk_num, self.chunk_num + 1]) * chunk_size
         chunk_df = full_sample.iloc[start: end]
         write_feather(self.output().path, chunk_df)
 

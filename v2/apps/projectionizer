@@ -21,7 +21,8 @@ L = logging.getLogger(__name__)
 def common_parser():
     '''return the argument parser'''
     parser = argparse.ArgumentParser()
-    parser.add_argument('-o', '--output', help='Output directory', required=True)
+    parser.add_argument(
+        '-o', '--output', help='Output directory', required=True)
     parser.add_argument('-c', '--config',  default=None,
                         help='The projectionizer YAML config file. Must be passed when running the analysis for the first time. See templates/ folder for some examples')
     parser.add_argument('-l', '--no-local-scheduler',  action='store_true',
@@ -31,9 +32,12 @@ def common_parser():
                               'they match the target mean connectivity(number of synapses per connections) for L4 PC cells'))
     parser.add_argument('-t', '--connectivity-target',
                         help='The number of synpase per connection to reach with the dichotomy')
-    parser.add_argument('-s', '--min-param',  help='Starting range of the dichotomy')
-    parser.add_argument('-e', '--max-param',  help='End range of the dichotomy')
-    parser.add_argument('-m', '--target-margin',  help='Tolerance of the dichotomy')
+    parser.add_argument('-s', '--min-param',
+                        help='Starting range of the dichotomy')
+    parser.add_argument('-e', '--max-param',
+                        help='End range of the dichotomy')
+    parser.add_argument('-m', '--target-margin',
+                        help='Tolerance of the dichotomy')
 
     return parser
 
@@ -79,12 +83,12 @@ if __name__ == '__main__':
             args.config, args.output))
 
     if args.dichotomy:
-        cmd = ['Dichotomy', '--folder', args.output, '--module',
+        cmd = ['Minimizer', '--folder', args.output, '--module',
                'projectionizer.dichotomy', '--workers', '1',
-               '--Dichotomy-connectivity-target', args.connectivity_target,
-               '--Dichotomy-min-param', args.min_param,
-               '--Dichotomy-max-param', args.max_param,
-               '--Dichotomy-target-margin', args.target_margin]
+               '--Minimizer-target', args.connectivity_target,
+               '--Minimizer-min-param', args.min_param,
+               '--Minimizer-max-param', args.max_param,
+               '--Minimizer-target-margin', args.target_margin]
     else:
         cmd = ['DoAll', '--folder', args.output, '--module',
                'projectionizer.analysis', '--workers', '1', ]

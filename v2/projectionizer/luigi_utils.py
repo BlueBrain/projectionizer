@@ -2,8 +2,10 @@
 import os
 import re
 
-from luigi import Config, FloatParameter, IntParameter, Parameter, Task
+from luigi import (Config, FloatParameter, IntParameter, Parameter, Task,
+                   TaskParameter)
 from luigi.local_target import LocalTarget
+from projectionizer.utils import load, write_feather
 
 
 def cloned_tasks(this, tasks):
@@ -70,3 +72,25 @@ class JsonTask(CommonParams):
 class NrrdTask(CommonParams):
     '''Task returning a Nrrd file'''
     extension = 'nrrd'
+
+
+class CloneTask(CommonParams):
+    '''Clone a FeatherTask'''
+    ClonedTask = TaskParameter()
+    from_folder = Parameter()
+    fraction = FloatParameter()
+    chunk_num = IntParameter(default=-1)
+
+    def requires(self):
+        if self.chunk_num >= 0:
+            return self.clone(self.ClonedTask, folder=self.from_folder, chunk_num=self.chunk_num)
+        return self.clone(self.ClonedTask, folder=self.from_folder)
+
+    def run(self):
+        # pylint: disable=maybe-no-member
+        df = load(self.input().path)
+        write_feather(self.output().path, df.sample(frac=self.fraction))
+
+    def output(self):
+        name = os.path.basename(self.input().path)
+        return LocalTarget(os.path.join(self.folder, name))

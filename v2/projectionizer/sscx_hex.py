@@ -1,7 +1,6 @@
 '''SSCX functions related to working w/ hex'''
 import numpy as np
 import pandas as pd
-
 from voxcell import VoxelData
 
 from projectionizer import sscx
@@ -733,8 +732,7 @@ LOCATIONS = np.array([(352.268, 202.034), (340.422, 184.203), (363.994, 216.486)
                       (826.659, 970.698), (907.715, 769.461), (602.391, 998.210),
                       (821.810, 623.443), (786.039, 998.814), (914.494, 816.587),
                       (916.411, 797.376), (808.956, 608.405), (803.798, 995.152),
-                      (578.713, 604.402),
-                      ])
+                      (578.713, 604.402), ])
 
 
 LATTICE_VECTORS = {
@@ -784,7 +782,7 @@ def tiled_locations(voxel_size, hull=None):
 
     if hull is not None:
         grid_at_origin = grid - np.mean(grid, axis=0)
-        grid = grid[0 <= hull.find_simplex(grid_at_origin)]
+        grid = grid[hull.find_simplex(grid_at_origin) >= 0]
 
     return grid
 
