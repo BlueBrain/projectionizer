@@ -60,7 +60,7 @@ class Height(NrrdTask):
                 os.path.join(self.voxel_path, prefix + 'distance.nrrd'))
             distance.raw[np.invert(mask)] = 0.
         elif self.geometry == 'hex':
-            from examples.SSCX_Thalamocortical_VPM_hex import voxel_space
+            from projectionizer.sscx_hex import voxel_space
             voxels = voxel_space()
             xyz = voxels.indices_to_positions(np.indices(
                 voxels.raw.shape).transpose(1, 2, 3, 0) + (0.5, 0.5, 0.5))

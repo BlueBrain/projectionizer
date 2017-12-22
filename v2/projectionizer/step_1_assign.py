@@ -31,7 +31,7 @@ class VirtualFibersNoOffset(FeatherTask):
             df = load_s1_virtual_fibers(self.geometry, self.voxel_path, self.prefix)
             df['apron'] = False
         elif self.geometry == 'hex':
-            from examples.SSCX_Thalamocortical_VPM_hex import get_minicol_virtual_fibers
+            from projectionizer.sscx_hex import get_minicol_virtual_fibers
             apron = 50
             df = get_minicol_virtual_fibers(apron)
         write_feather(self.output().path, df)

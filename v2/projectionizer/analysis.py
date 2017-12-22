@@ -12,7 +12,7 @@ from bluepy.v2.circuit import Circuit
 from luigi import Parameter
 from luigi.contrib.simulate import RunAnywayTarget
 
-from examples.mini_col_locations import get_virtual_fiber_locations, hexagon
+from projectionizer.sscx_hex import get_virtual_fiber_locations, hexagon
 from projectionizer.luigi_utils import CommonParams
 from projectionizer.step_0_sample import FullSample, SynapseDensity
 from projectionizer.step_2_prune import (ChooseConnectionsToKeep, CutoffMeans,
