@@ -110,9 +110,9 @@ def test_in_bounding_box():
 
 def test_mask_by_region():
     mask = utils.mask_by_region('primary somatosensory cortex, hindlimb region',
-                                'v2/projectionizer/tests', '')
+                                os.path.dirname(os.path.realpath(__file__)), '')
     assert_equal(mask.sum(), 101857)
 
     mask = utils.mask_by_region([726],
-                                'v2/projectionizer/tests', '')
+                                os.path.dirname(os.path.realpath(__file__)), '')
     assert_equal(mask.sum(), 101857)
