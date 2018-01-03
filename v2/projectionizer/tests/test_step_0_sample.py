@@ -9,7 +9,9 @@ from nose.tools import ok_
 from numpy.testing import assert_equal
 from voxcell import VoxelData
 
-from projectionizer.synapses import _min_max_axis, pick_synapses_voxel, pick_synapses, segment_pref_length
+from projectionizer.synapses import (_min_max_axis, build_synapses_default,
+                                     pick_synapses, pick_synapses_voxel,
+                                     segment_pref_length)
 
 
 def mock_segment_pref(segs_df):
@@ -110,3 +112,11 @@ def test_segment_pref():
     ret = segment_pref_length(df)
     ok_(isinstance(ret, pd.Series))
     assert_equal(ret.values, np.array([0., 0., 1., 1.]))
+
+
+def test_build_synapses_default():
+    height = VoxelData(np.arange(8).reshape((2, 2, 2)), (1, 1, 1))
+    synapse_density = [[[0, 7], [2, 8], [3, 67], [7, 42]]]
+    oversampling = 3
+    synapses = build_synapses_default(height, synapse_density, oversampling)
+    assert_equal(synapses.raw, [[[21,  21], [24, 201]], [[201, 201], [201, 0]]])

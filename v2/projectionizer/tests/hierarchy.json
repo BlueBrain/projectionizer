@@ -1,0 +1,650 @@
+{
+  "id" : 65535,
+  "acronym" : "Br",
+  "name" : "brain",
+  "children" : [ {
+    "id" : 1100,
+    "acronym" : "SSCtx",
+    "name" : "somatosensory cortex",
+    "children" : [ {
+      "id" : 721,
+      "acronym" : "S1",
+      "name" : "primary somatosensory cortex",
+      "children" : [ {
+        "id" : 722,
+        "acronym" : "S1BF",
+        "name" : "primary somatosensory cortex, barrel field",
+        "children" : [ {
+          "id" : 1101,
+          "acronym" : "L1",
+          "name" : "primary somatosensory cortex, barrel field, layer 1"
+        }, {
+          "id" : 1102,
+          "acronym" : "L2",
+          "name" : "primary somatosensory cortex, barrel field, layer 2"
+        }, {
+          "id" : 1103,
+          "acronym" : "L3",
+          "name" : "primary somatosensory cortex, barrel field, layer 3"
+        }, {
+          "id" : 1104,
+          "acronym" : "L4",
+          "name" : "primary somatosensory cortex, barrel field, layer 4"
+        }, {
+          "id" : 1105,
+          "acronym" : "L5",
+          "name" : "primary somatosensory cortex, barrel field, layer 5"
+        }, {
+          "id" : 1106,
+          "acronym" : "L6",
+          "name" : "primary somatosensory cortex, barrel field, layer 6"
+        } ]
+      }, {
+        "id" : 723,
+        "acronym" : "S1DZ",
+        "name" : "primary somatosensory cortex, dysgranular zone",
+        "children" : [ {
+          "id" : 1107,
+          "acronym" : "L1",
+          "name" : "primary somatosensory cortex, dysgranular zone, layer 1"
+        }, {
+          "id" : 1108,
+          "acronym" : "L2",
+          "name" : "primary somatosensory cortex, dysgranular zone, layer 2"
+        }, {
+          "id" : 1109,
+          "acronym" : "L3",
+          "name" : "primary somatosensory cortex, dysgranular zone, layer 3"
+        }, {
+          "id" : 1110,
+          "acronym" : "L4",
+          "name" : "primary somatosensory cortex, dysgranular zone, layer 4"
+        }, {
+          "id" : 1111,
+          "acronym" : "L5",
+          "name" : "primary somatosensory cortex, dysgranular zone, layer 5"
+        }, {
+          "id" : 1112,
+          "acronym" : "L6",
+          "name" : "primary somatosensory cortex, dysgranular zone, layer 6"
+        } ]
+      }, {
+        "id" : 724,
+        "acronym" : "S1DZO",
+        "name" : "primary somatosensory cortex, oral dysgranular zone",
+        "children" : [ {
+          "id" : 1113,
+          "acronym" : "L1",
+          "name" : "primary somatosensory cortex, oral dysgranular zone, layer 1"
+        }, {
+          "id" : 1114,
+          "acronym" : "L2",
+          "name" : "primary somatosensory cortex, oral dysgranular zone, layer 2"
+        }, {
+          "id" : 1115,
+          "acronym" : "L3",
+          "name" : "primary somatosensory cortex, oral dysgranular zone, layer 3"
+        }, {
+          "id" : 1116,
+          "acronym" : "L4",
+          "name" : "primary somatosensory cortex, oral dysgranular zone, layer 4"
+        }, {
+          "id" : 1117,
+          "acronym" : "L5",
+          "name" : "primary somatosensory cortex, oral dysgranular zone, layer 5"
+        }, {
+          "id" : 1118,
+          "acronym" : "L6",
+          "name" : "primary somatosensory cortex, oral dysgranular zone, layer 6"
+        } ]
+      }, {
+        "id" : 725,
+        "acronym" : "S1FL",
+        "name" : "primary somatosensory cortex, forelimb region",
+        "children" : [ {
+          "id" : 1119,
+          "acronym" : "L1",
+          "name" : "primary somatosensory cortex, forelimb region, layer 1"
+        }, {
+          "id" : 1120,
+          "acronym" : "L2",
+          "name" : "primary somatosensory cortex, forelimb region, layer 2"
+        }, {
+          "id" : 1121,
+          "acronym" : "L3",
+          "name" : "primary somatosensory cortex, forelimb region, layer 3"
+        }, {
+          "id" : 1122,
+          "acronym" : "L4",
+          "name" : "primary somatosensory cortex, forelimb region, layer 4"
+        }, {
+          "id" : 1123,
+          "acronym" : "L5",
+          "name" : "primary somatosensory cortex, forelimb region, layer 5"
+        }, {
+          "id" : 1124,
+          "acronym" : "L6",
+          "name" : "primary somatosensory cortex, forelimb region, layer 6"
+        } ]
+      }, {
+        "id" : 726,
+        "acronym" : "S1HL",
+        "name" : "primary somatosensory cortex, hindlimb region",
+        "children" : [ {
+          "id" : 1125,
+          "acronym" : "L1",
+          "name" : "primary somatosensory cortex, hindlimb region, layer 1"
+        }, {
+          "id" : 1126,
+          "acronym" : "L2",
+          "name" : "primary somatosensory cortex, hindlimb region, layer 2"
+        }, {
+          "id" : 1127,
+          "acronym" : "L3",
+          "name" : "primary somatosensory cortex, hindlimb region, layer 3"
+        }, {
+          "id" : 1128,
+          "acronym" : "L4",
+          "name" : "primary somatosensory cortex, hindlimb region, layer 4"
+        }, {
+          "id" : 1129,
+          "acronym" : "L5",
+          "name" : "primary somatosensory cortex, hindlimb region, layer 5"
+        }, {
+          "id" : 1130,
+          "acronym" : "L6",
+          "name" : "primary somatosensory cortex, hindlimb region, layer 6"
+        } ]
+      }, {
+        "id" : 727,
+        "acronym" : "S1J",
+        "name" : "primary somatosensory cortex, jaw region",
+        "children" : [ {
+          "id" : 1131,
+          "acronym" : "L1",
+          "name" : "primary somatosensory cortex, jaw region, layer 1"
+        }, {
+          "id" : 1132,
+          "acronym" : "L2",
+          "name" : "primary somatosensory cortex, jaw region, layer 2"
+        }, {
+          "id" : 1133,
+          "acronym" : "L3",
+          "name" : "primary somatosensory cortex, jaw region, layer 3"
+        }, {
+          "id" : 1134,
+          "acronym" : "L4",
+          "name" : "primary somatosensory cortex, jaw region, layer 4"
+        }, {
+          "id" : 1135,
+          "acronym" : "L5",
+          "name" : "primary somatosensory cortex, jaw region, layer 5"
+        }, {
+          "id" : 1136,
+          "acronym" : "L6",
+          "name" : "primary somatosensory cortex, jaw region, layer 6"
+        } ]
+      }, {
+        "id" : 728,
+        "acronym" : "S1Sh",
+        "name" : "primary somatosensory cortex, shoulder region",
+        "children" : [ {
+          "id" : 1137,
+          "acronym" : "L1",
+          "name" : "primary somatosensory cortex, shoulder region, layer 1"
+        }, {
+          "id" : 1138,
+          "acronym" : "L2",
+          "name" : "primary somatosensory cortex, shoulder region, layer 2"
+        }, {
+          "id" : 1139,
+          "acronym" : "L3",
+          "name" : "primary somatosensory cortex, shoulder region, layer 3"
+        }, {
+          "id" : 1140,
+          "acronym" : "L4",
+          "name" : "primary somatosensory cortex, shoulder region, layer 4"
+        }, {
+          "id" : 1141,
+          "acronym" : "L5",
+          "name" : "primary somatosensory cortex, shoulder region, layer 5"
+        }, {
+          "id" : 1142,
+          "acronym" : "L6",
+          "name" : "primary somatosensory cortex, shoulder region, layer 6"
+        } ]
+      }, {
+        "id" : 730,
+        "acronym" : "S1Tr",
+        "name" : "primary somatosensory cortex, trunk region",
+        "children" : [ {
+          "id" : 1143,
+          "acronym" : "L1",
+          "name" : "primary somatosensory cortex, trunk region, layer 1"
+        }, {
+          "id" : 1144,
+          "acronym" : "L2",
+          "name" : "primary somatosensory cortex, trunk region, layer 2"
+        }, {
+          "id" : 1145,
+          "acronym" : "L3",
+          "name" : "primary somatosensory cortex, trunk region, layer 3"
+        }, {
+          "id" : 1146,
+          "acronym" : "L4",
+          "name" : "primary somatosensory cortex, trunk region, layer 4"
+        }, {
+          "id" : 1147,
+          "acronym" : "L5",
+          "name" : "primary somatosensory cortex, trunk region, layer 5"
+        }, {
+          "id" : 1148,
+          "acronym" : "L6",
+          "name" : "primary somatosensory cortex, trunk region, layer 6"
+        } ]
+      }, {
+        "id" : 731,
+        "acronym" : "S1ULp",
+        "name" : "primary somatosensory cortex, upper lip region",
+        "children" : [ {
+          "id" : 1149,
+          "acronym" : "L1",
+          "name" : "primary somatosensory cortex, upper lip region, layer 1"
+        }, {
+          "id" : 1150,
+          "acronym" : "L2",
+          "name" : "primary somatosensory cortex, upper lip region, layer 2"
+        }, {
+          "id" : 1151,
+          "acronym" : "L3",
+          "name" : "primary somatosensory cortex, upper lip region, layer 3"
+        }, {
+          "id" : 1152,
+          "acronym" : "L4",
+          "name" : "primary somatosensory cortex, upper lip region, layer 4"
+        }, {
+          "id" : 1153,
+          "acronym" : "L5",
+          "name" : "primary somatosensory cortex, upper lip region, layer 5"
+        }, {
+          "id" : 1154,
+          "acronym" : "L6",
+          "name" : "primary somatosensory cortex, upper lip region, layer 6"
+        } ]
+      }, {
+        "id" : 1161,
+        "acronym" : "L1",
+        "name" : "primary somatosensory cortex, layer 1"
+      }, {
+        "id" : 1162,
+        "acronym" : "L2",
+        "name" : "primary somatosensory cortex, layer 2"
+      }, {
+        "id" : 1163,
+        "acronym" : "L3",
+        "name" : "primary somatosensory cortex, layer 3"
+      }, {
+        "id" : 1164,
+        "acronym" : "L4",
+        "name" : "primary somatosensory cortex, layer 4"
+      }, {
+        "id" : 1165,
+        "acronym" : "L5",
+        "name" : "primary somatosensory cortex, layer 5"
+      }, {
+        "id" : 1166,
+        "acronym" : "L6",
+        "name" : "primary somatosensory cortex, layer 6"
+      } ]
+    }, {
+      "id" : 732,
+      "acronym" : "S2",
+      "name" : "secondary somatosensory cortex",
+      "children" : [ {
+        "id" : 1155,
+        "acronym" : "L1",
+        "name" : "secondary somatosensory cortex, layer 1"
+      }, {
+        "id" : 1156,
+        "acronym" : "L2",
+        "name" : "secondary somatosensory cortex, layer 2"
+      }, {
+        "id" : 1157,
+        "acronym" : "L3",
+        "name" : "secondary somatosensory cortex, layer 3"
+      }, {
+        "id" : 1158,
+        "acronym" : "L4",
+        "name" : "secondary somatosensory cortex, layer 4"
+      }, {
+        "id" : 1159,
+        "acronym" : "L5",
+        "name" : "secondary somatosensory cortex, layer 5"
+      }, {
+        "id" : 1160,
+        "acronym" : "L6",
+        "name" : "secondary somatosensory cortex, layer 6"
+      } ]
+    } ]
+  }, {
+    "id" : 856,
+    "acronym" : "Th",
+    "name" : "thalamus",
+    "children" : [ {
+      "id" : 80,
+      "acronym" : "AD",
+      "name" : "anterodorsal thalamic nucleus"
+    }, {
+      "id" : 94,
+      "acronym" : "AM",
+      "name" : "anteromedial thalamic nucleus",
+      "children" : [ {
+        "id" : 95,
+        "acronym" : "AMV",
+        "name" : "anteromedial thalamic nucleus, ventral part"
+      } ]
+    }, {
+      "id" : 113,
+      "acronym" : "ATh",
+      "name" : "ATh"
+    }, {
+      "id" : 114,
+      "acronym" : "AV",
+      "name" : "anteroventral thalamic nucleus",
+      "children" : [ {
+        "id" : 115,
+        "acronym" : "AVDM",
+        "name" : "anterovent thalamic nucleus, dorsomedial part"
+      }, {
+        "id" : 118,
+        "acronym" : "AVVL",
+        "name" : "anteroventral thalamic nucleus, ventrolateral part"
+      } ]
+    }, {
+      "id" : 134,
+      "acronym" : "AngT",
+      "name" : "angular thalamic nucleus"
+    }, {
+      "id" : 235,
+      "acronym" : "DLG",
+      "name" : "dorsal lateral geniculate nucleus"
+    }, {
+      "id" : 304,
+      "acronym" : "Eth",
+      "name" : "ethmoid thalamic nucleus"
+    }, {
+      "id" : 336,
+      "acronym" : "IAD",
+      "name" : "interanterodorsal thalamic nucleus"
+    }, {
+      "id" : 337,
+      "acronym" : "IAM",
+      "name" : "interanteromedial thalamic nucleus"
+    }, {
+      "id" : 346,
+      "acronym" : "IGL",
+      "name" : "intergeniculate leaf"
+    }, {
+      "id" : 351,
+      "acronym" : "IMA",
+      "name" : "intramedullary thalamic area"
+    }, {
+      "id" : 352,
+      "acronym" : "IMD",
+      "name" : "intermediodorsal thalamic nucleus"
+    }, {
+      "id" : 399,
+      "acronym" : "Intralaminar-Th-nu",
+      "name" : "intralaminar thalamic nuclei",
+      "children" : [ {
+        "id" : 187,
+        "acronym" : "CL",
+        "name" : "centrolateral thalamic nucleus"
+      }, {
+        "id" : 189,
+        "acronym" : "CM",
+        "name" : "central medial thalamic nucleus"
+      }, {
+        "id" : 549,
+        "acronym" : "OPC",
+        "name" : "oval paracentral thalamic nucleus"
+      }, {
+        "id" : 568,
+        "acronym" : "PC",
+        "name" : "paracentral thalamic nucleus"
+      } ]
+    }, {
+      "id" : 408,
+      "acronym" : "LD",
+      "name" : "laterodorsal thalamic nucleus",
+      "children" : [ {
+        "id" : 409,
+        "acronym" : "LDDM",
+        "name" : "laterodorsal thalamic nucleus, dorsomedial part"
+      }, {
+        "id" : 412,
+        "acronym" : "LDVL",
+        "name" : "laterodorsal thalamic nucleus, ventrolateral part"
+      } ]
+    }, {
+      "id" : 422,
+      "acronym" : "LP",
+      "name" : "lateral posterior thalamic nucleus",
+      "children" : [ {
+        "id" : 435,
+        "acronym" : "LPLC",
+        "name" : "lateral posterior thalamic nucleus, laterocaudal part"
+      }, {
+        "id" : 436,
+        "acronym" : "LPLR",
+        "name" : "lateral posterior thalamic nucleus, laterorostral part"
+      }, {
+        "id" : 437,
+        "acronym" : "LPMC",
+        "name" : "lateral posterior thalamic nucleus, mediocaudal part"
+      }, {
+        "id" : 438,
+        "acronym" : "LPMR",
+        "name" : "lateral posterior thalamic nucleus, mediorostral part"
+      } ]
+    }, {
+      "id" : 477,
+      "acronym" : "MD",
+      "name" : "mediodorsal thalamic nucleus",
+      "children" : [ {
+        "id" : 478,
+        "acronym" : "MDC",
+        "name" : "mediodorsal thalamic nucleus, central part"
+      }, {
+        "id" : 479,
+        "acronym" : "MDL",
+        "name" : "mediodorsal thalamic nucleus, lateral part"
+      }, {
+        "id" : 480,
+        "acronym" : "MDM",
+        "name" : "mediodorsal thalamic nucleus, medial part"
+      } ]
+    }, {
+      "id" : 486,
+      "acronym" : "MG",
+      "name" : "medial geniculate nucleus",
+      "children" : [ {
+        "id" : 487,
+        "acronym" : "MGD",
+        "name" : "medial geniculate nucleus, dorsal part"
+      }, {
+        "id" : 488,
+        "acronym" : "MGM",
+        "name" : "medial geniculate nucleus, medial part"
+      }, {
+        "id" : 489,
+        "acronym" : "MGV",
+        "name" : "medial geniculate nucleus, ventral part"
+      }, {
+        "id" : 517,
+        "acronym" : "MZMG",
+        "name" : "marginal zone of the medial geniculate"
+      }, {
+        "id" : 740,
+        "acronym" : "SG",
+        "name" : "suprageniculate thalamic nucleus"
+      } ]
+    }, {
+      "id" : 579,
+      "acronym" : "PF",
+      "name" : "parafascicular thalamic nucleus"
+    }, {
+      "id" : 585,
+      "acronym" : "PIL",
+      "name" : "posterior intralaminar thalamic nucleus"
+    }, {
+      "id" : 612,
+      "acronym" : "PT",
+      "name" : "paratenial thalamic nucleus"
+    }, {
+      "id" : 615,
+      "acronym" : "PV",
+      "name" : "paraventricular thalamic nucleus"
+    }, {
+      "id" : 616,
+      "acronym" : "PVA",
+      "name" : "paraventricular thalamic nucleus, anterior part"
+    }, {
+      "id" : 617,
+      "acronym" : "PVP",
+      "name" : "paraventricular thalamic nucleus, posterior part"
+    }, {
+      "id" : 634,
+      "acronym" : "PaXi",
+      "name" : "paraxiphoid nucleus of thalamus"
+    }, {
+      "id" : 654,
+      "acronym" : "Po",
+      "name" : "posterior thalamic nuclear group",
+      "children" : [ {
+        "id" : 657,
+        "acronym" : "PoT",
+        "name" : "posterior thalamic nuclear group, triangular part"
+      } ]
+    }, {
+      "id" : 656,
+      "acronym" : "PoMn",
+      "name" : "posteromedian thalamic nucleus"
+    }, {
+      "id" : 711,
+      "acronym" : "Re",
+      "name" : "reuniens thalamic nucleus",
+      "children" : [ {
+        "id" : 914,
+        "acronym" : "VRe",
+        "name" : "ventral reuniens thalamic nucleus"
+      } ]
+    }, {
+      "id" : 714,
+      "acronym" : "Rh",
+      "name" : "rhomboid thalamic nucleus"
+    }, {
+      "id" : 716,
+      "acronym" : "Rt",
+      "name" : "reticular thalamic nucleus",
+      "children" : [ {
+        "id" : 1167,
+        "acronym" : "RtM",
+        "name" : "reticular thalamic nucleus, medial tier"
+      }, {
+        "id" : 1168,
+        "acronym" : "RtC",
+        "name" : "reticular thalamic nucleus, central tier"
+      }, {
+        "id" : 1169,
+        "acronym" : "RtL",
+        "name" : "reticular thalamic nucleus, lateral tier"
+      } ]
+    }, {
+      "id" : 763,
+      "acronym" : "SPF",
+      "name" : "subparafascicular thalamic nucleus",
+      "children" : [ {
+        "id" : 764,
+        "acronym" : "SPFPC",
+        "name" : "subparafascicular thalamic nucleus, parvicellular part"
+      } ]
+    }, {
+      "id" : 836,
+      "acronym" : "Sub",
+      "name" : "submedius thalamic nucleus",
+      "children" : [ {
+        "id" : 841,
+        "acronym" : "SubD",
+        "name" : "submedius thalamic nucleus, dorsal part"
+      }, {
+        "id" : 845,
+        "acronym" : "SubV",
+        "name" : "submedius thalamic nucleus, ventral part"
+      } ]
+    }, {
+      "id" : 877,
+      "acronym" : "VA-VL",
+      "name" : "VA-VL",
+      "children" : [ {
+        "id" : 876,
+        "acronym" : "VA",
+        "name" : "ventral anterior thalamic nucleus"
+      }, {
+        "id" : 892,
+        "acronym" : "VL",
+        "name" : "ventrolateral thalamic nucleus"
+      } ]
+    }, {
+      "id" : 893,
+      "acronym" : "VLG",
+      "name" : "VLG",
+      "children" : [ {
+        "id" : 887,
+        "acronym" : "VG",
+        "name" : "ventral geniculate nucleus"
+      }, {
+        "id" : 888,
+        "acronym" : "VG-1",
+        "name" : "VG-1"
+      }, {
+        "id" : 889,
+        "acronym" : "VG-2",
+        "name" : "VG-2"
+      }, {
+        "id" : 890,
+        "acronym" : "VG-3",
+        "name" : "VG-3"
+      } ]
+    }, {
+      "id" : 898,
+      "acronym" : "VLi",
+      "name" : "ventral linear nucleus of the thalamus"
+    }, {
+      "id" : 899,
+      "acronym" : "VM",
+      "name" : "ventromedial thalamic nucleus"
+    }, {
+      "id" : 1170,
+      "acronym" : "VP",
+      "name" : "ventral posterior thalamic nucleus group",
+      "children" : [ {
+        "id" : 910,
+        "acronym" : "VPL",
+        "name" : "ventral posterolateral thalamic nucleus"
+      }, {
+        "id" : 911,
+        "acronym" : "VPM",
+        "name" : "ventral posteromedial thalamic nucleus"
+      }, {
+        "id" : 912,
+        "acronym" : "VPPC",
+        "name" : "ventral posterior nucleus of the thalamus, parvicellular part"
+      } ]
+    }, {
+      "id" : 927,
+      "acronym" : "Xi",
+      "name" : "xiphoid thalamic nucleus"
+    } ]
+  } ]
+}

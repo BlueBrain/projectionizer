@@ -51,7 +51,7 @@ class TargetMismatch(JsonTask):
     target = FloatParameter()
     param = FloatParameter(default=0)
 
-    def run(self):
+    def run(self):  # pragma: no cover
         task = yield self.clone(SynapseCountPerConnectionL4PC, oversampling=self.param)
         with task.open() as inputf:
             with self.output().open('w') as outputf:
@@ -68,7 +68,7 @@ class SynapseCountL4PCMeanMinimizer(CommonParams):
     max_param = FloatParameter()
     max_loop = IntParameter(default=20)
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         '''Start by generating a large number of synapses first'''
         return [self.clone(SampleChunk,
                            chunk_num=chunk_num,
@@ -77,7 +77,7 @@ class SynapseCountL4PCMeanMinimizer(CommonParams):
                 for chunk_num in range(self.n_total_chunks)] + \
             [self.clone(Dichotomy, MinimizationTask=TargetMismatch)]
 
-    def run(self):
+    def run(self):  # pragma: no cover
         dichotomy = self.input()[-1]
         with dichotomy.open() as inputf:
             param = json.load(inputf)['param']

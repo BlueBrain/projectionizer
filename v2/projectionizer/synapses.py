@@ -40,7 +40,7 @@ def build_synapses_default(height, synapse_density, oversampling):
     voxel_volume = np.prod(np.abs(height.voxel_dimensions))
     for dist in synapse_density:
         for (bottom, density), (top, _) in zip(dist[:-1], dist[1:]):
-            idx = np.nonzero((bottom < height.raw) & (height.raw < top))
+            idx = np.nonzero((bottom <= height.raw) & (height.raw < top))
             raw[idx] = int(voxel_volume * density * oversampling)
 
     return height.with_data(raw)

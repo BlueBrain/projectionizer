@@ -1,10 +1,11 @@
 import json
 import os
+import time
 
 from nose.tools import ok_
 from numpy.testing import assert_allclose, assert_equal
 
-from luigi import FloatParameter, LocalTarget, Parameter, Task, run
+from luigi import FloatParameter, LocalTarget, Parameter, Task, build, run
 from luigi.contrib.simulate import RunAnywayTarget
 from mocks import class_with_dummy_params, dummy_params
 from projectionizer.dichotomy import Dichotomy
@@ -36,30 +37,33 @@ def test_simple():
             assert_equal(json.load(inputf)['result'], 15)
 
 
+class MismatchLinearTask(JsonTask):
+    '''The task whose value must be minimized'''
+    target = FloatParameter()
+    param = FloatParameter(default=0)
+
+    def run(self):
+        task = yield self.clone(LinearTask, param=self.param)
+        with task.open() as inputf:
+            with self.output().open('w') as outputf:
+                json.dump({'error': json.load(inputf)['result'] - self.target},
+                          outputf)
+
+
+class TestDichotomy(Task):
+    def requires(self):
+        return self.clone(Dichotomy, **dummy_params())
+
+    def run(self):
+        with self.input().open() as inputf:
+            assert_allclose(json.load(inputf)['param'], -47, atol=0.5)
+        self.output().done()
+
+    def output(self):
+        return RunAnywayTarget(self)
+
+
 def test_dichotomy():
-    class MismatchLinearTask(JsonTask):
-        '''The task whose value must be minimized'''
-        target = FloatParameter()
-        param = FloatParameter(default=0)
-
-        def run(self):
-            task = yield self.clone(LinearTask, param=self.param)
-            with task.open() as inputf:
-                with self.output().open('w') as outputf:
-                    json.dump({'error': json.load(inputf)['result'] - self.target},
-                              outputf)
-
-    class TestDichotomy(Task):
-        def requires(self):
-            return self.clone(Dichotomy, **dummy_params())
-
-        def run(self):
-            with self.input().open() as inputf:
-                assert_allclose(json.load(inputf)['param'], -47, atol=0.5)
-            self.output().done()
-
-        def output(self):
-            return RunAnywayTarget(self)
 
     with setup_tempdir('test_utils') as tmp_folder:
         res = run(['TestDichotomy',
@@ -73,3 +77,20 @@ def test_dichotomy():
                    '--Dichotomy-max-loop', '57',
                    '--Dichotomy-folder', tmp_folder])
         ok_(res)
+
+
+def test_dichotomy_failed():
+    '''Test dichotomy not converging fast enough
+    leading to maximum number of iteration reached'''
+    with setup_tempdir('test_utils') as tmp_folder:
+        params = dummy_params()
+        params.update({'MinimizationTask': MismatchLinearTask,
+                       'target': 27,
+                       'target_margin': 5,
+                       'min_param': 123,
+                       'max_param': 456,
+                       'max_loop': 3,
+                       'folder': tmp_folder})
+
+        res = build([Dichotomy(**params)], local_scheduler=True)
+        ok_(not res)
