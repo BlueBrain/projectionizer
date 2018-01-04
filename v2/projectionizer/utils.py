@@ -30,14 +30,16 @@ def write_feather(name, df):
 
 def load(filename):
     """Load a Pandas/Nrrd file based on the extension"""
-    if filename.endswith('feather'):
-        return pd.read_feather(filename)
-    elif filename.endswith('nrrd'):
-        return VoxelData.load_nrrd(filename)
-    elif filename.endswith('json'):
-        with open(filename) as infile:
-            return json.load(infile)
-    raise NotImplementedError('Do not know how open: {}'.format(filename))
+    extension = os.path.splitext(filename)[1]
+    try:
+        return {
+            '.feather': lambda: pd.read_feather(filename),
+            '.nrrd': lambda: VoxelData.load_nrrd(filename),
+            '.csv': lambda: pd.read_csv(filename, index_col=0),
+            '.json': lambda: json.load(open(filename))
+        }[extension]()
+    except KeyError:
+        raise NotImplementedError('Do not know how open: {}'.format(filename))
 
 
 def load_all(inputs):

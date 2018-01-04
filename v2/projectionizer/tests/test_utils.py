@@ -34,29 +34,32 @@ def test_normalize_probability_raises():
 
 def test_load():
     with setup_tempdir('test_utils') as path:
-        feather_file = os.path.join(path, 'test_load.feather')
-        nrrd_file = os.path.join(path, 'test_load.nrrd')
-        json_file = os.path.join(path, 'test_load.json')
-        feather_obj = pd.DataFrame({'a': [1, 2, 3, 4]})
+        extensions = ['nrrd', 'json', 'feather', 'csv']
+        files = {ext: os.path.join(path, 'test_load.{}'.format(ext)) for ext in extensions}
+        dataframe = pd.DataFrame({'a': [1, 2, 3, 4]})
+        dataframe.index.name = 'index_name'
         voxcell_obj = VoxelData(np.array([[[1, 1, 1]]]), (1, 1, 1))
         json_obj = {'a': 1}
-        utils.write_feather(feather_file, feather_obj)
-        voxcell_obj.save_nrrd(nrrd_file)
-        with open(json_file, 'w') as outputf:
+
+        utils.write_feather(files['feather'], dataframe)
+        dataframe.to_csv(files['csv'])
+        voxcell_obj.save_nrrd(files['nrrd'])
+        with open(files['json'], 'w') as outputf:
             json.dump(json_obj, outputf)
 
-        ok_(isinstance(utils.load(feather_file), pd.DataFrame))
-        ok_(isinstance(utils.load(nrrd_file), VoxelData))
-        ok_(isinstance(utils.load(json_file), dict))
+        for ext, result in zip(extensions, [VoxelData, dict, pd.DataFrame, pd.DataFrame]):
+            ok_(isinstance(utils.load(files[ext]), result))
 
         class Task(object):
             def __init__(self, _path):
                 self.path = _path
 
-        f, v, j = utils.load_all([Task(feather_file), Task(nrrd_file), Task(json_file)])
-        ok_(feather_obj.equals(f))
-        assert_equal(voxcell_obj.raw, v.raw)
-        eq_(json_obj, j)
+        nrrd, _json, feather, csv = utils.load_all([Task(files[ext]) for ext in extensions])
+
+        ok_(dataframe.equals(feather))
+        ok_(dataframe.equals(csv))
+        assert_equal(voxcell_obj.raw, nrrd.raw)
+        eq_(json_obj, _json)
 
 
 @raises(NotImplementedError)

@@ -59,6 +59,11 @@ class CommonParams(Config):
         return FolderTask(folder=self.folder)
 
 
+class CsvTask(CommonParams):
+    '''Task returning a CSV file'''
+    extension = 'csv'
+
+
 class FeatherTask(CommonParams):
     '''Task returning a feather file'''
     extension = 'feather'

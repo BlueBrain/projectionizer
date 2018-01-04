@@ -8,7 +8,7 @@ from voxcell import VoxelData
 from luigi import FloatParameter, IntParameter
 from projectionizer.fibers import (IJK, XYZ, assign_synapse_fiber,
                                    closest_fibers_per_voxel)
-from projectionizer.luigi_utils import FeatherTask, NrrdTask
+from projectionizer.luigi_utils import CsvTask, FeatherTask, NrrdTask
 from projectionizer.step_0_sample import SampleChunk, VoxelSynapseCount
 from projectionizer.utils import choice, load_all, write_feather
 
@@ -20,7 +20,7 @@ TRANSVERSE_AXIS = 1
 RADIAL_AXIS = 2
 
 
-class VirtualFibersNoOffset(FeatherTask):
+class VirtualFibersNoOffset(CsvTask):
     '''returns a DataFrame with columns ['x', 'y', 'z', 'u', 'v', 'w']
     containing the starting position and direction of each fiber
     '''
@@ -35,7 +35,7 @@ class VirtualFibersNoOffset(FeatherTask):
             from projectionizer.sscx_hex import get_minicol_virtual_fibers
             apron = 50
             df = get_minicol_virtual_fibers(apron)
-        write_feather(self.output().path, df)
+        df.to_csv(self.output().path, index_label='sgid')
 
 
 class ClosestFibersPerVoxel(FeatherTask):

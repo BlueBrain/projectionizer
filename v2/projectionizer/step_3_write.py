@@ -11,10 +11,10 @@ import pandas as pd
 from luigi import BoolParameter, FloatParameter, IntParameter
 from luigi.contrib.simulate import RunAnywayTarget
 from luigi.local_target import LocalTarget
-from projectionizer.luigi_utils import CommonParams, FeatherTask, JsonTask
+from projectionizer.luigi_utils import CommonParams, CsvTask, JsonTask
 from projectionizer.step_1_assign import VirtualFibersNoOffset
 from projectionizer.step_2_prune import ChooseConnectionsToKeep, ReducePrune
-from projectionizer.utils import load, write_feather
+from projectionizer.utils import load
 from projectionizer.write_nrn import write_synapses, write_synapses_summary
 
 L = logging.getLogger(__name__)
@@ -137,7 +137,7 @@ class WriteUserTargetTxt(CommonParams):
         return LocalTarget('{}/user.target'.format(self.folder))
 
 
-class VirtualFibers(FeatherTask):
+class VirtualFibers(CsvTask):
     '''Same as VirtualFibersNoOffset but with the sgid_offset'''
 
     def requires(self):  # pragma: no cover
@@ -146,7 +146,8 @@ class VirtualFibers(FeatherTask):
     def run(self):  # pragma: no cover
         fibers = load(self.input().path)
         fibers.index += self.sgid_offset  # pylint: disable=maybe-no-member
-        write_feather(self.output().path, fibers)
+        # Saving as csv because feather does not support index offset
+        fibers.to_csv(self.output().path, index_label='sgid')
 
 
 class SynapseCountPerConnectionL4PC(JsonTask):
