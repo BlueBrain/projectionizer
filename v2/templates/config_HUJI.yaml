@@ -46,7 +46,7 @@ WriteNrnH5:
   use_mean: 0.74
   use_sigma: 0.02
 
-  # Time cproj_nrn.h5onstant for recovery from depression SR -->
+  # Time constant for recovery from depression SR -->
   D_mean: 671
   D_sigma: 17
 

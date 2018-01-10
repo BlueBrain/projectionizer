@@ -1,6 +1,6 @@
 '''tools for writing nrn_*.h5 files'''
-import numpy as np
 import h5py
+import numpy as np
 
 
 class SynapseColumns(object):
@@ -78,12 +78,45 @@ def write_synapses(path, itr, synapse_params, efferent=False):
         info.attrs['numberOfFiles'] = 1
         for gid, synapses in itr:
             synapse_data = create_synapse_data(synapses, synapse_params, efferent)
+            specification_conformity_check(synapse_data)
+
             h5.create_dataset('a%d' % gid, data=synapse_data)
 
             if efferent:
                 N = len(synapses["syn_ids"])
                 h5.create_dataset('a%d_afferentIndices' %
                                   gid, data=synapses["syn_ids"].values.reshape((N, 1)))
+
+
+def specification_conformity_check(data):
+    '''Check the nrn.h5 file specification'''
+    assertions = (
+        ('All Delays (column: {}) must be positive'.format(SynapseColumns.DELAY),
+         data[:, SynapseColumns.DELAY] >= 0.),
+
+        ('All offsets (column: {}) must be between 0 and 1'.format(SynapseColumns.OFFSET),
+         (data[:, SynapseColumns.OFFSET] >= 0.) & (data[:, SynapseColumns.OFFSET] <= 1.)),
+
+        ('GIDs (column: {}) must be positive'.format(SynapseColumns.SGID),
+         data[:, SynapseColumns.SGID] >= 0),
+
+        ('Synapse type (column: {}) must be positive'.format(SynapseColumns.SYNTYPE),
+         data[:, SynapseColumns.SYNTYPE] >= 0),
+
+        ('Depression SR recovery time constant (column: {}) must be positive'.format(
+            SynapseColumns.D),
+         data[:, SynapseColumns.D] >= 0.),
+
+        ('Facilitation SR recovery time constant (column: {}) must be positive'.format(
+            SynapseColumns.F),
+         data[:, SynapseColumns.F] >= 0.),
+
+        ('Decay time constant SR (column: {}) must be positive'.format(SynapseColumns.DTC),
+         data[:, SynapseColumns.DTC] >= 0.),
+    )
+
+    for error_msg, assertion in assertions:
+        assert np.all(assertion), error_msg
 
 
 def write_synapses_summary(path, itr):

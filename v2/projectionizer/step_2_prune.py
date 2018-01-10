@@ -5,12 +5,12 @@ distribution shape
 
 import logging
 
+import luigi
 import numpy as np
 import pandas as pd
 from bluepy.v2.circuit import Circuit
 from scipy.stats import norm  # pylint: disable=no-name-in-module
 
-import luigi
 from projectionizer.fibers import calc_pathlength_to_fiber_start
 from projectionizer.luigi_utils import FeatherTask
 from projectionizer.step_0_sample import SampleChunk
@@ -156,8 +156,7 @@ class PruneChunk(FeatherTask):
         pruned_no_apron = (pd.merge(pruned, fibers[~fibers.apron][['apron']],
                                     left_on='sgid', right_index=True)
                            .drop(['kept', 'apron'], axis=1)
-                           .reset_index(drop=True)
-                           )
+                           .reset_index(drop=True))
 
         pruned_no_apron['sgid_distance'] = calc_pathlength_to_fiber_start(
             pruned_no_apron[list('xyz')].values,
