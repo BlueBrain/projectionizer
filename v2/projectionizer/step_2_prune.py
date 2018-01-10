@@ -11,6 +11,7 @@ from bluepy.v2.circuit import Circuit
 from scipy.stats import norm  # pylint: disable=no-name-in-module
 
 import luigi
+from projectionizer.fibers import calc_pathlength_to_fiber_start
 from projectionizer.luigi_utils import FeatherTask
 from projectionizer.step_0_sample import SampleChunk
 from projectionizer.step_1_assign import FiberAssignment, VirtualFibersNoOffset
@@ -152,10 +153,15 @@ class PruneChunk(FeatherTask):
         assert len(sgids) == len(sample)
         fat = sample.join(sgids).merge(is_kept, how='left', on=['tgid', 'sgid'])
         pruned = fat[fat['kept']]
-        pruned_no_apron = pd.merge(pruned, fibers[~fibers.apron][['apron']],
-                                   left_on='sgid', right_index=True) \
-            .drop(['kept', 'apron'], axis=1).reset_index(drop=True)
+        pruned_no_apron = (pd.merge(pruned, fibers[~fibers.apron][['apron']],
+                                    left_on='sgid', right_index=True)
+                           .drop(['kept', 'apron'], axis=1)
+                           .reset_index(drop=True)
+                           )
 
+        pruned_no_apron['sgid_distance'] = calc_pathlength_to_fiber_start(
+            pruned_no_apron[list('xyz')].values,
+            fibers.iloc[pruned_no_apron['sgid']].values)
         write_feather(self.output().path, pruned_no_apron)
 
 

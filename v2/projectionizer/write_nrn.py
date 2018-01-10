@@ -38,11 +38,8 @@ def create_synapse_data(synapses, synapse_params, efferent):
 
     synapse_data[:, SynapseColumns.SGID] = synapses['tgid' if efferent else 'sgid'].values
 
-    # Note: this has to be > 0
-    # (https://bbpteam.epfl.ch/project/issues/browse/NSETM-256?focusedCommentId=56509)
-    # TODO: this needs to be a 'distance', for hex, 'y' makes sense, for 3D space, maybe less so
     CONDUCTION_VELOCITY = 300.  # micron/ms, from original Projectionizer: InputMappers.py
-    synapse_data[:, SynapseColumns.DELAY] = synapses['y'].values / CONDUCTION_VELOCITY
+    synapse_data[:, SynapseColumns.DELAY] = synapses['sgid_distance'].values / CONDUCTION_VELOCITY
 
     synapse_data[:, SynapseColumns.ISEC] = synapses['section_id'].values
     synapse_data[:, SynapseColumns.IPT] = synapses['segment_id'].values

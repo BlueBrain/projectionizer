@@ -22,7 +22,7 @@ NOT_CANDIDATE_STARTS = -3  # Columns not storing candidates ids
 
 
 def calc_distances(locations, virtual_fibers):
-    '''find closest point from locations to fibers
+    '''find closest point from locations to fibers, calculate the distance to this point
 
     virtual_fibers is a Nx6 matrix, w/ 0:3 being the start positions,
     and 3:6 being the direction vector
@@ -42,6 +42,21 @@ def calc_distances(locations, virtual_fibers):
 
     distances = distances.reshape(virtual_fiber_count, locations_count)
     return distances.T
+
+
+def calc_pathlength_to_fiber_start(locations, sgid_fibers):
+    '''find distance to the closest point on the `sgid_fibers`, and the distance to the `start`
+
+    sgid_fibers is a Nx6 matrix, w/ 0:3 being the start positions, and 3:6 being the dir vector
+    the direction vector is expected to be normalized
+    '''
+    starts = sgid_fibers[:, VF_STARTS]
+    directions = sgid_fibers[:, VF_DIRS]
+    hypotenuse = locations - starts
+    distances = (np.linalg.norm(np.cross(hypotenuse, directions, axis=1), axis=1) +
+                 np.sum(hypotenuse * directions, axis=1))
+
+    return distances
 
 
 def closest_fibers_per_voxel(synapse_counts, virtual_fibers, closest_count):
