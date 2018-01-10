@@ -160,7 +160,7 @@ class PruneChunk(FeatherTask):
 
         pruned_no_apron['sgid_distance'] = calc_pathlength_to_fiber_start(
             pruned_no_apron[list('xyz')].values,
-            fibers.iloc[pruned_no_apron['sgid']].values)
+            fibers[list('xyzuvw')].iloc[pruned_no_apron['sgid']].values)
         write_feather(self.output().path, pruned_no_apron)
 
 

@@ -3,10 +3,10 @@ import json
 import os
 from itertools import chain
 from multiprocessing import Pool
-from types import StringTypes
 
 import numpy as np
 import pandas as pd
+from six import string_types
 from voxcell import Hierarchy, VoxelData, build
 
 IJK = list('ijk')
@@ -100,7 +100,7 @@ def mask_by_region(region, path, prefix):
     atlas = VoxelData.load_nrrd(os.path.join(path, prefix + 'brain_regions.nrrd'))
     with open(os.path.join(path, 'hierarchy.json')) as fd:
         hierarchy = Hierarchy(json.load(fd))
-    if isinstance(region, StringTypes):
+    if isinstance(region, string_types):
         mask = build.mask_by_region_names(atlas.raw, hierarchy, [region])
     else:
         region_ids = list(chain.from_iterable(hierarchy.collect('id', id_, 'id')

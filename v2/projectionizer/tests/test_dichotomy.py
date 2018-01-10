@@ -2,15 +2,15 @@ import json
 import os
 import time
 
+from luigi import FloatParameter, LocalTarget, Parameter, Task, build, run
+from luigi.contrib.simulate import RunAnywayTarget
 from nose.tools import ok_
 from numpy.testing import assert_allclose, assert_equal
 
-from luigi import FloatParameter, LocalTarget, Parameter, Task, build, run
-from luigi.contrib.simulate import RunAnywayTarget
-from mocks import class_with_dummy_params, dummy_params
 from projectionizer.dichotomy import Dichotomy
 from projectionizer.luigi_utils import JsonTask
-from utils import setup_tempdir
+from projectionizer.tests.mocks import class_with_dummy_params, dummy_params
+from projectionizer.tests.utils import setup_tempdir
 
 
 class LinearTask(Task):
