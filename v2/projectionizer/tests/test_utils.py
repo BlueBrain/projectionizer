@@ -8,7 +8,7 @@ from numpy.testing import assert_equal
 from voxcell import VoxelData
 
 from projectionizer import utils
-from utils import setup_tempdir
+from projectionizer.tests.utils import setup_tempdir
 
 
 def test_write_feather():
