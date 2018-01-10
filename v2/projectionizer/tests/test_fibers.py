@@ -43,7 +43,7 @@ def test_calc_distances():
     assert_allclose(expected, ret)
 
 
-def test_calc_manhattan_distance():
+def test_calc_pathlength_to_fiber_start():
     locations = np.array([[0, 0, 0],
                           [1, 0, 0],
                           [1, 1, 1]

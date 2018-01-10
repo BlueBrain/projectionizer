@@ -26,7 +26,7 @@ def test_create_synapse_data():
                        'section_id': [1033],
                        'location': [-3],
                        'segment_id': [1033],
-                       'sgid_distance': [300.]
+                       'sgid_path_distance': [300.]
                        })
 
     assert_allclose(write_nrn.create_synapse_data(df, SYNAPSE_PARAMS, efferent=True),
@@ -46,7 +46,7 @@ def test_write_synapses():
                        'location': [3],
                        'syn_ids': [12],
                        'segment_id': [1033],
-                       'sgid_distance': [300.]
+                       'sgid_path_distance': [300.]
                        })
 
     with setup_tempdir('test_utils') as folder:
@@ -91,7 +91,7 @@ def _write_synapses(synapse_data={}, synapse_params={}, efferent=False):
             'section_id': [1033],
             'location': [3],
             'syn_ids': [12],
-            'sgid_distance': [300.],
+            'sgid_path_distance': [300.],
             'segment_id': [1033]}
     data.update(synapse_data)
 
