@@ -10,13 +10,25 @@ The sampling must be done with respect to the following constraints:
 
 # Usage
 
-`./apps/projectionizer -o output_folder` will generate projections using the default projection configuration file in './apps/config.yaml'
+## Starting a new job
+`./apps/projectionizer start -o output_folder -c config_file.yaml` will generate projections using the passed config file.
 
-A custom configuration file can also be passed:
-`./apps/projectionizer -o output_folder -c config_file`
+Note: the job won't start if a `config.yaml` file is already present in the output directory. This is to prevent overriding jobs by mistake.
 
-Note: if the output folder already contains a configuration file, it will be used no matter what you pass.
-This is to ensure that once a job has been started, the parameters won't change.
+## Resuming a job
+Calling `./apps/projectionizer resume -o output_folder` will resume the job using parameters in the `config.yaml` present in the folder.
+
+## Dichotomy pipeline
+The projection validity is constrained by comparing the L4PC connectivity (mean value of the number of synapses per connection in Layer 4 Pyramidal Cells (L4PC)) with the experitmental data of `~7.0`. This value is directly influenced by the oversampling value: a lower oversampling will lead to a lower connectivity and vice-versa.
+
+The `dichotomy` sub command automates the trial-and-error process of finding the correct oversampling value. It will generate projections with different oversampling values until the experimental L4PC connectivity value is matched.
+`./apps/projectionizer dichotomy -o . -c config_file.yaml --connectivity-target 7.0 --min-param 2.1 --max-param 15.0 --target-margin 0.2` can be used to launch the dichotomy.
+- connectivity-target is the L4PC connectivity to reach
+- target-margin is the accepted tolerance for the L4PC connectivity
+- min-param is the minimum oversampling values
+- max-param is the maximum oversampling values
+
+
 
 # Configuration file
 CommonParams lists params than are common to all tasks.

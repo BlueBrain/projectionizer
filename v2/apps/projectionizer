@@ -17,35 +17,62 @@ import yaml
 
 L = logging.getLogger(__name__)
 
+CONFIG_FILENAME = 'config.yaml'
+
 
 def common_parser():
     '''return the argument parser'''
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-o', '--output', help='Output directory', required=True)
-    parser.add_argument('-c', '--config',  default=None,
-                        help='The projectionizer YAML config file. Must be passed when running the analysis for the first time. See templates/ folder for some examples')
-    parser.add_argument('-l', '--no-local-scheduler',  action='store_true',
-                        help='Do not use luigi\'s local scheduler (luigi daemon (luigid) must be running)')
-    parser.add_argument('-d', '--dichotomy',  action='store_true',
-                        help=('Run the dichotomy algorithm that will generate projections until '
-                              'they match the target mean connectivity(number of synapses per connections) for L4 PC cells'))
-    parser.add_argument('-t', '--connectivity-target',
-                        help='The number of synpase per connection to reach with the dichotomy')
-    parser.add_argument('-s', '--min-param',
-                        help='Starting range of the dichotomy')
-    parser.add_argument('-e', '--max-param',
-                        help='End range of the dichotomy')
-    parser.add_argument('-m', '--target-margin',
-                        help='Tolerance of the dichotomy')
+
+    subparsers = parser.add_subparsers(help='sub-command help')
+
+    def set_common_args(_parser):
+        _parser.add_argument('-l', '--no-local-scheduler',  action='store_true',
+                             help='Do not use luigi\'s local scheduler (luigi daemon (luigid) must be running)')
+        _parser.add_argument('-o', '--output', help='Output directory', required=True)
+
+    def set_config_args(_parser):
+        set_common_args(_parser)
+        _parser.add_argument('-p', '--circuit-config',
+                             help='Override the circuit config path', default=None)
+        _parser.add_argument('-c', '--config',  required=True,
+                             help=('The projectionizer YAML config file. Must be passed when running'
+                                   'the analysis for the first time. See templates/ folder for some examples'))
+
+    parser_start = subparsers.add_parser('start', help='Generate new projections from scratch')
+    parser_start.set_defaults(which='start')
+    set_config_args(parser_start)
+
+    parser_resume = subparsers.add_parser('resume', help=('Resume a projection job (requires a {} '
+                                                          'file to be present in the output directory)'
+                                                          .format(CONFIG_FILENAME)))
+
+    parser_resume.set_defaults(which='resume')
+    set_common_args(parser_resume)
+
+    parser_dichotomy = subparsers.add_parser(
+        'dichotomy',
+        help=('Run the dichotomy algorithm that will generate projections until '
+              'they match the target mean connectivity '
+              '(number of synapses per connections) for L4 PC cells'))
+    parser_dichotomy.set_defaults(which='dichotomy')
+    set_config_args(parser_dichotomy)
+    parser_dichotomy.add_argument('-t', '--connectivity-target', required=True,
+                                  help='The number of synpase per connection to reach with the dichotomy')
+    parser_dichotomy.add_argument('-s', '--min-param', required=True,
+                                  help='Starting range of the dichotomy')
+    parser_dichotomy.add_argument('-e', '--max-param', required=True,
+                                  help='End range of the dichotomy')
+    parser_dichotomy.add_argument('-m', '--target-margin', required=True,
+                                  help='Tolerance of the dichotomy')
 
     return parser
 
 
-def luigi_params(config, args):
+def luigi_params(args):
     '''Prepare the list of parameters to be passed to luigi.run command'''
-    with open(config) as configfile:
-        config_list = yaml.load(configfile)
+    with open(os.path.join(args.output, CONFIG_FILENAME)) as input_config:
+        config_list = yaml.load(input_config)
 
     cmd = list()
     for task, options in config_list.items():
@@ -59,40 +86,59 @@ def luigi_params(config, args):
     return cmd
 
 
+def _copy_config(args):
+    '''Prepare and write config in the output directory'''
+    config = join(args.output, CONFIG_FILENAME)
+
+    assert not os.path.exists(config), ('Output folder already contains a file named {}. Delete it first.'
+                                        .format(CONFIG_FILENAME))
+    try:
+        os.makedirs(args.output)
+    except:
+        pass
+
+    with open(args.config) as input_configfile:
+        config_list = yaml.load(input_configfile)
+        if args.circuit_config:
+            config_list['CommonParams']['circuit_config'] = args.circuit_config
+
+    L.debug('Copying the config in the output directory: {}'.format(args.output))
+    with open(config, 'w') as output_configfile:
+        yaml.dump(config_list, output_configfile, default_flow_style=False)
+
+
+def _cmd_start(args):
+    '''Luigi argument list for the "start" command'''
+    config_list = _copy_config(args)
+    return ['DoAll', '--folder', args.output, '--module',
+            'projectionizer.analysis', '--workers', '1', ] + luigi_params(args)
+
+
+def _cmd_resume(args):
+    '''Luigi argument list for the "resume" command'''
+    return ['DoAll', '--folder', args.output, '--module',
+            'projectionizer.analysis', '--workers', '1', ] + luigi_params(args)
+
+
+def _cmd_dichotomy(args):
+    '''Luigi argument list for the "dichotomy" command'''
+    config_list = _copy_config(args)
+    return ['SynapseCountL4PCMeanMinimizer', '--folder', args.output, '--module',
+            'projectionizer.dichotomy', '--workers', '1',
+            '--SynapseCountL4PCMeanMinimizer-target', args.connectivity_target,
+            '--SynapseCountL4PCMeanMinimizer-min-param', args.min_param,
+            '--SynapseCountL4PCMeanMinimizer-max-param', args.max_param,
+            '--SynapseCountL4PCMeanMinimizer-target-margin', args.target_margin] + luigi_params(args)
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     parser = common_parser()
     args = parser.parse_args()
 
-    config = join(args.output, 'config.yaml')
+    cmd = {'start': _cmd_start,
+           'resume': _cmd_resume,
+           'dichotomy': _cmd_dichotomy}[args.which](args)
 
-    if not os.path.exists(config):
-        if not args.config:
-            L.error('The --config is required if {} does not exists\n'
-                    'Example config files can be found in the "templates" directory'.format(config))
-            sys.exit(-1)
-        L.debug('Copying the config in the output directory: {}'.format(args.output))
-        try:
-            os.makedirs(args.output)
-        except:
-            pass
-        copyfile(args.config if args.config else join(dirname(realpath(__file__)), 'config.yaml'),
-                 config)
-    elif args.config:
-        L.warning('Custom config: {} won\'t be used as {} already have a config file'.format(
-            args.config, args.output))
-
-    if args.dichotomy:
-        cmd = ['Minimizer', '--folder', args.output, '--module',
-               'projectionizer.dichotomy', '--workers', '1',
-               '--Minimizer-target', args.connectivity_target,
-               '--Minimizer-min-param', args.min_param,
-               '--Minimizer-max-param', args.max_param,
-               '--Minimizer-target-margin', args.target_margin]
-    else:
-        cmd = ['DoAll', '--folder', args.output, '--module',
-               'projectionizer.analysis', '--workers', '1', ]
-
-    cmd += luigi_params(config, args)
     L.debug('Calling luigi.run() with the following params: {}'.format(' '.join(cmd)))
     luigi.run(cmd)
