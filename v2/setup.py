@@ -52,6 +52,9 @@ setup(
     install_requires=REQS,
     extras_require=EXTRA_REQS,
     packages=['projectionizer', ],
+    scripts=[
+        'apps/projectionizer',
+    ],
     include_package_data=True,
     author='BlueBrain NSE',
     author_email='bbp-ou-nse@groupes.epfl.ch',
