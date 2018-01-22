@@ -3,6 +3,7 @@ import json
 import os
 from itertools import chain
 from multiprocessing import Pool
+import signal
 
 import numpy as np
 import pandas as pd
@@ -52,11 +53,12 @@ def map_parallelize(func, *it):
 
     Watch the memory usage!
     '''
-    pool = Pool(14)
-    ret = pool.map(func, *it)  # pylint: disable=no-value-for-parameter
+    pool = Pool(14, lambda: signal.signal(signal.SIGINT, signal.SIG_IGN))
+    # map_async catches KeyboardInterrupt: https://stackoverflow.com/a/1408476/2533394
+    res = pool.map_async(func, *it).get(9999999)  # pylint: disable=no-value-for-parameter
     pool.close()
     pool.join()
-    return ret
+    return res
 
 
 def normalize_probability(p):

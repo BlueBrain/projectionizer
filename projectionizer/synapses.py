@@ -49,8 +49,7 @@ def build_synapses_default(height, synapse_density, oversampling):
 def build_synapses_CA3_CA1(synapse_density, voxel_path, prefix, oversampling):
     '''Build voxel count from densities according to regions'''
 
-    atlas = voxcell.VoxelData.load_nrrd(os.path.join(
-        voxel_path, prefix + 'brain_regions.nrrd'))
+    atlas = voxcell.VoxelData.load_nrrd(os.path.join(voxel_path, prefix + 'brain_regions.nrrd'))
     raw = np.zeros_like(atlas.raw, dtype=np.uint)
     with open(os.path.join(voxel_path, 'hierarchy.json')) as fd:
         region_data = json.load(fd)
@@ -101,8 +100,6 @@ def pick_synapses_voxel(xyz_counts, circuit, segment_pref):
     try:
         prob_density = normalize_probability(prob_density)
     except ErrorCloseToZero:
-        L.warning('segment_pref: %s returned a prob. dist. that was too close to zero',
-                  segment_pref)
         return None
 
     picked = np.random.choice(np.arange(len(segs_df)), size=count, replace=True, p=prob_density)
@@ -135,5 +132,10 @@ def pick_synapses(circuit, synapse_counts, n_islice):
                                        circuit=circuit,
                                        segment_pref=segment_pref_length),
                                tqdm(xyz_counts))
+    n_none_dfs = sum(df is None for df in synapses)
+    percentage_none = n_none_dfs / float(len(synapses)) * 100
+    if percentage_none > 20.:
+        L.warning('%s of dataframes are None.', percentage_none)
+
     L.debug('Picking finished. Now concatenating...')
     return pd.concat(synapses)

@@ -9,10 +9,12 @@ from builtins import input
 
 import argparse
 import logging
+import numpy
 import os
 import shutil
 import sys
 from os.path import dirname, join, realpath
+
 
 import luigi
 import yaml
@@ -148,4 +150,5 @@ if __name__ == '__main__':
            'dichotomy': _cmd_dichotomy}[args.which](args)
 
     L.debug('Calling luigi.run() with the following params: {}'.format(' '.join(cmd)))
+    numpy.random.seed(0)
     luigi.run(cmd)
