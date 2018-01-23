@@ -3,7 +3,9 @@ import logging
 import os
 from itertools import chain, repeat
 
-# matplotlib.use('Agg')
+import matplotlib
+matplotlib.use('Agg')
+
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import numpy as np
