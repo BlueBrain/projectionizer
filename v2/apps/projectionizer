@@ -5,12 +5,14 @@ You can run this example like this:
             $ luigi --module examples.hello_world examples.HelloWorldTask --local-scheduler
 If that does not work, see :ref:`CommandLine`.
 """
+from builtins import input
+
 import argparse
 import logging
 import os
+import shutil
 import sys
 from os.path import dirname, join, realpath
-from shutil import copyfile
 
 import luigi
 import yaml
@@ -109,6 +111,11 @@ def _copy_config(args):
 
 def _cmd_start(args):
     '''Luigi argument list for the "start" command'''
+    if os.path.exists(args.output):
+        if input("Output folder already exists. Overwrite? ").lower() in ('y', 'yes'):
+            shutil.rmtree(args.output)
+        else:
+            sys.exit(0)
     config_list = _copy_config(args)
     return ['DoAll', '--folder', args.output, '--module',
             'projectionizer.analysis', '--workers', '1', ] + luigi_params(args)
