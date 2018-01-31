@@ -1,4 +1,7 @@
 *.pyc
 *.swp
-venv/
-projectionizer.egg-info/
+coverage.xml
+*.egg-info
+.coverage
+doc/build
+.tox

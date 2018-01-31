@@ -5,10 +5,13 @@ from numpy.testing import assert_allclose, assert_equal
 
 from projectionizer.sscx import *
 from projectionizer.step_1_assign import assign_synapse_fiber
-from projectionizer.tests.mocks import (create_candidates,
-                                        create_synapse_counts,
-                                        create_virtual_fibers)
 from projectionizer.utils import choice
+
+from mocks import (
+    create_candidates,
+    create_synapse_counts,
+    create_virtual_fibers
+)
 
 
 def test_assign_synapse_fiber():

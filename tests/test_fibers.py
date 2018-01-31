@@ -6,9 +6,12 @@ from nose.tools import eq_, ok_, raises
 from numpy.testing import assert_allclose, assert_equal
 
 from projectionizer import fibers
-from projectionizer.tests.mocks import (create_candidates,
-                                        create_synapse_counts,
-                                        create_virtual_fibers)
+
+from mocks import (
+    create_candidates,
+    create_synapse_counts,
+    create_virtual_fibers
+)
 
 
 def test_calc_distances():

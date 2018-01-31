@@ -9,8 +9,9 @@ from numpy.testing import assert_allclose, assert_equal
 
 from projectionizer.dichotomy import Dichotomy
 from projectionizer.luigi_utils import JsonTask
-from projectionizer.tests.mocks import class_with_dummy_params, dummy_params
-from projectionizer.tests.utils import setup_tempdir
+
+from mocks import class_with_dummy_params, dummy_params
+from utils import setup_tempdir
 
 
 class LinearTask(Task):
@@ -67,7 +68,6 @@ def test_dichotomy():
 
     with setup_tempdir('test_utils') as tmp_folder:
         res = run(['TestDichotomy',
-                   '--module', 'projectionizer.tests.test_dichotomy',
                    '--local-scheduler',
                    '--Dichotomy-MinimizationTask', 'MismatchLinearTask',
                    '--Dichotomy-target', '-27',

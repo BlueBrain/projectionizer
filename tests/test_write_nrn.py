@@ -7,7 +7,8 @@ from nose.tools import ok_, raises
 from numpy.testing import assert_allclose, assert_equal
 
 from projectionizer import write_nrn
-from projectionizer.tests.utils import setup_tempdir
+
+from utils import setup_tempdir
 
 SYNAPSE_PARAMS = {'id': 1,
                   'gsyn': (3, 4),

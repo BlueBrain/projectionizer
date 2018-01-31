@@ -6,7 +6,8 @@ from nose.tools import ok_, raises
 from numpy.testing import assert_allclose, assert_equal
 
 from projectionizer import step_3_write
-from projectionizer.tests.utils import setup_tempdir
+
+from utils import setup_tempdir
 
 
 def _raise_exception(path, itr):

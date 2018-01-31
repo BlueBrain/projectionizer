@@ -3,7 +3,6 @@ import logging
 import os
 from itertools import chain, repeat
 
-import matplotlib
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,8 +20,7 @@ from projectionizer.step_3_write import VirtualFibers, WriteAll
 from projectionizer.utils import load, load_all
 
 
-matplotlib.use('Agg')
-
+plt.switch_backend('Agg')
 
 L = logging.getLogger(__name__)
 L.setLevel(logging.DEBUG)
