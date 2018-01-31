@@ -4,8 +4,6 @@ import os
 from itertools import chain, repeat
 
 import matplotlib
-matplotlib.use('Agg')
-
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,6 +19,10 @@ from projectionizer.step_2_prune import (ChooseConnectionsToKeep, CutoffMeans,
                                          ReducePrune)
 from projectionizer.step_3_write import VirtualFibers, WriteAll
 from projectionizer.utils import load, load_all
+
+
+matplotlib.use('Agg')
+
 
 L = logging.getLogger(__name__)
 L.setLevel(logging.DEBUG)
