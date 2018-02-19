@@ -1,25 +1,23 @@
 #!/usr/bin/env python
 ''' projectionizer setup '''
 
+import imp
 from setuptools import setup
 
-import projectionizer
-
-VERSION = projectionizer.__version__
-
+VERSION = imp.load_source('projectionizer', "projectionizer/version.py").VERSION
 
 setup(
     name='projectionizer',
     version=VERSION,
     install_requires=[
-        'dask>=0.15',
-        'dask[distributed]>=1.16',
+        'dask[distributed]>=0.17',
         'toolz>=0.8',
         'partd>=0.3',
         'feather-format>=0.4',
         'luigi>=2.7',
         'tables>=3.4',
         # BBP
+        'brainbuilder>=0.5.8',
         'bluepy>=0.10',
         'libFLATIndex>=1.8',
         'voxcell>=2.3',
