@@ -72,6 +72,24 @@ class Height(NrrdTask):
         distance.save_nrrd(self.output().path)
 
 
+class SampleChunk(FeatherTask):
+    """Split the big sample into chunks"""
+    chunk_num = IntParameter()
+
+    def requires(self):  # pragma: no cover
+        return self.clone(FullSample)
+
+    def run(self):  # pragma: no cover
+        # pylint thinks load() isn't returning a DataFrame
+        # pylint: disable=maybe-no-member
+        full_sample = load(self.input().path)
+        chunk_size = (len(full_sample) / self.n_total_chunks) + 1
+        start, end = np.array(
+            [self.chunk_num, self.chunk_num + 1]) * chunk_size
+        chunk_df = full_sample.iloc[start: end]
+        write_feather(self.output().path, chunk_df)
+
+
 class FullSample(FeatherTask):
     '''Sample segments from circuit
     '''
@@ -100,24 +118,6 @@ class FullSample(FeatherTask):
             synapses.drop(remove_cols, axis=1, inplace=True)
             synapses.rename(columns={'gid': 'tgid'}, inplace=True)
             write_feather(self.output().path, synapses)
-
-
-class SampleChunk(FeatherTask):
-    """Split the big sample into chunks"""
-    chunk_num = IntParameter()
-
-    def requires(self):  # pragma: no cover
-        return self.clone(FullSample)
-
-    def run(self):  # pragma: no cover
-        # pylint thinks load() isn't returning a DataFrame
-        # pylint: disable=maybe-no-member
-        full_sample = load(self.input().path)
-        chunk_size = (len(full_sample) / self.n_total_chunks) + 1
-        start, end = np.array(
-            [self.chunk_num, self.chunk_num + 1]) * chunk_size
-        chunk_df = full_sample.iloc[start: end]
-        write_feather(self.output().path, chunk_df)
 
 
 class SynapseDensity(JsonTask):
