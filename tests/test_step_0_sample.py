@@ -25,13 +25,14 @@ def _fake_segments(min_xyz, max_xyz, count):
                Segment.R1, Segment.R2, u'gid',
                Section.ID, Segment.ID, Section.NEURITE_TYPE]
 
+    def samp(ax):
+        return (min_xyz[ax] + (max_xyz[ax] - min_xyz[ax]) * np.random.random((2, count))).T
+
+    X, Y, Z = 0, 1, 2
     df = pd.DataFrame(index=np.arange(count), columns=COLUMNS)
-    df[[Segment.X1, Segment.X2]] = (
-        min_xyz[0] + (max_xyz[0] - min_xyz[0]) * np.random.random((2, count))).T
-    df[[Segment.Y1, Segment.Y2]] = (
-        min_xyz[1] + (max_xyz[1] - min_xyz[1]) * np.random.random((2, count))).T
-    df[[Segment.Z1, Segment.Z2]] = (
-        min_xyz[2] + (max_xyz[2] - min_xyz[2]) * np.random.random((2, count))).T
+    df[[Segment.X1, Segment.X2]] = samp(X)
+    df[[Segment.Y1, Segment.Y2]] = samp(Y)
+    df[[Segment.Z1, Segment.Z2]] = samp(Z)
     df[[Segment.R1, Segment.R2]] = (RADIUS * np.random.random((2, count))).T
 
     df[[Section.ID, Segment.ID, 'gid']] = np.random.randint(100, size=(3, count)).T
@@ -64,42 +65,41 @@ def test_pick_synapses_voxel():
     count = 10
     min_xyz = np.array([0, 0, 0])
     max_xyz = np.array([1, 1, 1])
+    circuit_path = 'foo/bar/baz'
 
-    circuit = Mock()
-    circuit.morph.spatial_index.q_window.return_value = _fake_segments(min_xyz, max_xyz,
-                                                                       2 * count)
-    xyz_count = (min_xyz, max_xyz, count)
-    segs_df = pick_synapses_voxel(xyz_count, circuit, mock_segment_pref)
-    nt.eq_(count, len(segs_df))
-    nt.ok_('x' in segs_df.columns)
-    nt.ok_('segment_length' in segs_df.columns)
+    with patch('projectionizer.synapses.FI') as mock_FI, \
+        patch('projectionizer.synapses.SegmentIndex') as mock_si:
 
-    segs_df = pick_synapses_voxel(xyz_count, circuit, lambda x: 0)
+        mock_si._wrap_result.return_value = _fake_segments(min_xyz, max_xyz, 2 * count)
+
+        xyz_count = (min_xyz, max_xyz, count)
+        segs_df = pick_synapses_voxel(xyz_count, circuit_path, mock_segment_pref)
+        nt.eq_(count, len(segs_df))
+        nt.ok_('x' in segs_df.columns)
+        nt.ok_('segment_length' in segs_df.columns)
+
+        segs_df = pick_synapses_voxel(xyz_count, circuit_path, lambda x: 0)
+        ok_(segs_df is None)
 
 
 @patch('projectionizer.synapses.map_parallelize', map)
 def test_pick_synapses():
-    count = 10
+    count = 1250  # need many random synapses so sampling successfully finds enough
     min_xyz = np.array([0, 0, 0])
     max_xyz = np.array([1, 1, 1])
-    circuit = Mock()
-    circuit.morph.spatial_index.q_window.return_value = _fake_segments(min_xyz,
-                                                                       max_xyz,
-                                                                       2 * count)
-    voxel_synapse_count = _fake_voxel_synapse_count(shape=(10, 10, 10), voxel_size=0.1)
-    pick_synapses(circuit, voxel_synapse_count, 100)
+    circuit_path = 'foo/bar/baz'
 
-# def test_generate_ijk_counts():
-#     min_ijk, max_ijk = (0, 0, 0), (10, 10, 10)
-#     size = (10, 10, 10)
-#     voxel_synapse_count = _fake_voxel_synapse_count(size)
-#     itr = projection.generate_ijk_counts(min_ijk, max_ijk, voxel_synapse_count)
-#     counts = list(itr)
-#     ijk, min_xyz, max_xyz, count = counts[0]
-#     npt.assert_equal(ijk, np.array([3, 3, 3]))
-#     npt.assert_equal(min_xyz, np.array([25., 25., 25.]))
-#     npt.assert_equal(max_xyz, np.array([35., 35., 35.]))
-#     nt.eq_(count, 5)
+    np.random.seed(0)
+    with patch('projectionizer.synapses.FI') as mock_FI, \
+        patch('projectionizer.synapses.SegmentIndex') as mock_si:
+
+        mock_si._wrap_result.return_value = _fake_segments(min_xyz, max_xyz, 2 * count)
+        voxel_synapse_count = _fake_voxel_synapse_count(shape=(10, 10, 10), voxel_size=0.1)
+        segs_df = pick_synapses(circuit_path, voxel_synapse_count, 100)
+
+        nt.eq_(np.sum(voxel_synapse_count.raw), len(segs_df))
+        nt.ok_('x' in segs_df.columns)
+        nt.ok_('segment_length' in segs_df.columns)
 
 
 def test_segment_pref():

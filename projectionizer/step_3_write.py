@@ -45,11 +45,11 @@ class WriteSummary(CommonParams):
             write_synapses_summary(path=self.output().path,
                                    itr=summary.groupby("dataset"))
         except OSError as e:
+            traceback.print_exc()
             try:
                 os.remove(self.output().path)
-            except Exception:  # pylint: disable=broad-except
+            except OSError:
                 pass
-            traceback.print_exc()
             raise e
 
     def output(self):
@@ -107,8 +107,11 @@ class WriteNrnH5(CommonParams):
             write_synapses(self.output().path, itr,
                            params, efferent=self.efferent)
         except Exception as e:
-            os.remove(self.output().path)
             traceback.print_exc()
+            try:
+                os.remove(self.output().path)
+            except OSError:
+                pass
             raise e
 
     def output(self):

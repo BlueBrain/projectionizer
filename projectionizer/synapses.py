@@ -5,10 +5,12 @@ import os
 from functools import partial
 from itertools import islice
 
+import libFLATIndex as FI
 import numpy as np
 import pandas as pd
 import voxcell
 from bluepy.v2.enums import Section, Segment
+from bluepy.v2.index import SegmentIndex
 from neurom import NeuriteType
 from tqdm import tqdm
 
@@ -66,21 +68,26 @@ def _min_max_axis(min_xyz, max_xyz):
     return np.minimum(min_xyz, max_xyz), np.maximum(min_xyz, max_xyz)
 
 
-def pick_synapses_voxel(xyz_counts, circuit, segment_pref):
-    '''Select `count` synapses from the `circuit` that lie between `min_xyz` and `max_xyz`
+def pick_synapses_voxel(xyz_counts, circuit_path, segment_pref):
+    '''Select `count` synapses from the circuit that lie between `min_xyz` and `max_xyz`
 
     Args:
-        circuit: BluePy v2 Circuit object
-        min_xyz(tuple of 3 floats): Minimum coordinates in world space
-        max_xyz(tuple of 3 floats): Maximum coordinates in world space
-        count(int): number of synapses to return
+        xyz_counts(tuple of min_xyz, max_xyz, count): bounding box and count of synapses desired
+        circuit_path(str): absolute path to circuit path, where a SEGMENT exists
         segment_pref(callable (df -> floats)): function to assign probabilities per segment
     Returns:
         DataFrame with `WANTED_COLS`
     '''
     min_xyz, max_xyz, count = xyz_counts
 
-    segs_df = circuit.morph.spatial_index.q_window(min_xyz, max_xyz)
+    try:
+        index = FI.loadIndex(os.path.join(circuit_path, 'SEGMENT'))  # pylint: disable=no-member
+        min_xyz_ = tuple(map(float, min_xyz))
+        max_xyz_ = tuple(map(float, max_xyz))
+        segs_df = FI.numpy_windowQuery(index, *(min_xyz_ + max_xyz_))  # pylint: disable=no-member
+        segs_df = SegmentIndex._wrap_result(segs_df)  # pylint: disable=protected-access
+    except Exception:  # pylint: disable=broad-except
+        return None
 
     means = 0.5 * (segs_df[SEGMENT_START_COLS].values +
                    segs_df[SEGMENT_END_COLS].values)
@@ -107,10 +114,10 @@ def pick_synapses_voxel(xyz_counts, circuit, segment_pref):
     return segs_df[WANTED_COLS].iloc[picked]
 
 
-def pick_synapses(circuit, synapse_counts, n_islice):
+def pick_synapses(circuit_path, synapse_counts, n_islice):
     '''Sample segments from circuit
     Args:
-        circuit(Circuit): The circuit to sample segment from
+        circuit_path: absolute path to circuit path, where a SEGMENT exists
         synapse_counts(VoxelData):
             A VoxelData containing the number of segment to be sampled in each voxel
         n_islice(int|None):
@@ -129,7 +136,7 @@ def pick_synapses(circuit, synapse_counts, n_islice):
     xyz_counts = list(islice(zip(min_xyzs, max_xyzs, synapse_counts.raw[idx]), n_islice))
 
     synapses = map_parallelize(partial(pick_synapses_voxel,
-                                       circuit=circuit,
+                                       circuit_path=circuit_path,
                                        segment_pref=segment_pref_length),
                                tqdm(xyz_counts))
     n_none_dfs = sum(df is None for df in synapses)

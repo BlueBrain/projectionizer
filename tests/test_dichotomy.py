@@ -31,7 +31,7 @@ class LinearTask(Task):
 
 
 def test_simple():
-    with setup_tempdir('test_utils') as tmp_folder:
+    with setup_tempdir('test_dichotomy') as tmp_folder:
         task = LinearTask(param=-5, folder=tmp_folder)
         task.run()
         with task.output().open() as inputf:
@@ -51,7 +51,15 @@ class MismatchLinearTask(JsonTask):
                           outputf)
 
 
+class RunAnywayTargetTempDir(RunAnywayTarget):
+    def __init__(self, task_obj, temp_dir):
+        self.temp_dir = temp_dir
+        super(RunAnywayTargetTempDir, self).__init__(task_obj)
+
+
 class TestDichotomy(Task):
+    folder = Parameter()
+
     def requires(self):
         return self.clone(Dichotomy, **dummy_params())
 
@@ -61,12 +69,11 @@ class TestDichotomy(Task):
         self.output().done()
 
     def output(self):
-        return RunAnywayTarget(self)
+        return RunAnywayTargetTempDir(self, self.folder)
 
 
 def test_dichotomy():
-
-    with setup_tempdir('test_utils') as tmp_folder:
+    with setup_tempdir('test_dichotomy') as tmp_folder:
         res = run(['TestDichotomy',
                    '--local-scheduler',
                    '--Dichotomy-MinimizationTask', 'MismatchLinearTask',
@@ -75,14 +82,16 @@ def test_dichotomy():
                    '--Dichotomy-min-param', '-123',
                    '--Dichotomy-max-param', '456',
                    '--Dichotomy-max-loop', '57',
-                   '--Dichotomy-folder', tmp_folder])
+                   '--Dichotomy-folder', tmp_folder,
+                   '--folder', tmp_folder,
+                   ])
         ok_(res)
 
 
 def test_dichotomy_failed():
     '''Test dichotomy not converging fast enough
     leading to maximum number of iteration reached'''
-    with setup_tempdir('test_utils') as tmp_folder:
+    with setup_tempdir('test_dichotomy') as tmp_folder:
         params = dummy_params()
         params.update({'MinimizationTask': MismatchLinearTask,
                        'target': 27,

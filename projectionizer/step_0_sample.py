@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import voxcell
 import yaml
-from bluepy.v2.circuit import Circuit
 
 from luigi import BoolParameter, FloatParameter, IntParameter, Parameter
 from projectionizer.luigi_utils import FeatherTask, JsonTask, NrrdTask
@@ -111,8 +110,8 @@ class FullSample(FeatherTask):
             voxels = load(self.input().path)
             # Hack, cause I don't know how to pass a None IntParameter to luigi -__-
             n_slices = self.n_slices if self.n_slices > 0 else None
-            synapses = pick_synapses(
-                Circuit(self.circuit_config), voxels, n_slices)
+            circuit_path = os.path.dirname(self.circuit_config)
+            synapses = pick_synapses(circuit_path, voxels, n_slices)
 
             remove_cols = SEGMENT_START_COLS + SEGMENT_END_COLS
             synapses.drop(remove_cols, axis=1, inplace=True)
