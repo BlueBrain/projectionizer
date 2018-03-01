@@ -6,11 +6,11 @@ import pandas as pd
 from voxcell import VoxelData
 
 from luigi import FloatParameter, IntParameter
-from projectionizer.fibers import (IJK, XYZ, assign_synapse_fiber,
-                                   closest_fibers_per_voxel)
+from projectionizer.straight_fibers import (assign_synapse_fiber,
+                                            closest_fibers_per_voxel)
 from projectionizer.luigi_utils import CsvTask, FeatherTask, NrrdTask
 from projectionizer.step_0_sample import SampleChunk, VoxelSynapseCount
-from projectionizer.utils import choice, load_all, write_feather
+from projectionizer.utils import choice, load_all, write_feather, IJK, XYZ
 
 L = logging.getLogger(__name__)
 

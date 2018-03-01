@@ -11,7 +11,7 @@ import pandas as pd
 from bluepy.v2.circuit import Circuit
 from scipy.stats import norm  # pylint: disable=no-name-in-module
 
-from projectionizer.fibers import calc_pathlength_to_fiber_start
+from projectionizer.straight_fibers import calc_pathlength_to_fiber_start
 from projectionizer.luigi_utils import FeatherTask
 from projectionizer.step_0_sample import SampleChunk
 from projectionizer.step_1_assign import FiberAssignment, VirtualFibersNoOffset

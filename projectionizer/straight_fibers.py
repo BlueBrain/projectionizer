@@ -8,13 +8,9 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm  # pylint: disable=no-name-in-module
 
-from projectionizer.utils import choice
+from projectionizer.utils import choice, XYZUVW, IJK, XYZ
 
 L = logging.getLogger(__name__)
-
-XYZUVW = list('xyzuvw')
-IJK = list('ijk')
-XYZ = list('xyz')
 
 VF_STARTS = slice(0, 3)
 VF_DIRS = slice(3, 6)

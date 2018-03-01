@@ -10,8 +10,11 @@ import pandas as pd
 from six import string_types
 from voxcell import Hierarchy, VoxelData, build
 
-IJK = list('ijk')
+
 X, Y, Z = 0, 1, 2
+XYZUVW = list('xyzuvw')
+IJK = list('ijk')
+XYZ = list('xyz')
 
 
 class ErrorCloseToZero(Exception):
