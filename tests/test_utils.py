@@ -3,7 +3,7 @@ import os
 
 import numpy as np
 import pandas as pd
-from nose.tools import eq_, ok_, raises
+from nose.tools import eq_, ok_, raises, assert_raises
 from numpy.testing import assert_equal
 from voxcell import VoxelData
 
@@ -11,6 +11,17 @@ import projectionizer.utils as test_module
 
 from utils import setup_tempdir
 from tests.utils import TEST_DATA_DIR
+
+
+def test_ignore_exception():
+    with test_module.ignore_exception(OSError):
+        raise OSError('This should not be propagated')
+
+    def foo():
+        with test_module.ignore_exception(OSError):
+            raise KeyError('This should be propagated')
+
+    assert_raises(KeyError, foo)
 
 
 def test_write_feather():
