@@ -48,9 +48,8 @@ def build_synapses_default(height, synapse_density, oversampling):
     return height.with_data(raw)
 
 
-def build_synapses_CA3_CA1(synapse_density, voxel_path, prefix, oversampling):
+def build_synapses_CA3_CA1(synapse_density, voxel_path, prefix, oversampling):  # pragma: no cover
     '''Build voxel count from densities according to regions'''
-
     atlas = voxcell.VoxelData.load_nrrd(os.path.join(voxel_path, prefix + 'brain_regions.nrrd'))
     raw = np.zeros_like(atlas.raw, dtype=np.uint)
     with open(os.path.join(voxel_path, 'hierarchy.json')) as fd:
@@ -141,7 +140,7 @@ def pick_synapses(circuit_path, synapse_counts, n_islice):
                                tqdm(xyz_counts))
     n_none_dfs = sum(df is None for df in synapses)
     percentage_none = n_none_dfs / float(len(synapses)) * 100
-    if percentage_none > 20.:
+    if percentage_none > 20.:  # pragma: no cover
         L.warning('%s of dataframes are None.', percentage_none)
 
     L.debug('Picking finished. Now concatenating...')

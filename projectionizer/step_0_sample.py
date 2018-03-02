@@ -17,17 +17,17 @@ from projectionizer.synapses import (SEGMENT_END_COLS, SEGMENT_START_COLS,
 from projectionizer.utils import load, load_all, mask_by_region, write_feather
 
 
-class VoxelSynapseCount(NrrdTask):
+class VoxelSynapseCount(NrrdTask):  # pragma: no cover
     """Generate the VoxelData containing the number
     of segment to be sampled in each voxel"""
     oversampling = FloatParameter()
 
-    def requires(self):  # pragma: no cover
+    def requires(self):
         if self.geometry == 'CA3_CA1':
             return self.clone(SynapseDensity)
         return self.clone(Height), self.clone(SynapseDensity)
 
-    def run(self):  # pragma: no cover
+    def run(self):
         if self.geometry == 'CA3_CA1':
             synapse_density = load(self.input().path)
             res = build_synapses_CA3_CA1(synapse_density, self.voxel_path,
@@ -40,7 +40,7 @@ class VoxelSynapseCount(NrrdTask):
             res.save_nrrd(self.output().path)
 
 
-class Height(NrrdTask):
+class Height(NrrdTask):  # pragma: no cover
     '''return a VoxelData instance w/ all the heights for given region_name
 
     distance is defined as from the voxel to the bottom of L6, voxels
@@ -52,7 +52,7 @@ class Height(NrrdTask):
         prefix(str): Prefix (ie: uuid) used to identify atlas/voxel set
     '''
 
-    def run(self):  # pragma: no cover
+    def run(self):
         if self.geometry in ('s1hl', 's1', 'CA3_CA1'):
             prefix = self.prefix or ''
             region = REGION_INFO[self.geometry]['region']
@@ -75,32 +75,31 @@ class SampleChunk(FeatherTask):
     """Split the big sample into chunks"""
     chunk_num = IntParameter()
 
-    def requires(self):  # pragma: no cover
+    def requires(self):
         return self.clone(FullSample)
 
-    def run(self):  # pragma: no cover
+    def run(self):
         # pylint thinks load() isn't returning a DataFrame
         # pylint: disable=maybe-no-member
         full_sample = load(self.input().path)
         chunk_size = (len(full_sample) / self.n_total_chunks) + 1
-        start, end = np.array(
-            [self.chunk_num, self.chunk_num + 1]) * chunk_size
-        chunk_df = full_sample.iloc[start: end]
+        start, end = np.array([self.chunk_num, self.chunk_num + 1]) * chunk_size
+        chunk_df = full_sample.iloc[start:end]
         write_feather(self.output().path, chunk_df)
 
 
-class FullSample(FeatherTask):
+class FullSample(FeatherTask):  # pragma: no cover
     '''Sample segments from circuit
     '''
     n_slices = IntParameter()
     from_chunks = BoolParameter(default=False)
 
-    def requires(self):  # pragma: no cover
+    def requires(self):
         if self.from_chunks:
             return [self.clone(SampleChunk, chunk_num=i) for i in range(self.n_total_chunks)]
         return self.clone(VoxelSynapseCount)
 
-    def run(self):  # pragma: no cover
+    def run(self):
         if self.from_chunks:
             # pylint: disable=maybe-no-member
             chunks = load(self.input().path)
@@ -119,11 +118,11 @@ class FullSample(FeatherTask):
             write_feather(self.output().path, synapses)
 
 
-class SynapseDensity(JsonTask):
+class SynapseDensity(JsonTask):  # pragma: no cover
     '''Return the synaptic density profile'''
     density_params = Parameter()
 
-    def run(self):  # pragma: no cover
+    def run(self):
         if self.geometry == 'CA3_CA1':
             res = yaml.load(self.density_params)
         else:
