@@ -1,6 +1,4 @@
 import json
-import os
-import time
 
 from luigi import FloatParameter, LocalTarget, Parameter, Task, build, run
 from luigi.contrib.simulate import RunAnywayTarget
@@ -8,16 +6,14 @@ from nose.tools import ok_
 from numpy.testing import assert_allclose, assert_equal
 
 from projectionizer.dichotomy import Dichotomy
-from projectionizer.luigi_utils import JsonTask
 
-from mocks import class_with_dummy_params, dummy_params
-from utils import setup_tempdir
+from tests.utils import setup_tempdir
 
 
 class LinearTask(Task):
     '''Test class'''
-    param = FloatParameter()
     folder = Parameter()
+    param = FloatParameter()
 
     def run(self):
         print('run')
@@ -38,17 +34,22 @@ def test_simple():
             assert_equal(json.load(inputf)['result'], 15)
 
 
-class MismatchLinearTask(JsonTask):
+class MismatchLinearTask(Task):
     '''The task whose value must be minimized'''
+    folder = Parameter()
     target = FloatParameter()
     param = FloatParameter(default=0)
 
     def run(self):
-        task = yield self.clone(LinearTask, param=self.param)
+        task = yield self.clone(LinearTask, param=self.param, folder=self.folder)
         with task.open() as inputf:
             with self.output().open('w') as outputf:
                 json.dump({'error': json.load(inputf)['result'] - self.target},
                           outputf)
+
+    def output(self):
+        return LocalTarget('{}/MismatchLinearTask-{}.json'.format(self.folder,
+                                                                  self.param))
 
 
 class RunAnywayTargetTempDir(RunAnywayTarget):
@@ -61,7 +62,7 @@ class TestDichotomy(Task):
     folder = Parameter()
 
     def requires(self):
-        return self.clone(Dichotomy, **dummy_params())
+        return self.clone(Dichotomy, folder=self.folder)
 
     def run(self):
         with self.input().open() as inputf:
@@ -74,17 +75,16 @@ class TestDichotomy(Task):
 
 def test_dichotomy():
     with setup_tempdir('test_dichotomy') as tmp_folder:
-        res = run(['TestDichotomy',
-                   '--local-scheduler',
-                   '--Dichotomy-MinimizationTask', 'MismatchLinearTask',
-                   '--Dichotomy-target', '-27',
-                   '--Dichotomy-target-margin', '0.5',
-                   '--Dichotomy-min-param', '-123',
-                   '--Dichotomy-max-param', '456',
-                   '--Dichotomy-max-loop', '57',
-                   '--Dichotomy-folder', tmp_folder,
-                   '--folder', tmp_folder,
-                   ])
+        params = {'MinimizationTask': MismatchLinearTask,
+                  'target': -27,
+                  'target_margin': 0.5,
+                  'min_param': -123,
+                  'max_param': 456,
+                  'max_loop': 57,
+                  'folder': tmp_folder,
+                  }
+
+        res = build([Dichotomy(**params)], local_scheduler=True)
         ok_(res)
 
 
@@ -92,14 +92,14 @@ def test_dichotomy_failed():
     '''Test dichotomy not converging fast enough
     leading to maximum number of iteration reached'''
     with setup_tempdir('test_dichotomy') as tmp_folder:
-        params = dummy_params()
-        params.update({'MinimizationTask': MismatchLinearTask,
-                       'target': 27,
-                       'target_margin': 5,
-                       'min_param': 123,
-                       'max_param': 456,
-                       'max_loop': 3,
-                       'folder': tmp_folder})
+        params = {'MinimizationTask': MismatchLinearTask,
+                  'target': 27,
+                  'target_margin': 5,
+                  'min_param': 123,
+                  'max_param': 456,
+                  'max_loop': 3,
+                  'folder': tmp_folder,
+                  }
 
         res = build([Dichotomy(**params)], local_scheduler=True)
         ok_(not res)

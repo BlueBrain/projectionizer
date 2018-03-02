@@ -2,15 +2,17 @@
 import json
 import os
 
-from luigi import FloatParameter, IntParameter, TaskParameter
+from luigi import Parameter, FloatParameter, IntParameter, TaskParameter, Task
+from luigi.local_target import LocalTarget
 from projectionizer.analysis import DoAll
-from projectionizer.luigi_utils import CommonParams, JsonTask
+from projectionizer.luigi_utils import CommonParams, JsonTask, camel2spinal_case, FolderTask
 from projectionizer.step_0_sample import FullSample, SampleChunk
 from projectionizer.step_3_write import SynapseCountPerConnectionL4PC
 
 
-class Dichotomy(JsonTask):
+class Dichotomy(Task):
     '''Binary search to find the parameter that satisfies the target value'''
+    folder = Parameter()
     target = FloatParameter()
     target_margin = FloatParameter(default=1)
     min_param = FloatParameter()
@@ -39,6 +41,13 @@ class Dichotomy(JsonTask):
             else:
                 start = param
         raise Exception('Maximum number of iteration reached')
+
+    def output(self):
+        name = camel2spinal_case(type(self).__name__)
+        return LocalTarget('{}/{}.json'.format(self.folder, name))
+
+    def requires(self):
+        return FolderTask(folder=self.folder)
 
 
 def sub_folder(base_folder, param):

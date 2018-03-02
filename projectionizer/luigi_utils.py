@@ -14,7 +14,7 @@ def cloned_tasks(this, tasks):
     return [this.clone(task) for task in tasks]
 
 
-def _camel_case_to_spinal_case(name):
+def camel2spinal_case(name):
     '''Camel case to snake case'''
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1-\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1-\2', s1).lower()
@@ -47,7 +47,7 @@ class CommonParams(Config):
     extension = None
 
     def output(self):
-        name = _camel_case_to_spinal_case(self.__class__.__name__)
+        name = camel2spinal_case(self.__class__.__name__)
         if hasattr(self, 'chunk_num'):
             return LocalTarget('{}/{}-{}.{}'.format(self.folder,
                                                     name,

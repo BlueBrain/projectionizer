@@ -3,8 +3,8 @@ from nose.tools import eq_
 from projectionizer import luigi_utils as lu
 
 
-def test_camel_case_to_snake_case():
-    eq_(lu._camel_case_to_spinal_case('CamelCase'),
+def test_camel2spinal_case():
+    eq_(lu.camel2spinal_case('CamelCase'),
         'camel-case')
 
 

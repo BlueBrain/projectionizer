@@ -114,7 +114,7 @@ class WriteNrnH5(CommonParams):
                 pass
             raise e
 
-    def output(self):
+    def output(self):  # pragma: no cover
         name = 'proj_nrn.h5' if not self.efferent else 'proj_nrn_efferent.h5'
         return LocalTarget('{}/{}'.format(self.folder, name))
 
@@ -136,7 +136,7 @@ class WriteUserTargetTxt(CommonParams):
                 outfile.write('    a{}\n'.format(tgid))
             outfile.write('}\n')
 
-    def output(self):
+    def output(self):  # pragma: no cover
         return LocalTarget('{}/user.target'.format(self.folder))
 
 
@@ -156,10 +156,10 @@ class VirtualFibers(CsvTask):
 class SynapseCountPerConnectionL4PC(JsonTask):
     '''Compute the mean number of synapses per connection for L4 PC cells'''
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return self.clone(ChooseConnectionsToKeep)
 
-    def run(self):
+    def run(self):  # pragma: no cover
         connections = load(self.input().path)
         l4_pc_mtypes = ['L4_PC', 'L4_UPC', 'L4_TPC']
 
@@ -184,15 +184,15 @@ class SynapseCountPerConnectionL4PC(JsonTask):
 class WriteAll(CommonParams):
     """Run all write tasks"""
 
-    def requires(self):
+    def requires(self):  # pragma: no cover
         return [self.clone(WriteNrnH5, efferent=True),
                 self.clone(WriteNrnH5, efferent=False),
                 self.clone(WriteSummary),
                 self.clone(WriteUserTargetTxt),
                 self.clone(SynapseCountPerConnectionL4PC)]
 
-    def run(self):
+    def run(self):  # pragma: no cover
         self.output().done()
 
-    def output(self):
+    def output(self):  # pragma: no cover
         return RunAnywayTarget(self)

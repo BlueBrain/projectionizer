@@ -1,25 +1,6 @@
-from itertools import repeat
-
 import numpy as np
 import pandas as pd
 from voxcell import VoxelData
-
-
-def dummy_params():
-    return {'circuit_config': '',
-            'geometry': '',
-            'n_total_chunks': 1,
-            'sgid_offset': 0,
-            'oversampling': 0,
-            'voxel_path': '',
-            'prefix': ''}
-
-
-def class_with_dummy_params(cls):
-    class Result(cls):
-        circuit_config = geometry = n_total_chunks = sgid_offset = oversampling = voxel_path = prefix = None
-    Result.__name__ = cls.__name__
-    return Result
 
 
 def create_synapse_counts():
