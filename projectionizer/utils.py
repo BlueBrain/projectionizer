@@ -1,4 +1,5 @@
 '''Utils for projectionizer'''
+from contextlib import contextmanager
 import json
 import os
 from itertools import chain
@@ -19,6 +20,16 @@ XYZ = list('xyz')
 
 class ErrorCloseToZero(Exception):
     '''Raised if normalizing if sum of probabilities is close to zero'''
+    pass
+
+
+@contextmanager
+def ignore_exception(exc):
+    '''ignore exception `exc`'''
+    try:
+        yield
+    except exc:
+        pass
 
 
 def write_feather(name, df):

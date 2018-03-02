@@ -10,10 +10,7 @@ from voxcell import VoxelData
 import projectionizer.utils as test_module
 
 from utils import setup_tempdir
-
-
-TEST_DIR = os.path.dirname(os.path.abspath(__file__))
-TEST_DATA_DIR = os.path.join(TEST_DIR, "data")
+from tests.utils import TEST_DATA_DIR
 
 
 def test_write_feather():
@@ -117,10 +114,9 @@ def test_in_bounding_box():
 
 
 def test_mask_by_region():
-    mask = test_module.mask_by_region('primary somatosensory cortex, hindlimb region',
-                                TEST_DATA_DIR, '')
+    region = 'primary somatosensory cortex, hindlimb region'
+    mask = test_module.mask_by_region(region, TEST_DATA_DIR, '')
     assert_equal(mask.sum(), 101857)
 
-    mask = test_module.mask_by_region([726],
-                                TEST_DATA_DIR, '')
+    mask = test_module.mask_by_region([726], TEST_DATA_DIR, '')
     assert_equal(mask.sum(), 101857)

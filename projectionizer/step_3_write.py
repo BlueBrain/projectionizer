@@ -14,7 +14,7 @@ from luigi.local_target import LocalTarget
 from projectionizer.luigi_utils import CommonParams, CsvTask, JsonTask
 from projectionizer.step_1_assign import VirtualFibersNoOffset
 from projectionizer.step_2_prune import ChooseConnectionsToKeep, ReducePrune
-from projectionizer.utils import load
+from projectionizer.utils import load, ignore_exception
 from projectionizer.write_nrn import write_synapses, write_synapses_summary
 
 L = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ L = logging.getLogger(__name__)
 class WriteSummary(CommonParams):
     '''write proj_nrn_summary.h5'''
 
-    def requires(self):  # pragma: no cover
+    def requires(self):
         return self.clone(ReducePrune)
 
     def run(self):
@@ -46,10 +46,8 @@ class WriteSummary(CommonParams):
                                    itr=summary.groupby("dataset"))
         except OSError as e:
             traceback.print_exc()
-            try:
+            with ignore_exception(OSError):
                 os.remove(self.output().path)
-            except OSError:
-                pass
             raise e
 
     def output(self):
@@ -94,10 +92,10 @@ class WriteNrnH5(CommonParams):
             'Ase': get_gamma_parameters(self.ASE_mean, self.ASE_sigma),
         }
 
-    def requires(self):  # pragma: no cover
+    def requires(self):
         return self.clone(ReducePrune)
 
-    def run(self):  # pragma: no cover
+    def run(self):
         try:
             # pylint thinks load() isn't returning a DataFrame
             # pylint: disable=maybe-no-member
@@ -108,25 +106,22 @@ class WriteNrnH5(CommonParams):
                            params, efferent=self.efferent)
         except Exception as e:
             traceback.print_exc()
-            try:
+            with ignore_exception(OSError):
                 os.remove(self.output().path)
-            except OSError:
-                pass
             raise e
 
-    def output(self):  # pragma: no cover
+    def output(self):
         name = 'proj_nrn.h5' if not self.efferent else 'proj_nrn_efferent.h5'
         return LocalTarget('{}/{}'.format(self.folder, name))
 
 
 class WriteUserTargetTxt(CommonParams):
     '''write user.target'''
-    extension = 'target'
 
-    def requires(self):  # pragma: no cover
+    def requires(self):
         return self.clone(ReducePrune)
 
-    def run(self):  # pragma: no cover
+    def run(self):
         # pylint thinks load() isn't returning a DataFrame
         # pylint: disable=maybe-no-member
         synapses = load(self.input().path)
@@ -136,7 +131,7 @@ class WriteUserTargetTxt(CommonParams):
                 outfile.write('    a{}\n'.format(tgid))
             outfile.write('}\n')
 
-    def output(self):  # pragma: no cover
+    def output(self):
         return LocalTarget('{}/user.target'.format(self.folder))
 
 
@@ -153,13 +148,13 @@ class VirtualFibers(CsvTask):
         fibers.to_csv(self.output().path, index_label='sgid')
 
 
-class SynapseCountPerConnectionL4PC(JsonTask):
+class SynapseCountPerConnectionL4PC(JsonTask):  # pragma: no cover
     '''Compute the mean number of synapses per connection for L4 PC cells'''
 
-    def requires(self):  # pragma: no cover
+    def requires(self):
         return self.clone(ChooseConnectionsToKeep)
 
-    def run(self):  # pragma: no cover
+    def run(self):
         connections = load(self.input().path)
         l4_pc_mtypes = ['L4_PC', 'L4_UPC', 'L4_TPC']
 
@@ -181,18 +176,18 @@ class SynapseCountPerConnectionL4PC(JsonTask):
             json.dump({'result': mean}, outputf)
 
 
-class WriteAll(CommonParams):
+class WriteAll(CommonParams):  # pragma: no cover
     """Run all write tasks"""
 
-    def requires(self):  # pragma: no cover
+    def requires(self):
         return [self.clone(WriteNrnH5, efferent=True),
                 self.clone(WriteNrnH5, efferent=False),
                 self.clone(WriteSummary),
                 self.clone(WriteUserTargetTxt),
                 self.clone(SynapseCountPerConnectionL4PC)]
 
-    def run(self):  # pragma: no cover
+    def run(self):
         self.output().done()
 
-    def output(self):  # pragma: no cover
+    def output(self):
         return RunAnywayTarget(self)

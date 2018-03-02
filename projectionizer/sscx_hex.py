@@ -4,6 +4,7 @@ import pandas as pd
 from voxcell import VoxelData
 
 from projectionizer import sscx
+from projectionizer.utils import XYZUVW
 
 VOXEL_SIZE_UM = 10
 
@@ -817,7 +818,7 @@ def get_minicol_virtual_fibers(apron_size):
 
     def to_dataframe(points, outsider):
         '''return fibers in a dataframe'''
-        df = pd.DataFrame(columns=list('xyzuvw') + ['apron'])
+        df = pd.DataFrame(columns=XYZUVW + ['apron'])
         if not points:
             return df
         df.x, df.z = zip(*points)

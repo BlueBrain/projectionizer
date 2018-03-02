@@ -1,7 +1,12 @@
+import os
 import shutil
 import tempfile
 
 from contextlib import contextmanager
+
+
+TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+TEST_DATA_DIR = os.path.join(TEST_DIR, "data")
 
 
 @contextmanager

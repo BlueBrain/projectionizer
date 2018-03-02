@@ -21,8 +21,10 @@ RADIAL_AXIS = 2
 
 
 class VirtualFibersNoOffset(CsvTask):
-    '''returns a DataFrame with columns ['x', 'y', 'z', 'u', 'v', 'w']
+    '''writes a DataFrame with columns ['sgid', 'x', 'y', 'z', 'u', 'v', 'w', 'apron']
     containing the starting position and direction of each fiber
+
+    Note: apron is a bool indicating if the fiber is in the apron or not
     '''
 
     def run(self):  # pragma: no cover
