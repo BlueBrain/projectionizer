@@ -38,3 +38,4 @@ def test_get_minicol_virtual_fibers():
 
     df = sscx_hex.get_minicol_virtual_fibers(apron_size=10.0)
     ok_(len(df) > 407)
+    ok_(len(df.index.unique()) > 407)

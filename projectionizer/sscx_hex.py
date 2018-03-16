@@ -826,4 +826,6 @@ def get_minicol_virtual_fibers(apron_size):
         df.apron = outsider
         return df.fillna(0)
 
-    return pd.concat((to_dataframe(fibers, False), to_dataframe(extra_fibers, True)))
+    return pd.concat((to_dataframe(fibers, False),
+                      to_dataframe(extra_fibers, True)),
+                     ignore_index=True)
