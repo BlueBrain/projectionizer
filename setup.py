@@ -4,6 +4,10 @@
 import imp
 from setuptools import setup
 
+import sys
+if sys.version_info[0] == 3:
+    sys.exit('Sorry, Python 3.x is not supported')
+
 VERSION = imp.load_source('projectionizer', "projectionizer/version.py").VERSION
 
 setup(
