@@ -134,6 +134,9 @@ def pick_synapses(circuit_path, synapse_counts, n_islice):
 
     xyz_counts = list(islice(zip(min_xyzs, max_xyzs, synapse_counts.raw[idx]), n_islice))
 
+    # FLATIndex is not threadsafe, and it leaks memory; to work around that
+    # map_parallelize is a forking pool with special options; refer to the
+    # comment there
     synapses = map_parallelize(partial(pick_synapses_voxel,
                                        circuit_path=circuit_path,
                                        segment_pref=segment_pref_length),

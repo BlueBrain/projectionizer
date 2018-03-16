@@ -67,12 +67,16 @@ def map_parallelize(func, *it):
 
     Watch the memory usage!
     '''
-    pool = Pool(14, lambda: signal.signal(signal.SIGINT, signal.SIG_IGN))
-    # map_async catches KeyboardInterrupt: https://stackoverflow.com/a/1408476/2533394
-    res = pool.map_async(func, *it).get(9999999)  # pylint: disable=no-value-for-parameter
+    # FLATIndex is not threadsafe, and it leaks memory; to work around that
+    # a the process pool forks a new process, and only runs 100 (b/c chunksize=100)
+    # iterations before forking a new process (b/c maxtasksperchild=1)
+    pool = Pool(15,
+                initializer=lambda: signal.signal(signal.SIGINT, signal.SIG_IGN),
+                maxtasksperchild=1)
+    ret = pool.map(func, *it, chunksize=100)  # pylint: disable=no-value-for-parameter
     pool.close()
     pool.join()
-    return res
+    return ret
 
 
 def normalize_probability(p):
