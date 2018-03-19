@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 """
 You can run this example like this:
     .. code:: console
@@ -20,6 +21,7 @@ import yaml
 L = logging.getLogger(__name__)
 
 CONFIG_FILENAME = 'config.yaml'
+LUIGI_TARGET = 'projectionizer.analysis'
 
 
 def common_parser():
@@ -29,7 +31,7 @@ def common_parser():
 
     def set_common_args(_parser):
         _parser.add_argument('-l', '--no-local-scheduler',  action='store_true',
-                             help='Do not use luigi\'s local scheduler '
+                             help='Do not use the luigi local scheduler '
                              '(luigi daemon (luigid) must be running)')
         _parser.add_argument('-o', '--output',
                              help='Output directory', required=True)
@@ -79,21 +81,17 @@ def common_parser():
 
 def luigi_params(args):
     '''Prepare the list of parameters to be passed to luigi.run command'''
-    with open(os.path.join(args.output, CONFIG_FILENAME)) as input_config:
-        config_list = yaml.load(input_config)
-
     cmd = ['--log-level', 'INFO']
-    for task, options in config_list.items():
-        for option, value in options.items():
-            prefix = task + '-' if task != 'CommonParams' else ''
-            if value is not '' and not isinstance(value, dict):
-                value = str(value)
-            else:
-                value = '"{}"'.format(value)
-            cmd += ['--' + prefix + option.replace('_', '-'), value]
 
     if not args.no_local_scheduler:
         cmd.append('--local-scheduler')
+
+    with open(os.path.join(args.output, CONFIG_FILENAME)) as input_config:
+        config_list = yaml.load(input_config)
+    for task, options in config_list.items():
+        for option, value in options.items():
+            prefix = task + '-' if task != 'CommonParams' else ''
+            cmd += ['--' + prefix + option.replace('_', '-'), str(value)]
 
     return cmd
 
@@ -124,19 +122,19 @@ def _copy_config(args):
 def _cmd_start(args):
     '''Luigi argument list for the "start" command'''
     if os.path.exists(args.output):
-        if input("Output folder already exists. Overwrite? ").lower() in ('y', 'yes'):
+        if input("Output folder already exists. Overwrite (yes/no): ").lower() in ('y', 'yes'):
             shutil.rmtree(args.output)
         else:
             sys.exit(0)
     _copy_config(args)
     return ['DoAll', '--folder', args.output, '--module',
-            'projectionizer.analysis', '--workers', '1', ] + luigi_params(args)
+            LUIGI_TARGET, '--workers', '1', ] + luigi_params(args)
 
 
 def _cmd_resume(args):
     '''Luigi argument list for the "resume" command'''
     return ['DoAll', '--folder', args.output, '--module',
-            'projectionizer.analysis', '--workers', '1', ] + luigi_params(args)
+            LUIGI_TARGET, '--workers', '1', ] + luigi_params(args)
 
 
 def _cmd_dichotomy(args):
@@ -160,6 +158,15 @@ if __name__ == '__main__':
            'resume': _cmd_resume,
            'dichotomy': _cmd_dichotomy}[ARGS.which](ARGS)
 
-    L.debug('Calling luigi.run() with the following params: %s', ' '.join(cmd))
+    print('You can also start the job with the following command:')
+    for line in cmd:
+        line = line.strip()
+        if line.startswith('--'):
+            print(' \\\n    ', end='')
+        else:
+            line = '"{}"'.format(str(line))
+        print('    ' + line, end='')
+    print()
+
     numpy.random.seed(0)
     luigi.run(cmd)
