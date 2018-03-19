@@ -62,7 +62,12 @@ class Height(NrrdTask):  # pragma: no cover
             distance.raw[np.invert(mask)] = 0.
         elif self.geometry == 'hex':
             from projectionizer.sscx_hex import voxel_space
-            voxels = voxel_space()
+            max_height = sum(h for _, h in yaml.load(self.layers))
+            fiber_locations = self.load_data(self.hex_fiber_locations)
+            voxels = voxel_space(hex_edge_len=self.hex_side,
+                                 locations_path=fiber_locations,
+                                 max_height=max_height
+                                 )
             xyz = voxels.indices_to_positions(np.indices(
                 voxels.raw.shape).transpose(1, 2, 3, 0) + (0.5, 0.5, 0.5))
             distance = voxels.with_data(xyz[:, :, :, 1])
@@ -127,7 +132,8 @@ class SynapseDensity(JsonTask):  # pragma: no cover
             res = yaml.load(self.density_params)
         else:
             density_params = yaml.load(self.density_params)
-            res = [recipe_to_height_and_density(data['low_layer'],
+            res = [recipe_to_height_and_density(yaml.load(self.layers),
+                                                data['low_layer'],
                                                 data['low_fraction'],
                                                 data['high_layer'],
                                                 data['high_fraction'],

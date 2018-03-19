@@ -28,6 +28,7 @@ def test_write_summary():
             circuit_config = geometry = n_total_chunks = sgid_offset = oversampling = None
             voxel_path = prefix = extension = None
             folder = tmp_folder
+            layers = ''
 
             def input(self):
                 return mock
@@ -63,6 +64,7 @@ def test_WriteNrnH5():
             voxel_path = prefix = extension = None
             synapse_type = gsyn_mean = gsyn_sigma = use_mean = use_sigma = D_mean = 1
             D_sigma = F_mean = F_sigma = DTC_mean = DTC_sigma = ASE_mean = ASE_sigma = 1
+            layers = ''
 
             def input(self):
                 return mock
@@ -106,6 +108,7 @@ def test_WriteUserTargetTxt():
             folder = tmp_folder
             circuit_config = geometry = n_total_chunks = sgid_offset = oversampling = None
             voxel_path = prefix = extension = None
+            layers = ''
 
             def input(self):
                 return mock
@@ -130,6 +133,7 @@ def test_VirtualFibers():
             sgid_offset = 10
             circuit_config = geometry = n_total_chunks = oversampling = None
             voxel_path = prefix = None
+            layers = ''
 
             def input(self):
                 return mock

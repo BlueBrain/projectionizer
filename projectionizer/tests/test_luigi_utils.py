@@ -2,18 +2,10 @@ import os
 import tempfile
 from nose.tools import eq_, ok_
 
-from luigi import Task
+from luigi import Task, build, Parameter
 from luigi.local_target import LocalTarget
 from projectionizer import luigi_utils as lu
 from utils import setup_tempdir
-
-
-def test_cloned_tasks():
-    class Class(object):
-        def clone(self, x):
-            return x
-    eq_(lu.cloned_tasks(Class(), [1, 2, 3]),
-        [1, 2, 3])
 
 
 def test_camel2spinal_case():
@@ -42,6 +34,7 @@ def test_common_params():
               'oversampling': 0,
               'voxel_path': '',
               'prefix': '',
+              'layers': [(6, 700.37845971), (5, 525.05585701), (4, 189.57183895), (3, 352.92508322), (2, 148.87602025), (1, 164.94915873), ],
               }
 
     class TestCommonParams(lu.CommonParams):
@@ -60,9 +53,26 @@ def test_common_params():
 
 
 def test_RunAnywayTargetTempDir():
-    class Test(Task):
-        pass
-
     with setup_tempdir('test_luigi') as tmp_dir:
-        lu.RunAnywayTargetTempDir(Test(), tmp_dir)
-        eq_(len(os.listdir(tmp_dir)), 1)  # directory created by RunAnywayTargetTempDir
+        path = os.path.join(tmp_dir, 'luigi-tmp')  # directory created by RunAnywayTargetTempDir
+        ok_(not os.path.exists(path))
+
+        class Test(Task):
+            def run(self):
+                with open(self.output().path, 'w') as fd:
+                    fd.write('test')
+            def output(self):
+                return LocalTarget(os.path.join(tmp_dir, 'out.txt'))
+
+        class DoAll(Task):
+            """Launch the full projectionizer pipeline"""
+            folder = Parameter()
+            def requires(self):
+                return Test()
+            def run(self):
+                self.output().done()
+            def output(self):
+                return lu.RunAnywayTargetTempDir(self, base_dir=self.folder)
+
+        build([DoAll(folder=tmp_dir)], local_scheduler=True)
+        ok_(os.path.exists(path))

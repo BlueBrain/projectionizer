@@ -23,6 +23,7 @@ def test_SampleChunk():
                   'oversampling': 0,
                   'voxel_path': '',
                   'prefix': '',
+                  'layers': '',
                   }
         mock = Mock(path=mock_path)
         class TestSampleChunk(step_0_sample.SampleChunk):

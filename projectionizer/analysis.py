@@ -3,6 +3,11 @@ import logging
 import os
 from itertools import chain, repeat
 
+import matplotlib
+matplotlib.use('Agg')
+# deal w/ using Agg backend
+# pylint: disable=wrong-import-position
+
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,7 +15,7 @@ import pandas as pd
 from bluepy.v2.circuit import Circuit
 from luigi import Parameter
 
-from projectionizer.sscx_hex import get_virtual_fiber_locations, hexagon
+from projectionizer.sscx_hex import get_minicol_virtual_fibers
 from projectionizer.luigi_utils import CommonParams, RunAnywayTargetTempDir
 from projectionizer.step_0_sample import FullSample, SynapseDensity
 from projectionizer.step_2_prune import (ChooseConnectionsToKeep, CutoffMeans,
@@ -92,13 +97,6 @@ def remove_synapses_with_sgid(synapses, sgids):
     return synapses
 
 
-def extra_fibers(apron_size):
-    '''Returns list of fiber ids in the apron region'''
-    in_apron = set(tuple(loc) for loc in get_virtual_fiber_locations())
-    apron = set(tuple(loc) for loc in get_virtual_fiber_locations(apron_size))
-    return np.array(list(apron - in_apron))
-
-
 def synapse_density(orig_data, keep_syn, distmap, bin_width=25, oversampling=1, folder='.'):
     '''Plot synaptic density profile'''
     def vol(df):
@@ -145,7 +143,8 @@ def fraction_pruned_vs_height(folder, n_chunks):
     fat = pd.merge(pd.concat(chunks),
                    kept[['sgid', 'tgid', 'kept']],
                    left_on=['sgid', 'tgid'], right_on=['sgid', 'tgid'])
-    bins = np.linspace(600, 1600, 100)
+    step = 100
+    bins = np.linspace(fat.y.min(), fat.y.max() + step, step)
     bin_center = 0.5 * (bins[1:] + bins[:-1])
 
     s = pd.cut(fat.y, bins)
@@ -188,7 +187,6 @@ def syns_per_connection(orig_data, choose_connections, cutoffs, folder):
         orig_counts = orig_data.groupby(['tgid', 'sgid']).size()
         _make_hist(orig_counts, bins_syn)
 
-    # df.plot(kind='barh', ax=ax)
     ax.set_title('Synapse / connection')
     fig.savefig(os.path.join(folder, 'syns_per_connection.png'))
     syns_per_connection_per_mtype(choose_connections, cutoffs, folder)
@@ -268,56 +266,6 @@ def efferent_neuron_per_fiber(df, fibers, folder, cell_data=True):
     fig.savefig(os.path.join(folder, 'efferent_count_2d.png'))
 
 
-def plot_hexagon(ax, center=(0., 0.)):
-    '''center in on `center`'''
-    points = hexagon()
-    ax.plot(center[0] + points[:, 0], center[1] + points[:, 1], 'r-')
-
-
-def plot_used_minicolumns(df, ax=None):
-    '''Plot used minicolumns'''
-    if ax is None:
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1)
-
-    locations = get_virtual_fiber_locations()
-    x, z = locations[:, 0], locations[:, 1]
-
-    plot_hexagon(ax, center=(np.mean(x), np.mean(z)))
-    ax.scatter(x, z, c='b')
-
-    uniq = df.sgid.unique()
-    ax.scatter(x[uniq], z[uniq], c='r')
-
-
-def column_scatter_plots(df, prefix, fiber_locations=None):
-    '''Scatter plot of the synapses locations'''
-
-    assert 'x' in df.columns
-    x, y, z = df['x'].values, df['y'].values, df['z'].values
-
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1, projection='scatter_density')
-    ax.scatter_density(x, z)
-    plot_hexagon(ax, center=(np.mean(x), np.mean(z)))
-    ax.set_title('Synapse locations: x/z')
-
-    if fiber_locations is not None:
-        ax.scatter(fiber_locations[:, 0], fiber_locations[:, 1], c='red', s=1)
-
-    ax.set_xlabel('x location in um')
-    ax.set_ylabel('z location in um')
-    fig.savefig(prefix + '_synpases_xz.png')
-
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1, projection='scatter_density')
-    ax.scatter_density(x, y)
-    ax.set_title('Synapse locations: x/y')
-    ax.set_xlabel('x location in um')
-    ax.set_ylabel('y location in um')
-    fig.savefig(prefix + '_synpases_xy.png')
-
-
 def innervation_width(pruned, circuit_config, folder):
     '''Innervation width
 
@@ -340,43 +288,47 @@ class Analyse(CommonParams):
 
     def requires(self):  # pragma: no cover
         if self.geometry != 's1':
-            return [self.clone(task) for task in [ReducePrune,
-                                                  FullSample,
-                                                  ChooseConnectionsToKeep,
-                                                  CutoffMeans,
-                                                  SynapseDensity, VirtualFibers]]
-
-        return [self.clone(task) for task in [ReducePrune,
-                                              ChooseConnectionsToKeep,
-                                              CutoffMeans,
-                                              SynapseDensity, VirtualFibers]]
+            tasks = (ReducePrune,
+                     FullSample,
+                     ChooseConnectionsToKeep,
+                     CutoffMeans,
+                     SynapseDensity,
+                     VirtualFibers,
+                     )
+        else:
+            tasks = (ReducePrune,
+                     ChooseConnectionsToKeep,
+                     CutoffMeans,
+                     SynapseDensity,
+                     VirtualFibers,
+                     )
+        return [self.clone(task) for task in tasks]
 
     def run(self):  # pragma: no cover
-        apron_size = 50
         if self.geometry != 's1':
             pruned, sampled, connections, cutoffs, distmap, fibers = load_all(self.input())
-        else:
-            pruned, connections, cutoffs, distmap, fibers = load_all(self.input())
-            # connections, cutoffs = load_all(self.input())
-
-        connections.sgid += self.sgid_offset
-        if self.geometry != 's1':
-            pruned_no_edge = remove_synapses_with_sgid(pruned, extra_fibers(apron_size))
+            locations_path = self.load_data(self.hex_fiber_locations)
+            all_fibers = get_minicol_virtual_fibers(apron_size=self.hex_apron_size,
+                                                    hex_edge_len=self.hex_side,
+                                                    locations_path=locations_path)
+            pruned_no_edge = remove_synapses_with_sgid(pruned,
+                                                       all_fibers[all_fibers['apron']].index)
             original = load(self.original_data)
 
             fraction_pruned_vs_height(self.folder, self.n_total_chunks)
             innervation_width(pruned, self.circuit_config, self.folder)
             synapse_density_per_voxel(self.folder, sampled, distmap, self.oversampling, 'sampled')
         else:
+            pruned, connections, cutoffs, distmap, fibers = load_all(self.input())
             pruned_no_edge = pruned
             original = None
+
+        connections.sgid += self.sgid_offset
 
         synapse_density_per_voxel(self.folder, pruned_no_edge, distmap, 1., 'pruned')
         synapse_density(original, pruned_no_edge, distmap, folder=self.folder)
         syns_per_connection(original, connections, cutoffs, self.folder)
-        # column_scatter_plots(pruned, self.folder, fiber_locations=None)
 
-        # plot_used_minicolumns(pruned)
         efferent_neuron_per_fiber(pruned, fibers, self.folder, cell_data=self.geometry != 's1')
 
         self.output().done()

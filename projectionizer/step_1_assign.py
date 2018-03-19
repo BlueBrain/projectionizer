@@ -35,8 +35,10 @@ class VirtualFibersNoOffset(CsvTask):
             df['apron'] = False
         elif self.geometry == 'hex':
             from projectionizer.sscx_hex import get_minicol_virtual_fibers
-            apron = 50
-            df = get_minicol_virtual_fibers(apron)
+            locations_path = self.load_data(self.hex_fiber_locations)
+            df = get_minicol_virtual_fibers(apron_size=self.hex_apron_size,
+                                            hex_edge_len=self.hex_side,
+                                            locations_path=locations_path)
         df.to_csv(self.output().path, index_label='sgid')
 
 

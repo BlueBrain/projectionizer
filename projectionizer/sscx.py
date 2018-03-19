@@ -6,25 +6,9 @@ import numpy as np
 import pandas as pd
 import voxcell
 
-from projectionizer.utils import mask_by_region
+from projectionizer.utils import mask_by_region, XYZUVW
 
 L = logging.getLogger(__name__)
-XYZUVW = list('xyzuvw')
-
-LAYERS = range(1, 7)
-# layer thickness from recipe
-LAYER_THICKNESS = np.array([164.94915873, 148.87602025, 352.92508322,
-                            189.57183895, 525.05585701, 700.37845971])
-LAYER_BOUNDARIES = np.cumsum(list(reversed(LAYER_THICKNESS)))
-LAYER_STARTS = {6: 0,
-                5: LAYER_BOUNDARIES[0],
-                4: LAYER_BOUNDARIES[1],
-                3: LAYER_BOUNDARIES[2],
-                2: LAYER_BOUNDARIES[3],
-                1: LAYER_BOUNDARIES[4]}
-
-LAYER_THICKNESS = {name: float(thickness) for name, thickness in
-                   zip(LAYERS, LAYER_THICKNESS)}
 
 REGION_INFO = {'s1hl': {'region': 'primary somatosensory cortex, hindlimb region',
                         'layer6': 'primary somatosensory cortex, hindlimb region, layer 6'},
@@ -34,7 +18,25 @@ REGION_INFO = {'s1hl': {'region': 'primary somatosensory cortex, hindlimb region
                            'layer6': [1124, 1130, 1142, 1148, ], }}
 
 
-def recipe_to_height_and_density(low_layer,
+def column_layers(layers):
+    '''
+
+    ie: for the SSCX layer 6 is at the bottom
+
+    Args:
+        layers(list of tuples): of (name, thickness), arranged from 'bottom' to 'top'
+
+    Returns:
+        layer_starts, layer_thickness: dictionaries of LayerName -> starts/thickness
+    '''
+    names, thickness = zip(*layers)
+    cum_thickness = np.cumsum([0] + list(thickness))
+    layer_starts = dict(zip(names, cum_thickness))
+    return layer_starts, dict(layers)
+
+
+def recipe_to_height_and_density(layers,
+                                 low_layer,
                                  low_fraction,
                                  high_layer,
                                  high_fraction,
@@ -42,6 +44,7 @@ def recipe_to_height_and_density(low_layer,
     '''Convert recipe style layer & density values to absolute height & density values
 
     Args:
+        layers(list of tuples(name, thickness)): aranged from 'bottom' to 'top'
         low_layer(str): layer 'name'
         low_fraction(float): Fraction into low_layer from which to start the region
         high_layer(str): layer 'name' (1..6)
@@ -52,6 +55,8 @@ def recipe_to_height_and_density(low_layer,
     Return:
         list of tuples of (absolute height, synapse density)
     '''
+    layer_starts, layer_thickness = column_layers(layers)
+
     distribution = np.array(distribution)
     heights = distribution[:, 0]
     heights = np.hstack((0, 0.5 * (heights[0:-1] + heights[1:]), 1))
@@ -59,8 +64,8 @@ def recipe_to_height_and_density(low_layer,
     density = distribution[:, 1]
     density = np.hstack((density, density[-1]))
 
-    bottom = LAYER_STARTS[low_layer] + low_fraction * LAYER_THICKNESS[low_layer]
-    top = LAYER_STARTS[high_layer] + high_fraction * LAYER_THICKNESS[high_layer]
+    bottom = layer_starts[low_layer] + low_fraction * layer_thickness[low_layer]
+    top = layer_starts[high_layer] + high_fraction * layer_thickness[high_layer]
     diff = top - bottom
     return [(bottom + diff * low, density)
             for low, density in zip(heights, density)]

@@ -13,6 +13,15 @@ from utils import setup_tempdir
 from utils import TEST_DATA_DIR
 
 
+def test_choice():
+    np.random.seed(0)
+    indices = test_module.choice(np.array([[1., 2, 3, 4],
+                                           [0, 0, 1, 0],
+                                           [6, 5, 4, 0]]))
+    assert_equal(indices,
+                 [2, 2, 1])
+
+
 def test_ignore_exception():
     with test_module.ignore_exception(OSError):
         raise OSError('This should not be propagated')

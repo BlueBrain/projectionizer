@@ -4,6 +4,11 @@ CommonParams:
   n_total_chunks: 10 #  The number of chunks to create when splitting the full sample
   sgid_offset: 250000 # The offset from which to start numbering the fiber IDs
   oversampling: 2.6 # The number of sampled synapse is: expected count * oversampling
+  layers: [[6, 700.37845971], [5, 525.05585701], [4, 189.57183895], [3, 352.92508322], [2, 148.87602025], [1, 164.94915873]]
+
+  hex_side: 230.92 # length of hexagon size
+  hex_apron_size: 50 # size of apron around the hexagon, so that there aren't edge effects when assigning synapses to fibers
+  hex_fiber_locations: /gpfs/bbp.cscs.ch/project/proj30/projectionizer/mouse_O1/runs/rat_fibers.csv
 
 SynapseDensity:
   density_params:

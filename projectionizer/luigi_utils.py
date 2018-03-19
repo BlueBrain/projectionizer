@@ -1,18 +1,13 @@
 '''Luigi related utils'''
 import os
 import re
-import tempfile
+
+import pkg_resources
 
 from luigi import (Config, FloatParameter, IntParameter, Parameter, Task,
                    )
 from luigi.contrib.simulate import RunAnywayTarget
 from luigi.local_target import LocalTarget
-
-
-def cloned_tasks(this, tasks):
-    '''Utils function for self.requires()
-    Returns: clone and returns a list of required tasks'''
-    return [this.clone(task) for task in tasks]
 
 
 def camel2spinal_case(name):
@@ -40,24 +35,41 @@ class CommonParams(Config):
     n_total_chunks = IntParameter()
     sgid_offset = IntParameter()
     oversampling = FloatParameter()
+    layers = Parameter()  # list of pairs of (layer name, thickness), starting at 'bottom'
 
     # S1HL/S1 region parameters
     voxel_path = Parameter(default='')
     prefix = Parameter(default='')
 
+    # hex parameters
+    hex_side = FloatParameter(default=0)  # size of a hexagon side
+    # size of apron around the hexagon, so that there aren't edge effects when assigning
+    # synapses to fibers
+    hex_apron_size = FloatParameter(default=50)
+    # path to CSV with two columns; x/z: location of fibers
+    hex_fiber_locations = Parameter(default='rat_fibers.csv')
+
     extension = None
 
     def output(self):
         name = camel2spinal_case(self.__class__.__name__)
+        target = '{}/{}.{}'.format(self.folder, name, self.extension)
         if hasattr(self, 'chunk_num'):
-            return LocalTarget('{}/{}-{}.{}'.format(self.folder,
-                                                    name,
-                                                    getattr(self, 'chunk_num'),
-                                                    self.extension))
-        return LocalTarget('{}/{}.{}'.format(self.folder, name, self.extension))
+            target = '{}/{}-{}.{}'.format(
+                self.folder, name, getattr(self, 'chunk_num'), self.extension)
+        return LocalTarget(target)
 
     def requires(self):
         return FolderTask(folder=self.folder)
+
+    @staticmethod
+    def load_data(path):
+        '''completely unqualified paths are loaded from the templates directory'''
+        if '/' in path:
+            return path
+        else:
+            templates = pkg_resources.resource_filename('projectionizer', 'templates')
+            return os.path.join(templates, path)
 
 
 class CsvTask(CommonParams):
@@ -89,5 +101,5 @@ class RunAnywayTargetTempDir(RunAnywayTarget):
     is under the user's control, and thus there won't be conflicts
     '''
     def __init__(self, task_obj, base_dir):
-        self.temp_dir = tempfile.mkdtemp(dir=base_dir)
+        self.temp_dir = os.path.join(base_dir, 'luigi-tmp')
         super(RunAnywayTargetTempDir, self).__init__(task_obj)
