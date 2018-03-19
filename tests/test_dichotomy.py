@@ -1,11 +1,11 @@
 import json
 
 from luigi import FloatParameter, LocalTarget, Parameter, Task, build, run
-from luigi.contrib.simulate import RunAnywayTarget
 from nose.tools import ok_
 from numpy.testing import assert_allclose, assert_equal
 
 from projectionizer.dichotomy import Dichotomy
+from projectionizer.luigi_utils import RunAnywayTargetTempDir
 
 from tests.utils import setup_tempdir
 
@@ -50,12 +50,6 @@ class MismatchLinearTask(Task):
     def output(self):
         return LocalTarget('{}/MismatchLinearTask-{}.json'.format(self.folder,
                                                                   self.param))
-
-
-class RunAnywayTargetTempDir(RunAnywayTarget):
-    def __init__(self, task_obj, temp_dir):
-        self.temp_dir = temp_dir
-        super(RunAnywayTargetTempDir, self).__init__(task_obj)
 
 
 class TestDichotomy(Task):

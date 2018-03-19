@@ -2,13 +2,14 @@ import os
 import tempfile
 from nose.tools import eq_, ok_
 
+from luigi import Task
 from luigi.local_target import LocalTarget
 from projectionizer import luigi_utils as lu
 from utils import setup_tempdir
 
 
 def test_cloned_tasks():
-    class Class:
+    class Class(object):
         def clone(self, x):
             return x
     eq_(lu.cloned_tasks(Class(), [1, 2, 3]),
@@ -56,3 +57,12 @@ def test_common_params():
     eq_(chunked_task.output().path, '/none/existant/path/test-common-params-chunk-42.out')
 
     ok_(isinstance(task.requires(), lu.FolderTask))
+
+
+def test_RunAnywayTargetTempDir():
+    class Test(Task):
+        pass
+
+    with setup_tempdir('test_luigi') as tmp_dir:
+        lu.RunAnywayTargetTempDir(Test(), tmp_dir)
+        eq_(len(os.listdir(tmp_dir)), 1)  # directory created by RunAnywayTargetTempDir

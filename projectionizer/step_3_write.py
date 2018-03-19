@@ -9,9 +9,8 @@ import numpy as np
 import pandas as pd
 
 from luigi import BoolParameter, FloatParameter, IntParameter
-from luigi.contrib.simulate import RunAnywayTarget
 from luigi.local_target import LocalTarget
-from projectionizer.luigi_utils import CommonParams, CsvTask, JsonTask
+from projectionizer.luigi_utils import CommonParams, CsvTask, JsonTask, RunAnywayTargetTempDir
 from projectionizer.step_1_assign import VirtualFibersNoOffset
 from projectionizer.step_2_prune import ChooseConnectionsToKeep, ReducePrune
 from projectionizer.utils import load, ignore_exception
@@ -190,4 +189,4 @@ class WriteAll(CommonParams):  # pragma: no cover
         self.output().done()
 
     def output(self):
-        return RunAnywayTarget(self)
+        return RunAnywayTargetTempDir(self, base_dir=self.folder)

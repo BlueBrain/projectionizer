@@ -9,10 +9,9 @@ import numpy as np
 import pandas as pd
 from bluepy.v2.circuit import Circuit
 from luigi import Parameter
-from luigi.contrib.simulate import RunAnywayTarget
 
 from projectionizer.sscx_hex import get_virtual_fiber_locations, hexagon
-from projectionizer.luigi_utils import CommonParams
+from projectionizer.luigi_utils import CommonParams, RunAnywayTargetTempDir
 from projectionizer.step_0_sample import FullSample, SynapseDensity
 from projectionizer.step_2_prune import (ChooseConnectionsToKeep, CutoffMeans,
                                          ReducePrune)
@@ -383,7 +382,7 @@ class Analyse(CommonParams):
         self.output().done()
 
     def output(self):
-        return RunAnywayTarget(self)
+        return RunAnywayTargetTempDir(self, base_dir=self.folder)
 
 
 class DoAll(CommonParams):
@@ -396,4 +395,4 @@ class DoAll(CommonParams):
         self.output().done()
 
     def output(self):
-        return RunAnywayTarget(self)
+        return RunAnywayTargetTempDir(self, base_dir=self.folder)

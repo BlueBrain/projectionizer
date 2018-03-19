@@ -1,9 +1,11 @@
 '''Luigi related utils'''
 import os
 import re
+import tempfile
 
 from luigi import (Config, FloatParameter, IntParameter, Parameter, Task,
                    )
+from luigi.contrib.simulate import RunAnywayTarget
 from luigi.local_target import LocalTarget
 
 
@@ -76,3 +78,16 @@ class JsonTask(CommonParams):
 class NrrdTask(CommonParams):
     '''Task returning a Nrrd file'''
     extension = 'nrrd'
+
+
+class RunAnywayTargetTempDir(RunAnywayTarget):
+    '''Override tmp directory location for RunAnywayTarget
+
+    RunAnywayTarget uses a directory in /tmp for keeping state,
+    so if two different users try and launch a task that uses
+    this target, it fails.  By using this target, the directory
+    is under the user's control, and thus there won't be conflicts
+    '''
+    def __init__(self, task_obj, base_dir):
+        self.temp_dir = tempfile.mkdtemp(dir=base_dir)
+        super(RunAnywayTargetTempDir, self).__init__(task_obj)
