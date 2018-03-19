@@ -1,0 +1,60 @@
+name: CHAT
+
+density:
+    # CHAT - Varicosities / 1000 um^3
+    mean:
+        '1': 0.4799547285
+        '2': 0.3869016127
+        '3': 0.3697457851
+        '4': 0.3740495687
+        '5': 0.4178413313
+        #'L5a': 0.4851163218
+        #'L5b': 0.3505663408
+        '6': 0.3252380622
+
+circuit_config: /gpfs/bbp.cscs.ch/project/proj1/circuits/SomatosensoryCxS1-v5.r0/O1/merged_circuit/CircuitConfig
+hex_edge_len: 230.92
+hex_apron_size: 50
+voxel_size_um: 50
+oversampling: 20.0
+fiber_locations: rat_fibers.csv
+sigma: 50
+closest_count: 25
+sgid_offset: 1000000
+layers:
+    - ['6', 700.37845971]
+    - ['5', 525.05585701]
+    - ['4', 189.57183895]
+    - ['3', 352.92508322]
+    - ['2', 148.87602025]
+    - ['1', 164.94915873]
+
+synapse_parameters:
+    synapse_type: 120 # excitatory
+
+    # The following parameters are the mean and sigma of the gamma function (np.random.gamma) used
+    # to sample the synapse parameters
+
+    # peak synaptic conductance for generalized e-e after PSP scaling 0.792+-0.528 EM
+    gsyn_mean: 0.792
+    gsyn_sigma: 0.528
+
+    # Analogous to transmitter release probability SR -->
+    use_mean: 0.75
+    use_sigma: 0.02
+
+    # Time cproj_nrn.h5onstant for recovery from depression SR -->
+    D_mean: 671
+    D_sigma: 17
+
+    # Time constant for recovery from facilitation SR
+    F_mean: 17
+    F_sigma: 5
+
+    # decay time constant SR
+    DTC_mean: 1.74
+    DTC_sigma: 0.2
+
+    # Absolute synaptic efficacy - not used, but a placeholder continuing from legacy nrn.h5 SR
+    ASE_mean: 1
+    ASE_sigma: 0.01

@@ -2,7 +2,7 @@ import os
 from voxcell import VoxelData
 import numpy as np
 from nose.tools import eq_, ok_, raises
-from projectionizer import sscx_hex
+from projectionizer import sscx_hex, utils
 
 
 HEX_EDGE_LEN = 230.92
@@ -62,3 +62,7 @@ def test_get_minicol_virtual_fibers():
                                              locations_path=LOCATIONS_PATH)
     ok_(len(df) > 407)
     ok_(len(df.index.unique()) > 407)
+
+    eq_(df.apron.dtype, bool)
+    for c in utils.XYZUVW:
+        eq_(df[c].dtype, float)

@@ -11,22 +11,22 @@ import pandas as pd
 from bluepy.v2.circuit import Circuit
 from scipy.stats import norm  # pylint: disable=no-name-in-module
 
-from projectionizer.straight_fibers import calc_pathlength_to_fiber_start
-from projectionizer.luigi_utils import FeatherTask
-from projectionizer.step_0_sample import SampleChunk
-from projectionizer.step_1_assign import FiberAssignment, VirtualFibersNoOffset
+from projectionizer import (straight_fibers, synapses as syns, luigi_utils,
+                            step_0_sample, step_1_assign, )
 from projectionizer.utils import load, load_all, write_feather
 
 L = logging.getLogger(__name__)
 
 
-class GroupByConnection(FeatherTask):
+class GroupByConnection(luigi_utils.FeatherTask):
     """Returns a DataFrame containing the number of synapses per connection for each tuple mtype,
     neuron ID, fiber ID: (mtype, tgid, sgid)"""
     chunk_num = luigi.IntParameter()
 
     def requires(self):  # pragma: no cover
-        return self.clone(SampleChunk), self.clone(FiberAssignment)
+        return (self.clone(step_0_sample.SampleChunk),
+                self.clone(step_1_assign.FiberAssignment),
+                )
 
     def run(self):  # pragma: no cover
         synapses, sgids = load_all(self.input())
@@ -41,7 +41,7 @@ class GroupByConnection(FeatherTask):
         write_feather(self.output().path, res)
 
 
-class ReduceGroupByConnection(FeatherTask):
+class ReduceGroupByConnection(luigi_utils.FeatherTask):
     """Merge the group-by of all chunks"""
 
     def requires(self):  # pragma: no cover
@@ -66,7 +66,7 @@ def find_cutoff_mean_per_mtype(value_count, synaptical_fraction):
     return np.interp(synaptical_fraction, xp=x, fp=value_count.index)
 
 
-class CutoffMeans(FeatherTask):
+class CutoffMeans(luigi_utils.FeatherTask):
     '''For each mtype, find its unique cutoff_mean
 
     Args:
@@ -106,7 +106,7 @@ class CutoffMeans(FeatherTask):
         write_feather(self.output().path, res)
 
 
-class ChooseConnectionsToKeep(FeatherTask):
+class ChooseConnectionsToKeep(luigi_utils.FeatherTask):
     '''
     Args:
         cutoff_var(float):
@@ -131,7 +131,7 @@ class ChooseConnectionsToKeep(FeatherTask):
         write_feather(self.output().path, df)
 
 
-class PruneChunk(FeatherTask):
+class PruneChunk(luigi_utils.FeatherTask):
     '''
     Args:
         chunk_num(float):
@@ -140,9 +140,9 @@ class PruneChunk(FeatherTask):
 
     def requires(self):  # pragma: no cover
         return (self.clone(task) for task in [ChooseConnectionsToKeep,
-                                              SampleChunk,
-                                              FiberAssignment,
-                                              VirtualFibersNoOffset])
+                                              step_0_sample.SampleChunk,
+                                              step_1_assign.FiberAssignment,
+                                              step_1_assign.VirtualFibersNoOffset])
 
     def run(self):  # pragma: no cover
         # pylint thinks load_all() isn't returning a DataFrame
@@ -158,13 +158,13 @@ class PruneChunk(FeatherTask):
                            .drop(['kept', 'apron'], axis=1)
                            .reset_index(drop=True))
 
-        pruned_no_apron['sgid_path_distance'] = calc_pathlength_to_fiber_start(
+        pruned_no_apron['sgid_path_distance'] = straight_fibers.calc_pathlength_to_fiber_start(
             pruned_no_apron[list('xyz')].values,
             fibers[list('xyzuvw')].iloc[pruned_no_apron['sgid']].values)
         write_feather(self.output().path, pruned_no_apron)
 
 
-class ReducePrune(FeatherTask):
+class ReducePrune(luigi_utils.FeatherTask):
     '''Load all pruned chunks, and concat them together
     '''
 
@@ -175,16 +175,10 @@ class ReducePrune(FeatherTask):
         synapses = pd.concat(load_all(self.input())).rename(
             columns={'Segment.ID': 'segment_id', 'Section.ID': 'section_id'})
 
-        synapses['sgid'] += self.sgid_offset
-        synapses["syn_ids"] = np.zeros_like(synapses["tgid"], dtype=np.int32)
-        synapses.set_index(['tgid', 'sgid'], inplace=True)
-        synapses.sort_index(inplace=True)
-
-        syn_ids = [np.arange(synapses.loc[(tgid, ), :].shape[0], dtype=np.int32)
-                   for tgid in synapses.index.levels[0]]
-        synapses["syn_ids"] = np.concatenate(syn_ids)
         # TODO: Set real values for location and neurite_type
         synapses['location'] = 1
         synapses['neurite_type'] = 1
-        synapses.reset_index(inplace=True)
+        synapses['sgid'] += self.sgid_offset
+
+        syns.organize_indices(synapses)
         write_feather(self.output().path, synapses)

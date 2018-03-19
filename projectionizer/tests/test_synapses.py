@@ -124,3 +124,17 @@ def test_build_synapses_default():
     oversampling = 3
     syns = synapses.build_synapses_default(height, synapse_density, oversampling)
     assert_equal(syns.raw, [[[21,  21], [24, 201]], [[201, 201], [201, 0]]])
+
+
+def test_organize_indices():
+    syns = pd.DataFrame([[2, 10],
+                         [1, 10],
+                         [2, 1],
+                         [1, 11],
+                         [2, 3],
+                         ],
+                        columns=['tgid', 'sgid'])
+    ret = synapses.organize_indices(syns.copy())
+    eq_(len(syns), len(ret))
+    ok_(np.all(0 <= np.diff(ret.tgid.values)))
+    ok_(all(df.afferent_indices.max() == len(df) - 1 for _, df in ret.groupby('tgid')))

@@ -1,6 +1,7 @@
 '''tools for writing nrn_*.h5 files'''
 import h5py
 import numpy as np
+import pandas as pd
 
 
 class SynapseColumns(object):
@@ -71,7 +72,7 @@ def write_synapses(path, itr, synapse_params, efferent=False):
         itr(tuple of (target GID, synapses), where synapses can be an iterable with
         colums ['sgid', 'section_id', 'segment_id', 'location'] in order,
         or a pandas DataFrame with those columns
-        If efferent==True, the column 'syn_ids' must also be present.
+        If efferent==True, the column 'afferent_indices' must also be present.
     '''
     with h5py.File(path, 'w') as h5:
         info = h5.create_dataset('info', data=0)
@@ -84,9 +85,9 @@ def write_synapses(path, itr, synapse_params, efferent=False):
             h5.create_dataset('a%d' % gid, data=synapse_data)
 
             if efferent:
-                N = len(synapses["syn_ids"])
+                N = len(synapses['afferent_indices'])
                 h5.create_dataset('a%d_afferentIndices' %
-                                  gid, data=synapses["syn_ids"].values.reshape((N, 1)))
+                                  gid, data=synapses['afferent_indices'].values.reshape((N, 1)))
 
 
 def specification_conformity_check(data):
@@ -120,20 +121,44 @@ def specification_conformity_check(data):
         assert np.all(assertion), error_msg
 
 
-def write_synapses_summary(path, itr):
+def write_synapses_summary(path, synapses):
     '''write synapses to nrn_summary.h5 style file
 
     Args:
         path(str): path to file to output
-        itr(tuple of (target GID, synapses), where connections is a
-        pandas DataFrame with columns ["connecting", "efferent", "afferent"]  as
         per https://bbpteam.epfl.ch/project/spaces/display/BBPHPC/Synapses+-+nrn_summary.h5
 
     '''
+    efferent = synapses.groupby(["sgid", "tgid"]).count()["segment_id"].reset_index()
+    efferent.columns = ["dataset", "connecting", "efferent"]
+    afferent = synapses.groupby(["tgid", "sgid"]).count()[
+        "segment_id"].reset_index()
+    afferent.columns = ["dataset", "connecting", "afferent"]
+    summary = pd.merge(efferent, afferent, on=["dataset", "connecting"],
+                       how="outer")
+    summary.fillna(0, inplace=True)
+    summary["efferent"] = summary["efferent"].astype(np.int32)
+    summary["afferent"] = summary["afferent"].astype(np.int32)
+
     with h5py.File(path, 'w') as h5:
-        for dataset, connections in itr:
+        for dataset, connections in summary.groupby("dataset"):
             data = np.zeros((len(connections["connecting"].values), 3), dtype=np.int)
             data[:, 0] = connections["connecting"].values
             data[:, 1] = connections["efferent"].values
             data[:, 2] = connections["afferent"].values
             h5.create_dataset('a%d' % dataset, data=data)
+
+
+def write_user_target(output, synapses, name):
+    '''write target file
+
+    Args:
+        output(path): path of file to create
+        synapses(dataframe): synapses
+        name(str): name of target
+    '''
+    with open(output, 'w') as fd:
+        fd.write('Target Cell %s {\n' % name)
+        for tgid in sorted(synapses.sgid.unique()):
+            fd.write('    a{}\n'.format(tgid))
+        fd.write('}\n')

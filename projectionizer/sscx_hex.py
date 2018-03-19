@@ -82,14 +82,15 @@ def get_minicol_virtual_fibers(apron_size, hex_edge_len, locations_path):
 
     def to_dataframe(points, is_apron):
         '''return fibers in a dataframe'''
-        df = pd.DataFrame(columns=XYZUVW + ['apron'])
+        df = pd.DataFrame(columns=XYZUVW, dtype=np.float)
         if not points:
             return df
         df.x, df.z = zip(*points)
-        df.v = 1  # all direction vectors point straight up
-        df.apron = is_apron
+        df.v = 1.  # all direction vectors point straight up
+        df['apron'] = is_apron
+        df['apron'] = df['apron'].astype(bool)
         return df.fillna(0)
 
     return pd.concat((to_dataframe(fibers, False),
                       to_dataframe(extra_fibers, True)),
-                     ignore_index=True)
+                     ignore_index=True, sort=True)

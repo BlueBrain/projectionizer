@@ -6,7 +6,6 @@ import os
 import traceback
 
 import numpy as np
-import pandas as pd
 
 from luigi import BoolParameter, FloatParameter, IntParameter
 from luigi.local_target import LocalTarget
@@ -14,7 +13,7 @@ from projectionizer.luigi_utils import CommonParams, CsvTask, JsonTask, RunAnywa
 from projectionizer.step_1_assign import VirtualFibersNoOffset
 from projectionizer.step_2_prune import ChooseConnectionsToKeep, ReducePrune
 from projectionizer.utils import load, ignore_exception
-from projectionizer.write_nrn import write_synapses, write_synapses_summary
+from projectionizer.write_nrn import write_synapses, write_synapses_summary, write_user_target
 
 L = logging.getLogger(__name__)
 
@@ -29,20 +28,8 @@ class WriteSummary(CommonParams):
         # pylint thinks load() isn't returning a DataFrame
         # pylint: disable=maybe-no-member
         synapses = load(self.input().path)
-        efferent = synapses.groupby(["sgid", "tgid"]).count()["segment_id"].reset_index()
-        efferent.columns = ["dataset", "connecting", "efferent"]
-        afferent = synapses.groupby(["tgid", "sgid"]).count()[
-            "segment_id"].reset_index()
-        afferent.columns = ["dataset", "connecting", "afferent"]
-        summary = pd.merge(efferent, afferent, on=["dataset", "connecting"],
-                           how="outer")
-        summary.fillna(0, inplace=True)
-        summary["efferent"] = summary["efferent"].astype(np.int32)
-        summary["afferent"] = summary["afferent"].astype(np.int32)
-
         try:
-            write_synapses_summary(path=self.output().path,
-                                   itr=summary.groupby("dataset"))
+            write_synapses_summary(path=self.output().path, synapses=synapses)
         except OSError as e:
             traceback.print_exc()
             with ignore_exception(OSError):
@@ -124,11 +111,7 @@ class WriteUserTargetTxt(CommonParams):
         # pylint thinks load() isn't returning a DataFrame
         # pylint: disable=maybe-no-member
         synapses = load(self.input().path)
-        with self.output().open('w') as outfile:
-            outfile.write('Target Cell proj_Thalamocortical_VPM_Source {\n')
-            for tgid in sorted(synapses.sgid.unique()):
-                outfile.write('    a{}\n'.format(tgid))
-            outfile.write('}\n')
+        write_user_target(self.output().path, synapses, name='proj_Thalamocortical_VPM_Source')
 
     def output(self):
         return LocalTarget('{}/user.target'.format(self.folder))

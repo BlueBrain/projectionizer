@@ -24,8 +24,6 @@ from projectionizer.step_3_write import VirtualFibers, WriteAll
 from projectionizer.utils import load, load_all
 
 
-plt.switch_backend('Agg')
-
 L = logging.getLogger(__name__)
 L.setLevel(logging.DEBUG)
 

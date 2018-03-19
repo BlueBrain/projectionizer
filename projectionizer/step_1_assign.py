@@ -7,7 +7,9 @@ from voxcell import VoxelData
 
 from luigi import FloatParameter, IntParameter
 from projectionizer.straight_fibers import (assign_synapse_fiber,
-                                            closest_fibers_per_voxel)
+                                            closest_fibers_per_voxel,
+                                            candidate_fibers_per_synapse
+                                            )
 from projectionizer.luigi_utils import CsvTask, FeatherTask, NrrdTask
 from projectionizer.step_0_sample import SampleChunk, VoxelSynapseCount
 from projectionizer.utils import choice, load_all, write_feather, IJK, XYZ
@@ -70,7 +72,7 @@ class SynapseIndices(FeatherTask):
 
 
 class CandidateFibersPerSynapse(FeatherTask):
-    """Returns a DataFrame with the ID of the 25 closest fibers for each synapse"""
+    """Returns a DataFrame with the ID of the closest fibers for each synapse"""
     chunk_num = IntParameter()
 
     def requires(self):  # pragma: no cover
@@ -81,25 +83,8 @@ class CandidateFibersPerSynapse(FeatherTask):
     def run(self):  # pragma: no cover
         closest_fibers_per_vox, synapses_indices, synapse_position = load_all(
             self.input())
-        synapse_position = synapse_position[XYZ]
-
-        L.debug('Joining the synapses with their potential fibers')
-        candidates = pd.merge(synapses_indices, closest_fibers_per_vox,
-                              how='left', on=IJK).fillna(-1)
-        # Pandas bug: merging change dtypes to float.
-        # Should be solved soon:
-        # http://pandas-docs.github.io/pandas-docs-travis/whatsnew.html#merging-changes
-        cols = candidates.columns[:-3]
-        candidates.loc[:, cols] = candidates.loc[:, cols].astype(int)
-        del synapses_indices
-
-        L.debug('Joining the synapse position')
-        assert len(candidates) == len(synapse_position)
-
-        candidates = (candidates
-                      .reset_index(drop=True)
-                      .join(synapse_position.reset_index(drop=True)))
-        candidates.drop(IJK, inplace=True, axis=1)
+        candidates = candidate_fibers_per_synapse(
+            synapse_position[XYZ], synapses_indices, closest_fibers_per_vox)
         write_feather(self.output().path, candidates)
 
 

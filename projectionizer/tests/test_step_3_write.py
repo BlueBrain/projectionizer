@@ -20,7 +20,7 @@ def test_write_summary():
                       'y': [0.33],
                       'section_id': [1033],
                       'location': [-3],
-                      'syn_ids': [12],
+                      'afferent_indices': [12],
                       'segment_id': [1033]}).to_feather(mock_path)
         mock = Mock(path=mock_path)
 

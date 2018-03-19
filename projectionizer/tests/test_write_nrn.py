@@ -45,7 +45,7 @@ def test_write_synapses():
                        'y': [0.33],
                        'section_id': [1033],
                        'location': [3],
-                       'syn_ids': [12],
+                       'afferent_indices': [12],
                        'segment_id': [1033],
                        'sgid_path_distance': [300.]
                        })
@@ -91,7 +91,7 @@ def _write_synapses(synapse_data={}, synapse_params={}, efferent=False):
             'y': [0.33],
             'section_id': [1033],
             'location': [3],
-            'syn_ids': [12],
+            'afferent_indices': [12],
             'sgid_path_distance': [300.],
             'segment_id': [1033]}
     data.update(synapse_data)
