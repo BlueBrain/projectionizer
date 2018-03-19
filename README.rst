@@ -106,7 +106,8 @@ The configuration file is a yaml file. It can be seen as a dictionnary where key
 **ClosestFibersPerVoxel** exists because computing the pairing probabilities between every synapse and every fiber would take forever. It returns a dataframe with the most relevant (ie. closest) fibers for each synapses.
   closest_count: the number of fibers to return for each synapse
 
-**ChooseConnectionsToKeep** is the task responsible for getting rid of 'unbiological' connections; pairs connected a too small numbers of synapses.
+**ChooseConnectionsToKeep** is the task responsible for getting rid of 'unbiological' connections; pairs connected by a too small numbers of synapses.
+  cutoff_var: Connections are filtered based on there number of synapses. The filter function is a sigmoid function centered at the cutoff value. `cutoff_var` is the width of the sigmoid.
 
 
 Algorithm
