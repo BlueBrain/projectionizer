@@ -168,6 +168,7 @@ if __name__ == '__main__':
            'dichotomy': _cmd_dichotomy}[ARGS.which](ARGS)
 
     print('You can also start the job with the following command:')
+    print('luigi ', end='')
     for line in cmd:
         line = line.strip()
         if line.startswith('--'):
