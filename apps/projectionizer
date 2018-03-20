@@ -10,8 +10,9 @@ from builtins import input
 
 import argparse
 import logging
-import numpy
+import numpy as np
 import os
+import pkg_resources
 import shutil
 import sys
 
@@ -22,11 +23,15 @@ L = logging.getLogger(__name__)
 
 CONFIG_FILENAME = 'config.yaml'
 LUIGI_TARGET = 'projectionizer.analysis'
+TEMPLATES_PATH = pkg_resources.resource_filename('projectionizer', 'templates')
 
 
 def common_parser():
     '''return the argument parser'''
-    parser = argparse.ArgumentParser()
+
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='Location of "templates/" path: %s' % TEMPLATES_PATH)
     subparsers = parser.add_subparsers(help='sub-command help')
 
     def set_common_args(_parser):
@@ -40,10 +45,10 @@ def common_parser():
         set_common_args(_parser)
         _parser.add_argument('-p', '--circuit-config', default=None,
                              help='Override the circuit config path')
-        _parser.add_argument('-c', '--config',  required=True,
+        _parser.add_argument('-c', '--config',
                              help=('The projectionizer YAML config file. '
                                    'Must be passed when running the analysis for '
-                                   'the first time. See templates/ folder for '
+                                   'the first time. See templates/ path for '
                                    'some examples'))
 
     parser_start = subparsers.add_parser('start',
@@ -153,6 +158,10 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     parser = common_parser()
     ARGS = parser.parse_args()
+    if not ARGS.config:
+        L.critical('\nerror: argument -c/--config is required\n\nTip: example'
+                   'templates configuration files can be found in: {}'.format(TEMPLATES_PATH))
+        sys.exit(-1)
 
     cmd = {'start': _cmd_start,
            'resume': _cmd_resume,
@@ -168,5 +177,5 @@ if __name__ == '__main__':
         print('    ' + line, end='')
     print()
 
-    numpy.random.seed(0)
+    np.random.seed(0)
     luigi.run(cmd)

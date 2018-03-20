@@ -1,3 +1,4 @@
-graft tests
+graft projectionizer/tests
+graft projectionizer/templates
 
-global-exclude *.pyc .DS_Store
+global-exclude *.pyc .DS_Store .*.swp

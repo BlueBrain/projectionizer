@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from numpy.testing import assert_equal
 
-from projectionizer.step_2_prune import *
+from projectionizer.step_2_prune import find_cutoff_mean_per_mtype
 
 
 def test_find_cutoff_mean_per_mtype():

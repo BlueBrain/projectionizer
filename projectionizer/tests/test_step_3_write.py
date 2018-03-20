@@ -9,7 +9,7 @@ import pandas as pd
 
 from projectionizer import step_3_write
 
-from tests.utils import setup_tempdir, TEST_DATA_DIR
+from utils import setup_tempdir, TEST_DATA_DIR
 
 
 def test_write_summary():

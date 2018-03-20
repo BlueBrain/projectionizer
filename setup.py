@@ -37,4 +37,5 @@ setup(
     description='Voxel based projections',
     license='BBP-internal-confidential',
     url='http://bluebrain.epfl.ch',
+    include_package_data=True,
 )

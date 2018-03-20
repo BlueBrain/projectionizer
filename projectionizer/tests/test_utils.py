@@ -10,7 +10,7 @@ from voxcell import VoxelData
 import projectionizer.utils as test_module
 
 from utils import setup_tempdir
-from tests.utils import TEST_DATA_DIR
+from utils import TEST_DATA_DIR
 
 
 def test_ignore_exception():

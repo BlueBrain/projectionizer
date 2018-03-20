@@ -7,7 +7,7 @@ from numpy.testing import assert_allclose, assert_equal
 from projectionizer.dichotomy import Dichotomy
 from projectionizer.luigi_utils import RunAnywayTargetTempDir
 
-from tests.utils import setup_tempdir
+from utils import setup_tempdir
 
 
 class LinearTask(Task):
