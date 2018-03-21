@@ -158,9 +158,9 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     parser = common_parser()
     ARGS = parser.parse_args()
-    if not ARGS.config:
+    if ARGS.which != 'resume' and not ARGS.config:
         L.critical('\nerror: argument -c/--config is required\n\nTip: example'
-                   'templates configuration files can be found in: {}'.format(TEMPLATES_PATH))
+                   'templates configuration files can be found in: %s', TEMPLATES_PATH)
         sys.exit(-1)
 
     cmd = {'start': _cmd_start,

@@ -761,15 +761,8 @@ def get_virtual_fiber_locations(apron_size=0.0):
     return LOCATIONS[idx]
 
 
-def tiled_locations(voxel_size, hull=None):
+def tiled_locations(voxel_size):
     '''create grid spanning the bounding box of the central minicolum
-
-    Can pass in hull to filter the returned points:
-
-    >>> from scipy.spatial import Delaunay
-    >>> h = hexagon()
-    >>> hull = Delaunay(h)
-
     '''
     locations = get_virtual_fiber_locations()
 
@@ -780,10 +773,6 @@ def tiled_locations(voxel_size, hull=None):
     z = np.arange(min_z, max_z + voxel_size, voxel_size)
 
     grid = np.vstack(np.transpose(np.meshgrid(x, z)))
-
-    if hull is not None:
-        grid_at_origin = grid - np.mean(grid, axis=0)
-        grid = grid[hull.find_simplex(grid_at_origin) >= 0]
 
     return grid
 

@@ -1,2 +1,5 @@
 [run]
-omit=projectionizer/analysis.py
+omit=
+    # analysis is almost all drawing graphs
+    projectionizer/analysis.py
+    projectionizer/tests/*
