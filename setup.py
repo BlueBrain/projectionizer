@@ -21,10 +21,9 @@ setup(
         'luigi>=2.7',
         'tables>=3.4',
         # BBP
-        'brainbuilder>=0.5.8',
         'bluepy>=0.10',
         'libFLATIndex>=1.8',
-        'voxcell>=2.3',
+        'voxcell>=2.5',
     ],
     packages=[
         'projectionizer',
