@@ -206,6 +206,6 @@ class FiberAssignment(FeatherTask):
         else:
             proba, indices = load_all(self.input())
             idx = choice(proba[indices.i, indices.j, indices.k])
-            sgids = pd.DataFrame({'sgids': idx})
+            sgids = pd.DataFrame({'sgid': idx})
 
         write_feather(self.output().path, sgids)

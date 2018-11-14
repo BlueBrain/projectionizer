@@ -17,12 +17,12 @@ setup(
         'dask[distributed]>=0.17',
         'toolz>=0.8',
         'partd>=0.3',
-        'feather-format>=0.4',
         'luigi>=2.7',
         'tables>=3.4',
+        'pyarrow>=0.11.1',
         # BBP
         'bluepy>=0.10',
-        'libFLATIndex>=1.8',
+        'libFLATIndex>=1.8.11',
         'voxcell>=2.5',
     ],
     packages=[

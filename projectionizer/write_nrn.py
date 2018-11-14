@@ -22,17 +22,15 @@ class SynapseColumns(object):
     ASE = 17
     NEURITE_TYPE = 18
 
-# from thalamocorticalProjectionRecipe_O1_TCs2f_7synsPerConn_os2p6_specific.xml
-# synaptic parameters are mainly derived from Amitai, 1997;
-# Castro-Alamancos & Connors 1997; Gil et al. 1997; Bannister et al. 2010 SR
 
-
-def create_synapse_data(synapses, synapse_params, efferent):
+def create_synapse_data(synapses, synapse_params, efferent, version=0):
     '''return numpy array for `synapses` with the correct parameters
 
     Args:
         synapses(pd.DataFrame): with the following columns:
-            sgid, y, Section.Id, Segment.Id, location
+            sgid, y, section_id, segment_id, offset
+
+    Note: versions < 5 use ASE, and >=5 use NRRP
     '''
     synapse_count = len(synapses)
     synapse_data = np.zeros((synapse_count, 19), dtype=np.float)
@@ -45,8 +43,7 @@ def create_synapse_data(synapses, synapse_params, efferent):
 
     synapse_data[:, SynapseColumns.ISEC] = synapses['section_id'].values
     synapse_data[:, SynapseColumns.IPT] = synapses['segment_id'].values
-    offset = synapses['location'].values * np.random.ranf(synapse_count)
-    synapse_data[:, SynapseColumns.OFFSET] = offset
+    synapse_data[:, SynapseColumns.OFFSET] = synapses['synapse_offset'].values
 
     def gamma(param):
         '''given `param`, look it up in SYNAPSE_PARAMS, return random pulls from gamma dist '''
@@ -60,26 +57,31 @@ def create_synapse_data(synapses, synapse_params, efferent):
     synapse_data[:, SynapseColumns.F] = gamma('F')
     synapse_data[:, SynapseColumns.DTC] = gamma('DTC')
     synapse_data[:, SynapseColumns.SYNTYPE] = synapse_params['id']
+    if version >= 5:
+        synapse_data[:, SynapseColumns.ASE] = gamma('NRRP')
+    else:
+        synapse_data[:, SynapseColumns.ASE] = gamma('ASE')
 
     return synapse_data
 
 
-def write_synapses(path, itr, synapse_params, efferent=False):
+def write_synapses(path, itr, synapse_params, efferent=False,
+                   populate_synapse_data=create_synapse_data,
+                   version=4):
     '''write synapses to nrn.h5 style file
 
     Args:
         path(str): path to file to output
         itr(tuple of (target GID, synapses), where synapses can be an iterable with
-        colums ['sgid', 'section_id', 'segment_id', 'location'] in order,
-        or a pandas DataFrame with those columns
+        DataFrame with colunms ['sgid', 'section_id', 'segment_id', 'synapse_offset'],
         If efferent==True, the column 'afferent_indices' must also be present.
     '''
     with h5py.File(path, 'w') as h5:
         info = h5.create_dataset('info', data=0)
-        info.attrs['version'] = 3
+        info.attrs['version'] = version
         info.attrs['numberOfFiles'] = 1
         for gid, synapses in itr:
-            synapse_data = create_synapse_data(synapses, synapse_params, efferent)
+            synapse_data = populate_synapse_data(synapses, synapse_params, efferent, version)
             specification_conformity_check(synapse_data)
 
             h5.create_dataset('a%d' % gid, data=synapse_data)
@@ -96,8 +98,8 @@ def specification_conformity_check(data):
         ('All Delays (column: {}) must be positive'.format(SynapseColumns.DELAY),
          data[:, SynapseColumns.DELAY] >= 0.),
 
-        ('All offsets (column: {}) must be between 0 and 1'.format(SynapseColumns.OFFSET),
-         (data[:, SynapseColumns.OFFSET] >= 0.) & (data[:, SynapseColumns.OFFSET] <= 1.)),
+        ('All offsets (column: {}) must be positive'.format(SynapseColumns.OFFSET),
+         (data[:, SynapseColumns.OFFSET] >= 0.)),
 
         ('GIDs (column: {}) must be positive'.format(SynapseColumns.SGID),
          data[:, SynapseColumns.SGID] >= 0),

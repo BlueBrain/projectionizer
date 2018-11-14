@@ -75,7 +75,7 @@ class WriteNrnH5(CommonParams):
             'D': get_gamma_parameters(self.D_mean, self.D_sigma),
             'F': get_gamma_parameters(self.F_mean, self.F_sigma),
             'DTC': get_gamma_parameters(self.DTC_mean, self.DTC_sigma),
-            'Ase': get_gamma_parameters(self.ASE_mean, self.ASE_sigma),
+            'ASE': get_gamma_parameters(self.ASE_mean, self.ASE_sigma),
         }
 
     def requires(self):
@@ -140,14 +140,6 @@ class SynapseCountPerConnectionL4PC(JsonTask):  # pragma: no cover
         connections = load(self.input().path)
         l4_pc_mtypes = ['L4_PC', 'L4_UPC', 'L4_TPC']
 
-        # TODO: will be removed next commit
-        # l4_pc_mtypes = [u'L4_BP', u'L4_BTC', u'L4_LBC', u'L4_MC', u'L4_SBC', u'L5_BP',
-        #                 u'L5_BTC', u'L5_ChC', u'L5_DBC', u'L5_LBC', u'L5_MC', u'L5_NBC',
-        #                 u'L5_SBC', u'L5_STPC', u'L5_TTPC1', u'L5_TTPC2', u'L5_UTPC',
-        #                 u'L6_BP', u'L6_BPC', u'L6_BTC', u'L6_ChC', u'L6_DBC', u'L6_IPC',
-        #                 u'L6_LBC', u'L6_MC', u'L6_NBC', u'L6_SBC', u'L6_TPC_L1',
-        #                 u'L6_TPC_L4', u'L6_UTPC']
-
         # pylint: disable=maybe-no-member
         l4_pc_cells = connections[(connections.mtype.isin(l4_pc_mtypes)) &
                                   (connections.kept)]
@@ -166,7 +158,8 @@ class WriteAll(CommonParams):  # pragma: no cover
                 self.clone(WriteNrnH5, efferent=False),
                 self.clone(WriteSummary),
                 self.clone(WriteUserTargetTxt),
-                self.clone(SynapseCountPerConnectionL4PC)]
+                self.clone(SynapseCountPerConnectionL4PC),
+                ]
 
     def run(self):
         self.output().done()

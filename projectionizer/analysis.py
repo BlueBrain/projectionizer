@@ -21,7 +21,7 @@ from projectionizer.step_0_sample import FullSample, SynapseDensity
 from projectionizer.step_2_prune import (ChooseConnectionsToKeep, CutoffMeans,
                                          ReducePrune)
 from projectionizer.step_3_write import VirtualFibers, WriteAll
-from projectionizer.utils import load, load_all
+from projectionizer.utils import load, load_all, read_feather
 
 
 L = logging.getLogger(__name__)
@@ -131,11 +131,11 @@ def synapse_density(orig_data, keep_syn, distmap, bin_width=25, oversampling=1, 
 
 def fraction_pruned_vs_height(folder, n_chunks):
     '''Plot how many synapses are pruned vs height'''
-    kept = pd.read_feather('{}/choose-connections-to-keep.feather'.format(folder))
+    kept = read_feather('{}/choose-connections-to-keep.feather'.format(folder))
     chunks = list()
     for i in range(n_chunks):
-        df = pd.read_feather('{}/sample-chunk-{}.feather'.format(folder, i))
-        sgid = pd.read_feather('{}/fiber-assignment-{}.feather'.format(folder, i))
+        df = read_feather('{}/sample-chunk-{}.feather'.format(folder, i))
+        sgid = read_feather('{}/fiber-assignment-{}.feather'.format(folder, i))
         chunks.append(df[['tgid', 'y']].join(sgid))
 
     fat = pd.merge(pd.concat(chunks),
@@ -339,7 +339,7 @@ class DoAll(CommonParams):
     """Launch the full projectionizer pipeline"""
 
     def requires(self):
-        return self.clone(WriteAll), self.clone(Analyse)
+        return self.clone(ReducePrune), self.clone(Analyse), self.clone(WriteAll)
 
     def run(self):  # pragma: no cover
         self.output().done()

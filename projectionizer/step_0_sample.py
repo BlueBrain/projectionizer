@@ -11,8 +11,7 @@ import yaml
 from luigi import BoolParameter, FloatParameter, IntParameter, Parameter
 from projectionizer.luigi_utils import FeatherTask, JsonTask, NrrdTask
 from projectionizer.sscx import REGION_INFO, recipe_to_height_and_density
-from projectionizer.synapses import (SEGMENT_END_COLS, SEGMENT_START_COLS,
-                                     build_synapses_CA3_CA1,
+from projectionizer.synapses import (build_synapses_CA3_CA1,
                                      build_synapses_default, pick_synapses)
 from projectionizer.utils import load, load_all, mask_by_region, write_feather
 
@@ -112,13 +111,9 @@ class FullSample(FeatherTask):  # pragma: no cover
         else:
             # pylint: disable=maybe-no-member
             voxels = load(self.input().path)
-            # Hack, cause I don't know how to pass a None IntParameter to luigi -__-
-            n_slices = self.n_slices if self.n_slices > 0 else None
             circuit_path = os.path.dirname(self.circuit_config)
-            synapses = pick_synapses(circuit_path, voxels, n_slices)
+            synapses = pick_synapses(circuit_path, voxels)
 
-            remove_cols = SEGMENT_START_COLS + SEGMENT_END_COLS
-            synapses.drop(remove_cols, axis=1, inplace=True)
             synapses.rename(columns={'gid': 'tgid'}, inplace=True)
             write_feather(self.output().path, synapses)
 

@@ -53,19 +53,19 @@ def voxel_space(hex_edge_len, locations_path, max_height, voxel_size_um=VOXEL_SI
     space to get the desired density.
 
     Args:
-        distmap: list of results of recipe_to_height_and_density()
-        voxel_size(int): in um
+        hex_edge_len(float): length of hexagon side (um)
+        locations_path(str): path to csv file w/ fiber locations and directions
+        max_height(float): max height of the column
+        voxel_size_um(int): length of a voxel side (um)
     '''
-    xz_extent = 1
-    shape = (xz_extent, int(max_height // voxel_size_um), xz_extent)
-    raw = np.zeros(shape=shape, dtype=np.int)
+    tiles = tiled_locations(voxel_size_um, hex_edge_len=hex_edge_len, locations_path=locations_path)
+    xyz_tiles = np.stack((tiles[:, 0], np.zeros(len(tiles)), tiles[:, 1])).T
+    xyz_tiles[-1, 1] = max_height
+    xyz_tiles_min, xyz_tiles_max = np.min(xyz_tiles, axis=0), np.max(xyz_tiles, axis=0)
 
-    tiles = tiled_locations(voxel_size_um,
-                            hex_edge_len=hex_edge_len,
-                            locations_path=locations_path)
-    n_tile_x, n_tile_y = (tiles.max(axis=0) - tiles.min(axis=0)) / voxel_size_um
-    raw = raw.repeat(n_tile_x, axis=0).repeat(n_tile_y, axis=2)
-    return VoxelData(raw, [voxel_size_um] * 3, (tiles[:, 0].min(), 0, tiles[:, 1].min()))
+    shape = ((xyz_tiles_max - xyz_tiles_min) // voxel_size_um).astype(int)
+    raw = np.zeros(shape=shape, dtype=np.int)
+    return VoxelData(raw, [voxel_size_um] * 3, xyz_tiles_min)
 
 
 def get_minicol_virtual_fibers(apron_size, hex_edge_len, locations_path):

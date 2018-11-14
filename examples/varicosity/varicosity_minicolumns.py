@@ -114,7 +114,7 @@ def get_synapse_parameters(synapse_parameters):
               'D': get_gamma_parameters('D'),
               'F': get_gamma_parameters('F'),
               'DTC': get_gamma_parameters('DTC'),
-              'Ase': get_gamma_parameters('ASE'),
+              'ASE': get_gamma_parameters('ASE'),
               }
     return params
 
@@ -224,12 +224,12 @@ def main(args):
     sample_path = os.path.join(args.output, 'sample.feather')
     if os.path.exists(sample_path):
         L.info('Loading samples from: %s', sample_path)
-        syns = pd.read_feather(sample_path)
+        syns = utils.read_feather(sample_path)
     else:
         L.info('Performing sampling, saving to: %s', sample_path)
         circuit_path = os.path.dirname(config['circuit_config'])
         syns = sample_synapses(circuit_path, voxel_synapse_count)
-        syns.to_feather(sample_path)
+        utils.write_feather(sample_path, syns)
 
     virtual_fibers = sscx_hex.get_minicol_virtual_fibers(apron_size=config['hex_apron_size'],
                                                          hex_edge_len=config['hex_edge_len'],

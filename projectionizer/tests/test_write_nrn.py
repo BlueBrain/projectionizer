@@ -16,7 +16,7 @@ SYNAPSE_PARAMS = {'id': 1,
                   'D': (7, 8),
                   'F': (9, 10),
                   'DTC': (11, 12),
-                  'Ase': (13, 14)}
+                  'ASE': (13, 14)}
 
 
 def test_create_synapse_data():
@@ -25,17 +25,18 @@ def test_create_synapse_data():
     df = pd.DataFrame({'tgid': [1],
                        'y': [0.33],
                        'section_id': [1033],
-                       'location': [-3],
+                       'synapse_offset': [128.],
                        'segment_id': [1033],
                        'sgid_path_distance': [300.]
                        })
 
+    correct_result = [[1.00000000e+00, 1.00000000e+00, 1.03300000e+03, 1.03300000e+03,
+                       1.28000000e+02, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00,
+                       6.70121832e+00, 2.21138445e+01, 5.77170831e+01, 3.99170209e+01,
+                       1.07378887e+02, 1.00000000e+00, 0.00000000e+00, 0.00000000e+00,
+                       0.00000000e+00, 1.94671889e+02, 0.00000000e+00]]
     assert_allclose(write_nrn.create_synapse_data(df, SYNAPSE_PARAMS, efferent=True),
-                    [[1.00000000e+00,   300. / 300.,   1.03300000e+03,   1.03300000e+03,
-                      -7.86074025e-01,   0.00000000e+00,   0.00000000e+00,   0.00000000e+00,
-                      7.75316318e+00,   1.92565485e+01,   2.51811971e+01,   9.06247588e+01,
-                      1.17854003e+02,   1.00000000e+00,   0.00000000e+00,   0.00000000e+00,
-                      0.00000000e+00,   0.00000000e+00,   0.00000000e+00]])
+                    correct_result)
 
 
 def test_write_synapses():
@@ -44,7 +45,7 @@ def test_write_synapses():
                        'sgid': [2],
                        'y': [0.33],
                        'section_id': [1033],
-                       'location': [3],
+                       'synapse_offset': [128.],
                        'afferent_indices': [12],
                        'segment_id': [1033],
                        'sgid_path_distance': [300.]
@@ -56,30 +57,28 @@ def test_write_synapses():
                                  SYNAPSE_PARAMS, efferent=False)
 
         correct_result = [[2.00000000e+00, 1.00000000e+00, 1.03300000e+03, 1.03300000e+03,
-                           7.86074025e-01, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00,
-                           7.75316318e+00, 1.92565485e+01, 2.51811971e+01, 9.06247588e+01,
-                           1.17854003e+02, 1.00000000e+00, 0.00000000e+00, 0.00000000e+00,
-                           0.00000000e+00, 0.00000000e+00, 0.00000000e+00, ]]
+                           1.28000000e+02, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00,
+                           6.70121832e+00, 2.21138445e+01, 5.77170831e+01, 3.99170209e+01,
+                           1.07378887e+02, 1.00000000e+00, 0.00000000e+00, 0.00000000e+00,
+                           0.00000000e+00, 1.94671889e+02, 0.00000000e+00, ]]
 
         with h5py.File(path) as h5:
             ok_('a2' in h5.keys())
-            assert_allclose(h5['a2'][...],
-                            correct_result)
+            assert_allclose(h5['a2'][:], correct_result)
 
         path = os.path.join(folder, 'projectionizer_test_write_synapses_efferent.h5')
         write_nrn.write_synapses(path, df.groupby('sgid'),
                                  SYNAPSE_PARAMS, efferent=True)
 
         correct_result = [[1.00000000e+00, 1.00000000e+00, 1.03300000e+03, 1.03300000e+03,
-                           3.75173779e-01, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00,
-                           5.80177543e+00, 5.08346474e+01, 4.77665138e+01, 1.46902748e+02,
-                           7.25006104e+01, 1.00000000e+00, 0.00000000e+00, 0.00000000e+00,
-                           0.00000000e+00, 0.00000000e+00, 0.00000000e+00, ]]
+                           1.28000000e+02, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00,
+                           2.29479160e+01, 2.45316887e+01, 9.66733522e+01, 4.58040086e+01,
+                           1.70293403e+02, 1.00000000e+00, 0.00000000e+00, 0.00000000e+00,
+                           0.00000000e+00, 1.23329235e+02, 0.00000000e+00]]
 
         with h5py.File(path) as h5:
             ok_('a2' in h5.keys())
-            assert_allclose(h5['a2'][...],
-                            correct_result)
+            assert_allclose(h5['a2'][:], correct_result)
 
 
 def _write_synapses(synapse_data={}, synapse_params={}, efferent=False):
@@ -90,7 +89,7 @@ def _write_synapses(synapse_data={}, synapse_params={}, efferent=False):
             'sgid': [2],
             'y': [0.33],
             'section_id': [1033],
-            'location': [3],
+            'synapse_offset': [128.],
             'afferent_indices': [12],
             'sgid_path_distance': [300.],
             'segment_id': [1033]}
@@ -112,8 +111,8 @@ def test_write_conform_synapses():
 
 
 @raises(AssertionError)
-def test_write_non_conform_location():
-    _write_synapses({'location': [-3]})
+def test_write_non_conform_offset():
+    _write_synapses({'synapse_offset': [-3]})
 
 
 @raises(AssertionError)

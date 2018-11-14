@@ -53,30 +53,43 @@ def test_pick_synapses_voxel():
     def mock_segment_pref(segs_df):
         return np.ones(len(segs_df))
 
-    with patch('projectionizer.synapses.FI') as mock_FI, \
-        patch('projectionizer.synapses.SegmentIndex') as mock_si:
-
-        mock_si._wrap_result.return_value = _fake_segments(min_xyz, max_xyz, 2 * count)
+    with patch('projectionizer.synapses._sample_with_flat_index') as mock_sample:
+        mock_sample.return_value = _fake_segments(min_xyz, max_xyz, 2 * count)
 
         xyz_count = (min_xyz, max_xyz, count)
-        segs_df = synapses.pick_synapses_voxel(xyz_count, circuit_path, mock_segment_pref)
+        segs_df = synapses.pick_synapses_voxel(xyz_count,
+                                               circuit_path,
+                                               mock_segment_pref,
+                                               dataframe_cleanup=None
+                                               )
         eq_(count, len(segs_df))
         ok_('x' in segs_df.columns)
         ok_('segment_length' in segs_df.columns)
 
-        # segment_pref picks no synapses
-        segs_df = synapses.pick_synapses_voxel(xyz_count, circuit_path, lambda x: 0)
-        ok_(segs_df is None)
+    #with patch('projectionizer.synapses.FI') as mock_FI, \
+    #    patch('projectionizer.synapses.SegmentIndex') as mock_si:
 
-        # no segments found
-        mock_si._wrap_result.return_value = _fake_segments(min_xyz, max_xyz, count=0)
-        segs_df = synapses.pick_synapses_voxel(xyz_count, circuit_path, lambda x: 0)
-        ok_(segs_df is None)
+    #    mock_si._wrap_result.return_value = _fake_segments(min_xyz, max_xyz, 2 * count)
 
-        # FI throws exception
-        mock_FI.numpy_windowQuery.side_effect = Exception()
-        segs_df = synapses.pick_synapses_voxel(xyz_count, circuit_path, lambda x: 0)
-        ok_(segs_df is None)
+    #    xyz_count = (min_xyz, max_xyz, count)
+    #    segs_df = synapses.pick_synapses_voxel(xyz_count, circuit_path, mock_segment_pref)
+    #    eq_(count, len(segs_df))
+    #    ok_('x' in segs_df.columns)
+    #    ok_('segment_length' in segs_df.columns)
+
+    #    # segment_pref picks no synapses
+    #    segs_df = synapses.pick_synapses_voxel(xyz_count, circuit_path, lambda x: 0)
+    #    ok_(segs_df is None)
+
+    #    # no segments found
+    #    mock_si._wrap_result.return_value = _fake_segments(min_xyz, max_xyz, count=0)
+    #    segs_df = synapses.pick_synapses_voxel(xyz_count, circuit_path, lambda x: 0)
+    #    ok_(segs_df is None)
+
+    #    # FI throws exception
+    #    mock_FI.numpy_windowQuery.side_effect = Exception()
+    #    segs_df = synapses.pick_synapses_voxel(xyz_count, circuit_path, lambda x: 0)
+    #    ok_(segs_df is None)
 
 
 def test__min_max_axis():
@@ -105,13 +118,11 @@ def test_pick_synapses():
         return VoxelData(raw, [voxel_size] * 3, (0, 0, 0))
 
     np.random.seed(0)
-    with patch('projectionizer.synapses.FI'), \
-        patch('projectionizer.synapses.map_parallelize', map), \
-        patch('projectionizer.synapses.SegmentIndex') as mock_si:
-
-        mock_si._wrap_result.return_value = _fake_segments(min_xyz, max_xyz, 2 * count)
+    with patch('projectionizer.synapses._sample_with_flat_index') as mock_sample, \
+        patch('projectionizer.synapses.map_parallelize', map):
+        mock_sample.return_value = _fake_segments(min_xyz, max_xyz, 2 * count)
         voxel_synapse_count = _fake_voxel_synapse_count(shape=(10, 10, 10), voxel_size=0.1)
-        segs_df = synapses.pick_synapses(circuit_path, voxel_synapse_count, 100)
+        segs_df = synapses.pick_synapses(circuit_path, voxel_synapse_count)
 
         eq_(np.sum(voxel_synapse_count.raw), len(segs_df))
         ok_('x' in segs_df.columns)

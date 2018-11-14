@@ -8,6 +8,7 @@ from numpy.testing import assert_equal
 import pandas as pd
 
 from projectionizer import step_3_write
+from projectionizer.utils import write_feather
 
 from utils import setup_tempdir, TEST_DATA_DIR
 
@@ -15,13 +16,15 @@ from utils import setup_tempdir, TEST_DATA_DIR
 def test_write_summary():
     with setup_tempdir('test_step3') as tmp_folder:
         mock_path = os.path.join(tmp_folder, 'mock_synapses.feather')
-        pd.DataFrame({'tgid': [1],
-                      'sgid': [2],
-                      'y': [0.33],
-                      'section_id': [1033],
-                      'location': [-3],
-                      'afferent_indices': [12],
-                      'segment_id': [1033]}).to_feather(mock_path)
+        data = {'tgid': [1],
+                'sgid': [2],
+                'y': [0.33],
+                'section_id': [1033],
+                'synapse_offset': [128.],
+                'afferent_indices': [12],
+                'segment_id': [1033],
+                }
+        write_feather(mock_path, pd.DataFrame(data))
         mock = Mock(path=mock_path)
 
         class TestWriteSummary(step_3_write.WriteSummary):
@@ -48,13 +51,14 @@ def test_write_summary():
 def test_WriteNrnH5():
     with setup_tempdir('test_step3') as tmp_folder:
         mock_path = os.path.join(tmp_folder, 'mock_synapses.feather')
-        pd.DataFrame({'tgid': [1],
-                      'sgid': [2],
-                      'section_id': [1033],
-                      'segment_id': [1033],
-                      'location': [0.5],
-                      'sgid_path_distance': [0.5],
-                      }).to_feather(mock_path)
+        data = {'tgid': [1],
+                'sgid': [2],
+                'section_id': [1033],
+                'segment_id': [1033],
+                'synapse_offset': [128.],
+                'sgid_path_distance': [0.5],
+                }
+        write_feather(mock_path, pd.DataFrame(data))
         mock = Mock(path=mock_path)
 
         class TestWriteNrnH5(step_3_write.WriteNrnH5):
@@ -75,7 +79,7 @@ def test_WriteNrnH5():
                       'F': (1, 1),
                       'DTC': (1, 1),
                       'gsyn': (1, 1),
-                      'Ase': (1, 1),
+                      'ASE': (1, 1),
                       'id': 1,
                       })
 
@@ -94,13 +98,14 @@ def test_WriteNrnH5():
 def test_WriteUserTargetTxt():
     with setup_tempdir('test_step3') as tmp_folder:
         mock_path = os.path.join(tmp_folder, 'mock_synapses.feather')
-        pd.DataFrame({'tgid': [1],
-                      'sgid': [2],
-                      'section_id': [1033],
-                      'segment_id': [1033],
-                      'location': [0.5],
-                      'sgid_path_distance': [0.5],
-                      }).to_feather(mock_path)
+        data = {'tgid': [1],
+                'sgid': [2],
+                'section_id': [1033],
+                'segment_id': [1033],
+                'synapse_offset': [128.],
+                'sgid_path_distance': [0.5],
+                }
+        write_feather(mock_path, pd.DataFrame(data))
         mock = Mock(path=mock_path)
 
         class TestWriteUserTargetTxt(step_3_write.WriteUserTargetTxt):

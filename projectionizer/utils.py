@@ -4,12 +4,13 @@ import json
 import os
 from itertools import chain
 import multiprocessing
-import signal
 
 import numpy as np
 import pandas as pd
 from six import string_types
-from voxcell import Hierarchy, VoxelData, build
+from voxcell import Hierarchy, VoxelData
+import pyarrow
+from pyarrow import feather
 
 
 X, Y, Z = 0, 1, 2
@@ -32,15 +33,24 @@ def ignore_exception(exc):
         pass
 
 
-def write_feather(name, df):
-    """Write a DataFrame to disk using feather serialization format
+def write_feather(path, df):
+    '''Write a DataFrame to disk using feather serialization format
 
     Note: This performs destructive changes to the dataframe, caller must
     save it if they need an unchanged version
-    """
+    '''
+    assert path.endswith('.feather'), 'Can only write feathers at the moment'
+
     df.columns = map(str, df.columns)
-    df = df.reset_index(drop=True)
-    df.to_feather(name)
+    df.reset_index(drop=True, inplace=True)
+    feather.write_feather(df, path)
+
+
+def read_feather(path, columns=None):
+    '''Read a feather from disk, with specified columns'''
+    # this turns off mmap, and makes the read *much* (>10x) faster on GPFS
+    source = pyarrow.OSFile(path)
+    return feather.FeatherReader(source).read_pandas(columns)
 
 
 def load(filename):
@@ -48,7 +58,7 @@ def load(filename):
     extension = os.path.splitext(filename)[1]
     try:
         return {
-            '.feather': lambda: pd.read_feather(filename),
+            '.feather': lambda: read_feather(filename),
             '.nrrd': lambda: VoxelData.load_nrrd(filename),
             '.csv': lambda: pd.read_csv(filename, index_col=0),
             '.json': lambda: json.load(open(filename))
@@ -71,13 +81,11 @@ def map_parallelize(func, *it):
     # a the process pool forks a new process, and only runs 100 (b/c chunksize=100)
     # iterations before forking a new process (b/c maxtasksperchild=1)
     cpu_count = multiprocessing.cpu_count() - 1
-    pool = multiprocessing.Pool(
-        cpu_count,
-        initializer=lambda: signal.signal(signal.SIGINT, signal.SIG_IGN),
-        maxtasksperchild=1)
-    ret = pool.map(func, *it, chunksize=100)  # pylint: disable=no-value-for-parameter
+    pool = multiprocessing.Pool(cpu_count)
+    ret = pool.map(func, *it, chunksize=50)  # pylint: disable=no-value-for-parameter
     pool.close()
     pool.join()
+    del pool
     return ret
 
 
@@ -112,6 +120,26 @@ def choice(probabilities):
     return idx
 
 
+def mask_by_region_ids(annotation_raw, region_ids):
+    '''get a binary voxel mask where the voxel belonging to the given region ids are True'''
+
+    in_region = np.in1d(annotation_raw, list(region_ids))
+    in_region = in_region.reshape(np.shape(annotation_raw))
+    return in_region
+
+
+def mask_by_region_names(annotation_raw, hierarchy, names):
+    '''get a binary voxel mask where the voxel belonging to the given region names are True'''
+    all_ids = []
+    for n in names:
+        ids = hierarchy.collect('name', n, 'id')
+        if not ids:
+            raise KeyError(n)
+        all_ids.extend(ids)
+
+    return mask_by_region_ids(annotation_raw, all_ids)
+
+
 def mask_by_region(region, path, prefix):
     '''
     Args:
@@ -123,10 +151,10 @@ def mask_by_region(region, path, prefix):
     with open(os.path.join(path, 'hierarchy.json')) as fd:
         hierarchy = Hierarchy(json.load(fd))
     if isinstance(region, string_types):
-        mask = build.mask_by_region_names(atlas.raw, hierarchy, [region])
+        mask = mask_by_region_names(atlas.raw, hierarchy, [region])
     else:
         region_ids = list(chain.from_iterable(hierarchy.collect('id', id_, 'id')
                                               for id_ in region))
 
-        mask = build.mask_by_region_ids(atlas.raw, region_ids)
+        mask = mask_by_region_ids(atlas.raw, region_ids)
     return mask

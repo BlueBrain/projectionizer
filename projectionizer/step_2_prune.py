@@ -32,7 +32,6 @@ class GroupByConnection(luigi_utils.FeatherTask):
         synapses, sgids = load_all(self.input())
 
         synapses.rename(columns={'gid': 'tgid'}, inplace=True)
-        sgids.rename(columns={'0': 'sgid'}, inplace=True)
         mtypes = Circuit(self.circuit_config).cells.get(properties='mtype')
         assert len(synapses) == len(sgids), \
             'len(synapses): {} != len(sgids): {}'.format(len(synapses), len(sgids))
@@ -92,10 +91,10 @@ class CutoffMeans(luigi_utils.FeatherTask):
         # pylint: disable=maybe-no-member
         mtype_sgid_tgid = load(self.input().path)
         grouped_by_mtypes = mtype_sgid_tgid.groupby('mtype')  # pylint:disable=maybe-no-member
-        not_emtpy_mtypes = [mtype_df
+        not_empty_mtypes = [mtype_df
                             for mtype_df in grouped_by_mtypes
                             if not mtype_df[1].empty]
-        mtypes, dfs = zip(*not_emtpy_mtypes)
+        mtypes, dfs = zip(*not_empty_mtypes)
 
         fraction_to_remove = 1 - 1 / self.oversampling
         cutoffs = [find_cutoff_mean_per_mtype(df.loc[:, '0'].value_counts(sort=False).sort_index(),
@@ -125,9 +124,12 @@ class ChooseConnectionsToKeep(luigi_utils.FeatherTask):
         cutoff_means, mtype_sgid_tgid = load_all(self.input())
 
         df = mtype_sgid_tgid.merge(cutoff_means, how='left', on='mtype')
-        df['random'] = np.random.random(size=len(df))
-        df['proba'] = norm.cdf(df.loc[:, '0'], df['cutoff'], self.cutoff_var)
-        df['kept'] = df['random'] < df['proba']
+        if self.oversampling > 1.0:
+            df['random'] = np.random.random(size=len(df))
+            df['proba'] = norm.cdf(df.loc[:, '0'], df['cutoff'], self.cutoff_var)
+            df['kept'] = df['random'] < df['proba']
+        else:
+            df['kept'] = True
         write_feather(self.output().path, df)
 
 

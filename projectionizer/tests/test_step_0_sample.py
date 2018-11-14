@@ -8,14 +8,14 @@ from nose.tools import ok_, eq_
 
 from projectionizer import step_0_sample
 from projectionizer.luigi_utils import CommonParams
-from projectionizer.utils import load
+from projectionizer.utils import load, write_feather
 
 from utils import setup_tempdir
 
 def test_SampleChunk():
     with setup_tempdir('test_step_0') as tmp_folder:
         mock_path = os.path.join(tmp_folder, 'full-sample.feather')
-        pd.DataFrame(np.arange(100), columns=['foo', ]).to_feather(mock_path)
+        write_feather(mock_path, pd.DataFrame(np.arange(100), columns=['foo', ]))
         params = {'circuit_config': 'circuit',
                   'folder': tmp_folder,
                   'geometry': 'geo',
@@ -30,7 +30,6 @@ def test_SampleChunk():
             n_slices = 1
             def input(self):
                 return mock
-
 
         task = TestSampleChunk(n_total_chunks=5, chunk_num=0, **params)
         task.run()
