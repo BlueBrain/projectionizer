@@ -28,8 +28,8 @@ def test_write_summary():
         mock = Mock(path=mock_path)
 
         class TestWriteSummary(step_3_write.WriteSummary):
-            circuit_config = geometry = n_total_chunks = sgid_offset = oversampling = None
-            voxel_path = prefix = extension = None
+            n_total_chunks = sgid_offset = oversampling = None
+            circuit_config = geometry = voxel_path = prefix = extension = 'fake_string'
             folder = tmp_folder
             layers = ''
 

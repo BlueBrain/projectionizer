@@ -157,7 +157,7 @@ def pick_synapses(index_path, synapse_counts,
                    segment_pref=segment_pref,
                    dataframe_cleanup=dataframe_cleanup)
 
-    synapses = map_parallelize(func, tqdm(xyz_counts))
+    synapses = list(map_parallelize(func, tqdm(xyz_counts)))
 
     n_none_dfs = sum(df is None for df in synapses)
     percentage_none = n_none_dfs / float(len(synapses)) * 100

@@ -15,7 +15,7 @@ def test_camel2spinal_case():
 
 def test_FolderTask():
     with setup_tempdir('test_luigi') as tmp_dir:
-        temp_name = os.path.join(tmp_dir, tempfile._RandomNameSequence().next())
+        temp_name = os.path.join(tmp_dir, next(tempfile._RandomNameSequence()))
         ok_(not os.path.exists(temp_name))
 
         task = lu.FolderTask(folder=temp_name)
@@ -34,7 +34,12 @@ def test_common_params():
               'oversampling': 0,
               'voxel_path': '',
               'prefix': '',
-              'layers': [(6, 700.37845971), (5, 525.05585701), (4, 189.57183895), (3, 352.92508322), (2, 148.87602025), (1, 164.94915873), ],
+              'layers': [(6, 700.37845971),
+                         (5, 525.05585701),
+                         (4, 189.57183895),
+                         (3, 352.92508322),
+                         (2, 148.87602025),
+                         (1, 164.94915873), ],
               }
 
     class TestCommonParams(lu.CommonParams):
