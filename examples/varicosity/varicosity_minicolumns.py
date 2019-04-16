@@ -81,12 +81,9 @@ def sample_synapses(circuit_path, voxel_synapse_count):
     Returns:
         synapse DataFrame
     '''
-    syns = synapses.pick_synapses(circuit_path, voxel_synapse_count, None)
+    syns = synapses.pick_synapses(circuit_path, voxel_synapse_count, dataframe_cleanup=None)
     syns.reset_index(inplace=True, drop=True)
     syns.columns = map(str, syns.columns)
-    remove_cols = [u'Segment.X1', u'Segment.Y1', u'Segment.Z1',
-                   u'Segment.X2', u'Segment.Y2', u'Segment.Z2']
-    syns.drop(remove_cols, axis=1, inplace=True)
 
     # set datatypes so less memory
     syns['section_id'] = syns['Section.ID'].values.astype(np.int32)
@@ -255,9 +252,16 @@ def main(args):
                  output=args.output)
 
     if args.graphs:
+        L.info('Creating analysis pngs')
         import analysis
         analysis.plot_density(syns, args.output, config['name'], config['layers'])
         analysis.plot_synapses_per_connection(syns, args.output, config['name'])
+        analysis.plot_hex(syns,
+                          args.output,
+                          config['name'],
+                          fibers_path,
+                          config['hex_apron_size'],
+                          config['hex_edge_len'])
 
 
 if __name__ == '__main__':

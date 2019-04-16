@@ -12,7 +12,8 @@ density:
         #'L5b': 0.3505663408
         '6': 0.3252380622
 
-circuit_config: /gpfs/bbp.cscs.ch/project/proj1/circuits/SomatosensoryCxS1-v5.r0/O1/merged_circuit/CircuitConfig
+#circuit_config: /gpfs/bbp.cscs.ch/project/proj1/circuits/SomatosensoryCxS1-v5.r0/O1/merged_circuit/CircuitConfig
+circuit_config: /gpfs/bbp.cscs.ch/project/proj64/circuits/O1.v6a/20171212/CircuitConfig
 hex_edge_len: 230.92
 hex_apron_size: 50
 voxel_size_um: 50

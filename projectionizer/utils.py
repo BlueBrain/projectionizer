@@ -80,8 +80,8 @@ def map_parallelize(func, *it):
     # a the process pool forks a new process, and only runs 100 (b/c chunksize=100)
     # iterations before forking a new process (b/c maxtasksperchild=1)
     cpu_count = multiprocessing.cpu_count() - 1
-    pool = multiprocessing.Pool(cpu_count)
-    ret = pool.map(func, *it, chunksize=50)  # pylint: disable=no-value-for-parameter
+    pool = multiprocessing.Pool(cpu_count, maxtasksperchild=1)
+    ret = pool.map(func, *it, chunksize=100)  # pylint: disable=no-value-for-parameter
     pool.close()
     pool.join()
     del pool

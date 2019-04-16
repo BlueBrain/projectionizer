@@ -98,6 +98,9 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
 
     segs_df = _sample_with_flat_index(index_path, min_xyz, max_xyz)
 
+    if segs_df is None:
+        return None
+
     starts = segs_df[SEGMENT_START_COLS].values
     ends = segs_df[SEGMENT_END_COLS].values
 
@@ -106,7 +109,7 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
     locations = alpha * starts + (1. - alpha) * ends
     locations = pd.DataFrame(locations, columns=list('xyz'))
     in_bb = in_bounding_box(*_min_max_axis(min_xyz, max_xyz), df=locations)
-    segs_df = segs_df.join(locations)[in_bb]
+    segs_df = segs_df.join(locations)[in_bb].copy()
 
     if not segs_df[SEGMENT_START_COLS].size:
         return None
