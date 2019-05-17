@@ -175,10 +175,6 @@ def organize_indices(synapses):
     '''*inplace* reorganize the synapses indices'''
     synapses.set_index(['tgid', 'sgid'], inplace=True)
     synapses.sort_index(inplace=True)
-
-    afferent_indices = [np.arange(synapses.loc[(tgid, ), :].shape[0], dtype=np.int32)
-                        for tgid in synapses.index.levels[0]]
-    synapses['afferent_indices'] = np.concatenate(afferent_indices)
     synapses.reset_index(inplace=True)
 
     return synapses

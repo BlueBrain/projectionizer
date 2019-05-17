@@ -43,7 +43,8 @@ def test_write_summary():
         output_path = os.path.join(tmp_folder, 'proj_nrn_summary.h5')
         ok_(os.path.exists(output_path))
 
-        with patch('projectionizer.step_3_write.write_synapses_summary', Mock(side_effect=OSError)):
+        with patch('projectionizer.step_3_write.write_nrn') as write_nrn:
+            write_nrn.write_synapses_summary = Mock(side_effect=OSError)
             test = TestWriteSummary()
             assert_raises(OSError, test.run)
 
@@ -90,7 +91,8 @@ def test_WriteNrnH5():
         output_path = os.path.join(tmp_folder, 'proj_nrn.h5')
         ok_(os.path.exists(output_path))
 
-        with patch('projectionizer.step_3_write.write_synapses', Mock(side_effect=OSError)):
+        with patch('projectionizer.step_3_write.write_nrn') as write_nrn:
+            write_nrn.write_synapses = Mock(side_effect=OSError)
             test = TestWriteNrnH5()
             assert_raises(OSError, test.run)
 

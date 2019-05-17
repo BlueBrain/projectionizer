@@ -10,7 +10,6 @@ setup(
     name='projectionizer',
     version=VERSION,
     install_requires=[
-        'dask[distributed]>=0.17',
         'toolz>=0.8',
         'partd>=0.3',
         'luigi>=2.7',

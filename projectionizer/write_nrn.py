@@ -23,7 +23,7 @@ class SynapseColumns(object):
     NEURITE_TYPE = 18
 
 
-def create_synapse_data(synapses, synapse_params, efferent, version=0):
+def create_synapse_data(synapses, synapse_params, version=0):
     '''return numpy array for `synapses` with the correct parameters
 
     Args:
@@ -35,7 +35,7 @@ def create_synapse_data(synapses, synapse_params, efferent, version=0):
     synapse_count = len(synapses)
     synapse_data = np.zeros((synapse_count, 19), dtype=np.float)
 
-    synapse_data[:, SynapseColumns.SGID] = synapses['tgid' if efferent else 'sgid'].values
+    synapse_data[:, SynapseColumns.SGID] = synapses['sgid'].values
 
     CONDUCTION_VELOCITY = 300.  # micron/ms, from original Projectionizer: InputMappers.py
     synapse_data[:, SynapseColumns.DELAY] = (synapses['sgid_path_distance'].values /
@@ -65,7 +65,39 @@ def create_synapse_data(synapses, synapse_params, efferent, version=0):
     return synapse_data
 
 
-def write_synapses(path, itr, synapse_params, efferent=False,
+def rewrite_synapses_efferent(source_path, output_path):
+    '''use `source_path` proj_nrn.h5 to create the `output_path` proj_nrn_efferent.h5'''
+    with h5py.File(source_path, 'r') as h5:
+        assert h5['info'].attrs['numberOfFiles'] == 1, 'Only can handle single file NRN files'
+        version = h5['info'].attrs['version']
+        dfs = []
+        for k in h5.keys():
+            if not k.startswith('a'):
+                continue
+            df = pd.DataFrame(h5[k][:], columns=(['sgid'] + list(range(1, 19))))
+            df['sgid'] = df['sgid'].astype(int)
+            df['tgid'] = int(k[1:])
+            df['afferent_indices'] = df.index.values
+            dfs.append(df)
+
+    df = pd.concat(dfs, ignore_index=True, sort=False)
+    del dfs
+
+    itr = df.groupby('sgid')
+    with h5py.File(output_path, 'w') as h5:
+        info = h5.create_dataset('info', data=0)
+        info.attrs['version'] = version
+        info.attrs['numberOfFiles'] = 1
+
+        for gid, synapses in itr:
+            synapse_data = synapses.sort_values('tgid')[(['tgid'] + list(range(1, 19)))]
+            h5.create_dataset('a%d' % gid, data=synapse_data)
+
+            h5.create_dataset('a%d_afferentIndices' % gid,
+                              data=synapses['afferent_indices'].values.reshape((len(synapses), 1)))
+
+
+def write_synapses(path, itr, synapse_params,
                    populate_synapse_data=create_synapse_data,
                    version=4):
     '''write synapses to nrn.h5 style file
@@ -74,22 +106,16 @@ def write_synapses(path, itr, synapse_params, efferent=False,
         path(str): path to file to output
         itr(tuple of (target GID, synapses), where synapses can be an iterable with
         DataFrame with colunms ['sgid', 'section_id', 'segment_id', 'synapse_offset'],
-        If efferent==True, the column 'afferent_indices' must also be present.
     '''
     with h5py.File(path, 'w') as h5:
         info = h5.create_dataset('info', data=0)
         info.attrs['version'] = version
         info.attrs['numberOfFiles'] = 1
         for gid, synapses in itr:
-            synapse_data = populate_synapse_data(synapses, synapse_params, efferent, version)
+            synapse_data = populate_synapse_data(synapses, synapse_params, version)
             specification_conformity_check(synapse_data)
 
             h5.create_dataset('a%d' % gid, data=synapse_data)
-
-            if efferent:
-                N = len(synapses['afferent_indices'])
-                h5.create_dataset('a%d_afferentIndices' %
-                                  gid, data=synapses['afferent_indices'].values.reshape((N, 1)))
 
 
 def specification_conformity_check(data):
@@ -133,8 +159,7 @@ def write_synapses_summary(path, synapses):
     '''
     efferent = synapses.groupby(["sgid", "tgid"]).count()["segment_id"].reset_index()
     efferent.columns = ["dataset", "connecting", "efferent"]
-    afferent = synapses.groupby(["tgid", "sgid"]).count()[
-        "segment_id"].reset_index()
+    afferent = synapses.groupby(["tgid", "sgid"]).count()["segment_id"].reset_index()
     afferent.columns = ["dataset", "connecting", "afferent"]
     summary = pd.merge(efferent, afferent, on=["dataset", "connecting"],
                        how="outer")

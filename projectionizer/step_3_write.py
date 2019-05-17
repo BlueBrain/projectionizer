@@ -7,13 +7,13 @@ import traceback
 
 import numpy as np
 
-from luigi import BoolParameter, FloatParameter, IntParameter
+from luigi import FloatParameter, IntParameter
 from luigi.local_target import LocalTarget
 from projectionizer.luigi_utils import CommonParams, CsvTask, JsonTask, RunAnywayTargetTempDir
 from projectionizer.step_1_assign import VirtualFibersNoOffset
 from projectionizer.step_2_prune import ChooseConnectionsToKeep, ReducePrune
 from projectionizer.utils import load, ignore_exception
-from projectionizer.write_nrn import write_synapses, write_synapses_summary, write_user_target
+from projectionizer import write_nrn
 
 L = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class WriteSummary(CommonParams):
         # pylint: disable=maybe-no-member
         synapses = load(self.input().path)
         try:
-            write_synapses_summary(path=self.output().path, synapses=synapses)
+            write_nrn.write_synapses_summary(path=self.output().path, synapses=synapses)
         except OSError as e:
             traceback.print_exc()
             with ignore_exception(OSError):
@@ -41,8 +41,7 @@ class WriteSummary(CommonParams):
 
 
 class WriteNrnH5(CommonParams):
-    '''write proj_nrn.h5 or proj_nrn_efferent.h5'''
-    efferent = BoolParameter()
+    '''write proj_nrn.h5'''
     synapse_type = IntParameter()
     gsyn_mean = FloatParameter()
     gsyn_sigma = FloatParameter()
@@ -85,11 +84,9 @@ class WriteNrnH5(CommonParams):
         try:
             # pylint thinks load() isn't returning a DataFrame
             # pylint: disable=maybe-no-member
-            itr = load(self.input().path).groupby(
-                'sgid' if self.efferent else 'tgid')
+            itr = load(self.input().path).groupby('tgid')
             params = self.get_synapse_parameters()
-            write_synapses(self.output().path, itr,
-                           params, efferent=self.efferent)
+            write_nrn.write_synapses(self.output().path, itr, params)
         except Exception as e:
             traceback.print_exc()
             with ignore_exception(OSError):
@@ -97,7 +94,7 @@ class WriteNrnH5(CommonParams):
             raise e
 
     def output(self):
-        name = 'proj_nrn.h5' if not self.efferent else 'proj_nrn_efferent.h5'
+        name = 'proj_nrn.h5'
         return LocalTarget('{}/{}'.format(self.folder, name))
 
 
@@ -111,7 +108,9 @@ class WriteUserTargetTxt(CommonParams):
         # pylint thinks load() isn't returning a DataFrame
         # pylint: disable=maybe-no-member
         synapses = load(self.input().path)
-        write_user_target(self.output().path, synapses, name='proj_Thalamocortical_VPM_Source')
+        write_nrn.write_user_target(self.output().path,
+                                    synapses,
+                                    name='proj_Thalamocortical_VPM_Source')
 
     def output(self):
         return LocalTarget('{}/user.target'.format(self.folder))
@@ -150,12 +149,25 @@ class SynapseCountPerConnectionL4PC(JsonTask):  # pragma: no cover
             json.dump({'result': mean}, outputf)
 
 
+class WriteNrnH5Efferent(CommonParams):  # pragma: no cover
+    '''write proj_nrn_efferent.h5'''
+    def requires(self):
+        return self.clone(WriteNrnH5)
+
+    def run(self):
+        write_nrn.rewrite_synapses_efferent(self.input().path,
+                                            self.output().path)
+
+    def output(self):
+        name = 'proj_nrn_efferent.h5'
+        return LocalTarget('{}/{}'.format(self.folder, name))
+
+
 class WriteAll(CommonParams):  # pragma: no cover
     """Run all write tasks"""
 
     def requires(self):
-        return [self.clone(WriteNrnH5, efferent=True),
-                self.clone(WriteNrnH5, efferent=False),
+        return [self.clone(WriteNrnH5Efferent),
                 self.clone(WriteSummary),
                 self.clone(WriteUserTargetTxt),
                 self.clone(SynapseCountPerConnectionL4PC),

@@ -129,11 +129,10 @@ def write_output(syns, synapse_parameters, virtual_fibers, sgid_offset, output):
     # write proj_nrn_*.h5
     path = os.path.join(output, 'proj_nrn.h5')
     itr = syns.groupby('tgid')
-    write_nrn.write_synapses(path, itr, synapse_parameters, efferent=False)
+    write_nrn.write_synapses(path, itr, synapse_parameters)
 
-    path = os.path.join(output, 'proj_nrn_efferent.h5')
-    itr = syns.groupby('sgid')
-    write_nrn.write_synapses(path, itr, synapse_parameters, efferent=True)
+    efferent_path = os.path.join(output, 'proj_nrn_efferent.h5')
+    write_nrn.rewrite_synapses_efferent(path, efferent_path)
 
     # write summary
     path = os.path.join(output, 'proj_nrn_summary.h5')
