@@ -2,6 +2,7 @@
 import logging
 import os
 from itertools import chain, repeat
+import yaml
 
 import matplotlib
 matplotlib.use('Agg')
@@ -13,7 +14,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from bluepy.v2.circuit import Circuit
-from luigi import Parameter
 
 from projectionizer.sscx_hex import get_minicol_virtual_fibers
 from projectionizer.luigi_utils import CommonParams, RunAnywayTargetTempDir
@@ -26,6 +26,16 @@ from projectionizer.utils import load, load_all, read_feather
 
 L = logging.getLogger(__name__)
 L.setLevel(logging.DEBUG)
+
+
+def draw_layer_boundaries(ax, layers):
+    '''draw layer boundaries as defined by `layers`'''
+    total = 0
+    for name, delta in layers:
+        total += delta
+        ax.axvline(x=total, color='green')
+        ax.text(x=total, y=100, s='Layer %d' % name)
+    ax.set_xlim([0, total])
 
 
 def draw_distmap(ax, distmap, oversampling, linewidth=2):
@@ -64,7 +74,7 @@ def fill_voxels(voxel_like, coordinates):
     return voxel_like.with_data(counts)
 
 
-def synapse_density_per_voxel(folder, synapses, distmap, oversampling, prefix=''):
+def synapse_density_per_voxel(folder, synapses, layers, distmap, oversampling, prefix=''):
     '''2D-distribution: voxel height - voxel density'''
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
@@ -78,13 +88,13 @@ def synapse_density_per_voxel(folder, synapses, distmap, oversampling, prefix=''
 
     x = heights_counts[:, 0]
     y = heights_counts[:, 1]
-    plt.hist2d(x, y, bins=40, label='synaptic density')
+    ax.hist2d(x, y, bins=40, label='synaptic density')
+
     draw_distmap(ax, distmap, oversampling, linewidth=1)
+    draw_layer_boundaries(ax, layers)
+
     ax.set_xlabel('Voxel height (um)')
     ax.set_ylabel(r'Synaptical density ($\mathregular{um^{-3}}$)')
-    cbar = plt.colorbar()
-    cbar.set_label('# of voxels')
-    plt.legend()
     fig.savefig(os.path.join(folder, '{}_density_per_voxel.png'.format(prefix)))
 
 
@@ -95,7 +105,7 @@ def remove_synapses_with_sgid(synapses, sgids):
     return synapses
 
 
-def synapse_density(orig_data, keep_syn, distmap, bin_width=25, oversampling=1, folder='.'):
+def synapse_density(keep_syn, distmap, layers, bin_width=25, oversampling=1, folder='.'):
     '''Plot synaptic density profile'''
     def vol(df):
         '''Get volume'''
@@ -103,25 +113,18 @@ def synapse_density(orig_data, keep_syn, distmap, bin_width=25, oversampling=1, 
         xz_extend = df[xz].max().values - df[xz].min().values
         return np.prod(xz_extend) * bin_width
 
-    bins = np.arange(keep_syn.y.min(), keep_syn.y.max(), bin_width)
-
-    df = pd.DataFrame(index=bins[:-1])
-    if orig_data is not None:
-        df['Original'] = _make_hist(orig_data.y.values, bins) / vol(orig_data)
-    df['New'] = _make_hist(keep_syn.y.values, bins) / vol(keep_syn)
-
     fig, ax = _get_ax()
 
     draw_distmap(ax, np.array(distmap), oversampling)
+    draw_layer_boundaries(ax, layers)
+
+    bins = np.arange(keep_syn.y.min(), keep_syn.y.max(), bin_width)
+    height = _make_hist(keep_syn.y.values, bins) / vol(keep_syn)
+
+    ax.bar(x=bins[:-1], height=height, width=bin_width, align='edge')
 
     ax.set_xlabel('Layer depth um')
     ax.set_ylabel('Density (syn/um3)')
-
-    ax2 = ax.twiny()
-    df.plot(kind='bar', ax=ax2, sharey=True)
-
-    # remove upper axis ticklabels
-    ax2.set_xticklabels([])
 
     ax.set_title('Synapse density histogram')
     fig.savefig(os.path.join(folder, 'density.png'))
@@ -162,28 +165,23 @@ def syns_per_connection_per_mtype(choose_connections, cutoffs, folder):
     x = mtype_connection_count[:, 0]
     y = mtype_connection_count[:, 1]
     bins = (np.arange(len(mtypes)), bins_syn)
-    plt.hist2d(x, y, bins=bins, norm=colors.LogNorm())
+    ax.hist2d(x, y, bins=bins, norm=colors.LogNorm())
     mean_connection_count_per_mtype = grp.mean().loc[:, '0']
     plt.step(bins[0], mean_connection_count_per_mtype,
              where='post', color='red', label='Mean value')
     plt.step(bins[0], cutoffs.sort_values('mtype').cutoff,
              where='post', color='black', label='Cutoff')
     plt.xticks(bins[0] + 0.5, mtypes, rotation=90)
-    plt.colorbar()
     plt.legend()
     fig.savefig(os.path.join(folder, 'syns_per_connection_per_mtype.png'))
 
 
-def syns_per_connection(orig_data, choose_connections, cutoffs, folder):
+def syns_per_connection(choose_connections, cutoffs, folder):
     '''Plot the number of synapses per connection'''
     fig, ax = _get_ax()
     max_synapses = 50
     bins_syn = np.linspace(0, max_synapses, 50)
     choose_connections[choose_connections.kept].loc[:, '0'].hist(bins=bins_syn)
-
-    if orig_data is not None:
-        orig_counts = orig_data.groupby(['tgid', 'sgid']).size()
-        _make_hist(orig_counts, bins_syn)
 
     ax.set_title('Synapse / connection')
     fig.savefig(os.path.join(folder, 'syns_per_connection.png'))
@@ -211,7 +209,7 @@ def syns_per_connection(orig_data, choose_connections, cutoffs, folder):
     fig.savefig(os.path.join(folder, 'syns_per_connection_L4_PC_pre_pruning.png'))
 
 
-def efferent_neuron_per_fiber(df, fibers, folder, cell_data=True):
+def efferent_neuron_per_fiber(df, fibers, folder):
     '''1D distribution of the number of neuron connected to a fiber averaged on all fibers'''
     title = "Efferent neuron count (averaged)"
     fig = plt.figure(title)
@@ -221,33 +219,6 @@ def efferent_neuron_per_fiber(df, fibers, folder, cell_data=True):
     ax.set_xlabel('Efferent neuron count for each fiber')
     plt.hist(neuron_efferent_count, bins=100, label='This work')
 
-    if cell_data:
-        data_cell_paper = [
-            [752.7687, 0.9569],
-            [767.9064, 5.9849],
-            [786.2024, 1.0307],
-            [803.2772, 1.9899],
-            [817.4414, 1.9889],
-            [832.0066, 6.9411],
-            [849.5682, 6.9146],
-            [865.6816, 2.9968],
-            [882.3453, 5.8766],
-            [897.9659, 9.8683],
-            [914.7236, 13.9106],
-            [930.5917, 6.9602],
-            [948.5542, 11.8868],
-            [963.4527, 6.9581],
-            [978.1037, 5.9716],
-            [995.5856, 4.9597],
-            [1011.2082, 1.9767],
-            [1027.4812, 0.0299],
-            [1042.8563, 0.9891],
-            [1059.2888, 1.0134],
-            [1073.9399, 0.0269],
-            [1084.7088, 0.0768],
-        ]
-        x_cell_paper, y_cell_paper = zip(*data_cell_paper)
-        plt.plot(x_cell_paper, np.array(y_cell_paper) * 2.4, label='Cell paper data (norm.)')
     plt.legend()
     fig.savefig(os.path.join(folder, 'efferent_count_1d.png'))
 
@@ -257,10 +228,10 @@ def efferent_neuron_per_fiber(df, fibers, folder, cell_data=True):
     ax.set_title(title)
     df = fibers.join(neuron_efferent_count).fillna(0)
     plt.scatter(df.x, df.z, s=80, c=df.tgid)
-    cbar = plt.colorbar()
+
     ax.set_xlabel('X fiber coordinate')
     ax.set_ylabel('Z fiber coordinate')
-    cbar.set_label('# of efferent neurons')
+
     fig.savefig(os.path.join(folder, 'efferent_count_2d.png'))
 
 
@@ -269,7 +240,6 @@ def innervation_width(pruned, circuit_config, folder):
 
     mean distance between synapse and connected fiber
     '''
-    # '/gpfs/bbp.cscs.ch/project/proj64/circuits/O1.v5/20171107/CircuitConfig'
     c = Circuit(circuit_config)
     fig, ax = _get_ax()
     pruned.groupby('sgid').tgid.apply(lambda tgid: c.cells.get(
@@ -280,9 +250,6 @@ def innervation_width(pruned, circuit_config, folder):
 
 class Analyse(CommonParams):
     '''Run the analysis'''
-    original_data = Parameter(
-        default=('/gpfs/bbp.cscs.ch/project/proj30/mgevaert/'
-                 'ncsThalamocortical_VPM_tcS2F_2p6_ps.feather'))
 
     def requires(self):  # pragma: no cover
         if self.geometry != 's1':
@@ -311,23 +278,27 @@ class Analyse(CommonParams):
                                                     locations_path=locations_path)
             pruned_no_edge = remove_synapses_with_sgid(pruned,
                                                        all_fibers[all_fibers['apron']].index)
-            original = load(self.original_data)
-
             fraction_pruned_vs_height(self.folder, self.n_total_chunks)
             innervation_width(pruned, self.circuit_config, self.folder)
-            synapse_density_per_voxel(self.folder, sampled, distmap, self.oversampling, 'sampled')
+            layers = yaml.load(self.layers)
+            synapse_density_per_voxel(self.folder,
+                                      sampled,
+                                      layers,
+                                      distmap,
+                                      self.oversampling,
+                                      'sampled')
         else:
             pruned, connections, cutoffs, distmap, fibers = load_all(self.input())
             pruned_no_edge = pruned
-            original = None
+            layers = []
 
         connections.sgid += self.sgid_offset
 
-        synapse_density_per_voxel(self.folder, pruned_no_edge, distmap, 1., 'pruned')
-        synapse_density(original, pruned_no_edge, distmap, folder=self.folder)
-        syns_per_connection(original, connections, cutoffs, self.folder)
+        synapse_density_per_voxel(self.folder, pruned_no_edge, layers, distmap, 1., 'pruned')
+        synapse_density(pruned_no_edge, distmap, layers, folder=self.folder)
+        syns_per_connection(connections, cutoffs, self.folder)
 
-        efferent_neuron_per_fiber(pruned, fibers, self.folder, cell_data=self.geometry != 's1')
+        efferent_neuron_per_fiber(pruned, fibers, self.folder)
 
         self.output().done()
 
