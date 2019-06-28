@@ -168,6 +168,7 @@ def get_voxel_synapse_count(config, fibers_path):
     means = config['density']['mean']
     synapse_density = []
     start = 0.
+
     for name, height in config['layers']:
         synapse_density.append([start, means[name] / 1000.])
         start += height
@@ -210,6 +211,7 @@ def main(args):
         config = yaml.load(fd)
 
     fibers_path = luigi_utils.CommonParams.load_data(config['fiber_locations'])
+
     voxel_synapse_count = get_voxel_synapse_count(config, fibers_path)
 
     if not os.path.isdir(args.output):

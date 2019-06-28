@@ -40,7 +40,8 @@ class MismatchLinearTask(Task):
     param = FloatParameter(default=0)
 
     def run(self):
-        task = yield self.clone(LinearTask, param=self.param, folder=self.folder)
+        params = dict(param=self.param, folder=self.folder)
+        task = yield self.clone(LinearTask, **params)
         with task.open() as inputf:
             with self.output().open('w') as outputf:
                 json.dump({'error': json.load(inputf)['result'] - self.target},
@@ -50,18 +51,26 @@ class MismatchLinearTask(Task):
         return LocalTarget('{}/MismatchLinearTask-{}.json'.format(self.folder,
                                                                   self.param))
 
+DEFAULT_PARAMS = {
+    'circuit_config': 'a/fake/path',
+    'geometry': 'fake_geometry',
+    'n_total_chunks': 1,
+    'sgid_offset': 1,
+    'oversampling': 1,
+    'layers': 'fake_layers',
+    }
 
 def test_dichotomy():
     with setup_tempdir('test_dichotomy') as tmp_folder:
-        params = {'MinimizationTask': MismatchLinearTask,
-                  'target': -27,
-                  'target_margin': 0.5,
-                  'min_param': -123,
-                  'max_param': 456,
-                  'max_loop': 57,
-                  'folder': tmp_folder,
-                  }
-
+        params = dict(DEFAULT_PARAMS)
+        params.update({'MinimizationTask': MismatchLinearTask,
+                       'target': -27,
+                       'target_margin': 0.5,
+                       'min_param': -123,
+                       'max_param': 456,
+                       'max_loop': 57,
+                       'folder': tmp_folder,
+                       })
         res = build([Dichotomy(**params)], local_scheduler=True)
         ok_(res)
 
@@ -70,14 +79,15 @@ def test_dichotomy_failed():
     '''Test dichotomy not converging fast enough
     leading to maximum number of iteration reached'''
     with setup_tempdir('test_dichotomy') as tmp_folder:
-        params = {'MinimizationTask': MismatchLinearTask,
-                  'target': 27,
-                  'target_margin': 5,
-                  'min_param': 123,
-                  'max_param': 456,
-                  'max_loop': 3,
-                  'folder': tmp_folder,
-                  }
+        params = dict(DEFAULT_PARAMS)
+        params.update({'MinimizationTask': MismatchLinearTask,
+                       'target': 27,
+                       'target_margin': 5,
+                       'min_param': 123,
+                       'max_param': 456,
+                       'max_loop': 3,
+                       'folder': tmp_folder,
+                       })
 
         res = build([Dichotomy(**params)], local_scheduler=True)
         ok_(not res)

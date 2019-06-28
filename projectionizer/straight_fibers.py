@@ -12,6 +12,7 @@ from scipy.stats import norm  # pylint: disable=no-name-in-module
 
 from projectionizer.utils import choice, map_parallelize, XYZUVW, IJK, XYZ
 
+
 L = logging.getLogger(__name__)
 
 VF_STARTS = slice(0, 3)

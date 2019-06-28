@@ -130,7 +130,7 @@ class VirtualFibers(CsvTask):
         fibers.to_csv(self.output().path, index_label='sgid')
 
 
-class SynapseCountPerConnectionL4PC(JsonTask):  # pragma: no cover
+class SynapseCountPerConnectionTarget(JsonTask):  # pragma: no cover
     '''Compute the mean number of synapses per connection for L4 PC cells'''
 
     def requires(self):
@@ -139,10 +139,10 @@ class SynapseCountPerConnectionL4PC(JsonTask):  # pragma: no cover
     def run(self):
         connections = load(self.input().path)
 
-        mask = (connections.mtype.isin(self.target_mtypes)) & (connections.kept)
+        mask = connections.mtype.isin(self.target_mtypes) & connections.kept
         mean = connections[mask].connection_size.mean()
         if np.isnan(mean):
-            raise Exception('SynapseCountPerConnectionL4PC returned NaN')
+            raise Exception('SynapseCountPerConnectionTarget returned NaN')
         with self.output().open('w') as outputf:
             json.dump({'result': mean}, outputf)
 
@@ -168,7 +168,7 @@ class WriteAll(CommonParams):  # pragma: no cover
         return [self.clone(WriteNrnH5Efferent),
                 self.clone(WriteSummary),
                 self.clone(WriteUserTargetTxt),
-                self.clone(SynapseCountPerConnectionL4PC),
+                self.clone(SynapseCountPerConnectionTarget),
                 ]
 
     def run(self):

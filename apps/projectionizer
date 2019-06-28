@@ -25,7 +25,7 @@ L = logging.getLogger(__name__)
 CONFIG_FILENAME = 'config.yaml'
 LUIGI_TARGET = 'projectionizer.analysis'
 TEMPLATES_PATH = pkg_resources.resource_filename('projectionizer', 'templates')
-WORKERS = '10'
+WORKERS = '1'
 
 
 def common_parser():
@@ -159,14 +159,14 @@ def _cmd_resume(args):
 
 def _cmd_dichotomy(args):
     '''Luigi argument list for the "dichotomy" command'''
-    _copy_config(args)
-    return (['SynapseCountL4PCMeanMinimizer', '--folder', args.output, '--module',
-             'projectionizer.dichotomy', '--workers', '1',
-             '--SynapseCountL4PCMeanMinimizer-target', args.connectivity_target,
-             '--SynapseCountL4PCMeanMinimizer-min-param', args.min_param,
-             '--SynapseCountL4PCMeanMinimizer-max-param', args.max_param,
-             '--SynapseCountL4PCMeanMinimizer-target-margin', args.target_margin] +
-            luigi_params(args))
+    load_config(_copy_config(args))
+    return (['SynapseCountMeanMinimizer', '--folder', args.output, '--module',
+             'projectionizer.dichotomy', '--workers', WORKERS,
+             '--SynapseCountMeanMinimizer-target', args.connectivity_target,
+             '--SynapseCountMeanMinimizer-min-param', args.min_param,
+             '--SynapseCountMeanMinimizer-max-param', args.max_param,
+             '--SynapseCountMeanMinimizer-target-margin', args.target_margin,
+             ] + luigi_params(args))
 
 
 if __name__ == '__main__':

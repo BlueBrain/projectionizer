@@ -10,4 +10,4 @@ from projectionizer.step_1_assign import (VirtualFibersNoOffset, ClosestFibersPe
 from projectionizer.step_2_prune import (GroupByConnection, ReduceGroupByConnection, CutoffMeans,
                                          ChooseConnectionsToKeep, PruneChunk, ReducePrune)
 from projectionizer.step_3_write import (WriteSummary, WriteNrnH5, WriteUserTargetTxt,
-                                         VirtualFibers, SynapseCountPerConnectionL4PC, WriteAll)
+                                         VirtualFibers, SynapseCountPerConnectionTarget, WriteAll)

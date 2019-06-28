@@ -57,15 +57,38 @@ class ReduceGroupByConnection(luigi_utils.FeatherTask):
 
 
 def find_cutoff_mean_per_mtype(value_count, synaptical_fraction):
-    '''the cutoff means should be proportional for all mytpes, reuse the method from
-    the original projectionizer
+    '''the cutoff means should be proportional for all mytpes
 
-    TODO: describe it better
+    Args:
+        value_count(pd.Series): histogram: index is syns/connection,
+        value is number pathways with the index syns/connection
+        synaptical_fraction(float): fraction to be removed
+
+    The method comes from the original projectionizer
     '''
-    n_synapse_per_bin = np.array([value * count for value, count in value_count.iteritems()],
-                                 dtype=float)
+    n_synapse_per_bin = value_count.index.values.astype(float) * value_count.values
     x = np.cumsum(n_synapse_per_bin) / np.sum(n_synapse_per_bin)
     return np.interp(synaptical_fraction, xp=x, fp=value_count.index)
+
+
+def calculate_cutoff_means(mtype_sgid_tgid, oversampling):
+    '''for all the mtypes, calculate the cutoff mean'''
+    not_empty_mtypes = [mtype_df
+                        for mtype_df in mtype_sgid_tgid.groupby('mtype')
+                        if not mtype_df[1].empty]
+    mtypes, dfs = zip(*not_empty_mtypes)
+
+    fraction_to_remove = 1. - 1. / oversampling
+
+    cutoffs = []
+    for df in dfs:
+        value_count = df.connection_size.value_counts(sort=False).sort_index()
+        cutoff = find_cutoff_mean_per_mtype(value_count, fraction_to_remove)
+        cutoffs.append(cutoff)
+
+    res = pd.DataFrame({'mtype': pd.Series(mtypes, dtype='category'),
+                        'cutoff': cutoffs})
+    return res
 
 
 class CutoffMeans(luigi_utils.FeatherTask):
@@ -93,19 +116,7 @@ class CutoffMeans(luigi_utils.FeatherTask):
         # pylint thinks load() isn't returning a DataFrame
         # pylint: disable=maybe-no-member
         mtype_sgid_tgid = load(self.input().path)
-        grouped_by_mtypes = mtype_sgid_tgid.groupby('mtype')  # pylint:disable=maybe-no-member
-        not_empty_mtypes = [mtype_df
-                            for mtype_df in grouped_by_mtypes
-                            if not mtype_df[1].empty]
-        mtypes, dfs = zip(*not_empty_mtypes)
-
-        fraction_to_remove = 1 - 1 / self.oversampling
-        cutoffs = [
-            find_cutoff_mean_per_mtype(df.connection_size.value_counts(sort=False).sort_index(),
-                                       fraction_to_remove)
-            for df in dfs]
-        res = pd.DataFrame({'mtype': pd.Series(mtypes, dtype='category'),
-                            'cutoff': cutoffs})
+        res = calculate_cutoff_means(mtype_sgid_tgid, self.oversampling)
         write_feather(self.output().path, res)
 
 

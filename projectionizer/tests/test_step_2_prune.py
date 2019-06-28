@@ -1,12 +1,28 @@
 import numpy as np
 import pandas as pd
 from numpy.testing import assert_equal
+from nose.tools import ok_
 
-from projectionizer.step_2_prune import find_cutoff_mean_per_mtype
+from projectionizer import step_2_prune
 
 
 def test_find_cutoff_mean_per_mtype():
     value_count = pd.Series(np.arange(10))
-    assert_equal(find_cutoff_mean_per_mtype(value_count, 0.4), 6.469387755102041)
-    assert_equal(find_cutoff_mean_per_mtype(value_count, 0.5), 7.0390625)
-    assert_equal(find_cutoff_mean_per_mtype(value_count, 0.6), 7.484375)
+    assert_equal(step_2_prune.find_cutoff_mean_per_mtype(value_count, 0.4), 6.469387755102041)
+    assert_equal(step_2_prune.find_cutoff_mean_per_mtype(value_count, 0.5), 7.0390625)
+    assert_equal(step_2_prune.find_cutoff_mean_per_mtype(value_count, 0.6), 7.484375)
+
+
+def test_calculate_cutoff_means():
+    columns = ['mtype', 'sgid', 'tgid', 'connection_size']
+    mtype_sgid_tgid = pd.DataFrame([['mtype0', 0, 1, 10],
+                                    ['mtype0', 1, 2, 5],
+                                    ['mtype0', 2, 3, 1],
+                                    ['mtype1', 5, 6, 10],
+                                    ],
+                                   columns=columns)
+    ret = step_2_prune.calculate_cutoff_means(mtype_sgid_tgid, oversampling=2.)
+    expected = pd.DataFrame({'mtype': pd.Categorical(['mtype0', 'mtype1']),
+                             'cutoff': [6., 10.],
+                             })
+    pd.testing.assert_frame_equal(expected, ret)

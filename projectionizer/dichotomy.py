@@ -2,15 +2,15 @@
 import json
 import os
 
-from luigi import Parameter, FloatParameter, IntParameter, TaskParameter, Task
+from luigi import Parameter, FloatParameter, IntParameter, TaskParameter
 from luigi.local_target import LocalTarget
 from projectionizer.analysis import DoAll
 from projectionizer.luigi_utils import CommonParams, JsonTask, camel2spinal_case, FolderTask
 from projectionizer.step_0_sample import FullSample, SampleChunk
-from projectionizer.step_3_write import SynapseCountPerConnectionL4PC
+from projectionizer.step_3_write import SynapseCountPerConnectionTarget
 
 
-class Dichotomy(Task):
+class Dichotomy(JsonTask):
     '''Binary search to find the parameter that satisfies the target value'''
     folder = Parameter()
     target = FloatParameter()
@@ -61,16 +61,16 @@ class TargetMismatch(JsonTask):
     param = FloatParameter(default=0)
 
     def run(self):  # pragma: no cover
-        task = yield self.clone(SynapseCountPerConnectionL4PC, oversampling=self.param)
-        with task.open() as inputf:
-            with self.output().open('w') as outputf:
-                json.dump({'error': json.load(inputf)['result'] - self.target},
-                          outputf)
+        task = yield self.clone(SynapseCountPerConnectionTarget, oversampling=self.param)
+        with task.open() as fd:
+            last_target = json.load(fd)['result']
+        with self.output().open('w') as fd:
+            json.dump({'error': last_target - self.target}, fd)
 
 
-class SynapseCountL4PCMeanMinimizer(CommonParams):
+class SynapseCountMeanMinimizer(CommonParams):
     '''Dichotomy applied to approaching the correct number of synapses per connection
-    in L4PC cells'''
+    in target_mtype cells'''
     target = FloatParameter()
     target_margin = FloatParameter(default=1)
     min_param = FloatParameter()
@@ -84,7 +84,7 @@ class SynapseCountL4PCMeanMinimizer(CommonParams):
                            oversampling=self.max_param,
                            folder=sub_folder(self.folder, self.max_param))
                 for chunk_num in range(self.n_total_chunks)] + \
-            [self.clone(Dichotomy, MinimizationTask=TargetMismatch)]
+            [self.clone(Dichotomy, MinimizationTask=TargetMismatch), ]
 
     def run(self):  # pragma: no cover
         dichotomy = self.input()[-1]
