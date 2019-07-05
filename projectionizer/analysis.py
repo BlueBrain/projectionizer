@@ -2,7 +2,6 @@
 import logging
 import os
 from itertools import chain, repeat
-import yaml
 
 import matplotlib
 matplotlib.use('Agg')
@@ -27,6 +26,8 @@ from projectionizer.utils import load, load_all, read_feather
 L = logging.getLogger(__name__)
 L.setLevel(logging.DEBUG)
 
+SYNS_CONN_MAX_BINS = 50
+
 
 def draw_layer_boundaries(ax, layers):
     '''draw layer boundaries as defined by `layers`'''
@@ -47,9 +48,12 @@ def draw_distmap(ax, distmap, oversampling, linewidth=2):
 
     values = get_values(distmap[0])
     ax.plot(values[:, 0], values[:, 1] * oversampling, 'r--', linewidth=linewidth)
-    values = get_values(distmap[1])
-    ax.plot(values[:, 0], values[:, 1] * oversampling, 'r--',
-            linewidth=linewidth, label='expected density')
+
+    # if we have a reference/expected dataset to compare to, display that as well
+    if len(distmap) == 2:
+        values = get_values(distmap[1])
+        ax.plot(values[:, 0], values[:, 1] * oversampling, 'r--',
+                linewidth=linewidth, label='expected density')
 
 
 def _make_hist(y, bins):
@@ -157,16 +161,16 @@ def syns_per_connection_per_mtype(choose_connections, cutoffs, folder):
     '''2D-Plot of number of synapse per connection distribution VS mtype'''
     fig, ax = _get_ax()
     ax.set_title('Number of synapses/connection for each mtype')
-    bins_syn = np.arange(50)
+    bins_syn = np.arange(SYNS_CONN_MAX_BINS)
     grp = choose_connections.groupby('mtype')
     mtypes = sorted(grp.groups)
     mtype_connection_count = np.array(list(chain.from_iterable(
-        zip(repeat(i), grp['0'].get_group(mtype)) for i, mtype in enumerate(mtypes))))
+        zip(repeat(i), grp['connection_size'].get_group(mtype)) for i, mtype in enumerate(mtypes))))
     x = mtype_connection_count[:, 0]
     y = mtype_connection_count[:, 1]
     bins = (np.arange(len(mtypes)), bins_syn)
     ax.hist2d(x, y, bins=bins, norm=colors.LogNorm())
-    mean_connection_count_per_mtype = grp.mean().loc[:, '0']
+    mean_connection_count_per_mtype = grp.mean().loc[:, 'connection_size']
     plt.step(bins[0], mean_connection_count_per_mtype,
              where='post', color='red', label='Mean value')
     plt.step(bins[0], cutoffs.sort_values('mtype').cutoff,
@@ -176,37 +180,38 @@ def syns_per_connection_per_mtype(choose_connections, cutoffs, folder):
     fig.savefig(os.path.join(folder, 'syns_per_connection_per_mtype.png'))
 
 
-def syns_per_connection(choose_connections, cutoffs, folder):
+def syns_per_connection(choose_connections, cutoffs, folder, target_mtypes):
     '''Plot the number of synapses per connection'''
-    fig, ax = _get_ax()
-    max_synapses = 50
-    bins_syn = np.linspace(0, max_synapses, 50)
-    choose_connections[choose_connections.kept].loc[:, '0'].hist(bins=bins_syn)
 
-    ax.set_title('Synapse / connection')
-    fig.savefig(os.path.join(folder, 'syns_per_connection.png'))
     syns_per_connection_per_mtype(choose_connections, cutoffs, folder)
 
-    fig, ax = _get_ax()
-    l4_pc_cells = choose_connections[choose_connections.mtype.isin(
-        ['L4_PC', 'L4_UPC', 'L4_TPC'])]
-    l4_pc_cells[choose_connections.kept].loc[:, '0'].hist(bins=np.arange(max_synapses))
-    mean_value = l4_pc_cells[choose_connections.kept].loc[:, '0'].mean()
-    plt.axvline(x=mean_value, color='red')
-    ax.set_xlabel('Synapse count per connection')
-    ax.set_title('Number of synapses/connection for L4_PC cells\nmean value = {}'
-                 .format(mean_value))
-    fig.savefig(os.path.join(folder, 'syns_per_connection_L4_PC.png'))
+    bins_syn = np.arange(SYNS_CONN_MAX_BINS)
 
     fig, ax = _get_ax()
-    l4_pc_cells.loc[:, '0'].hist(bins=np.arange(50))
-    mean_value = l4_pc_cells.loc[:, '0'].mean()
+    choose_connections[choose_connections.kept].loc[:, 'connection_size'].hist(bins=bins_syn)
+    mean_value = choose_connections[choose_connections.kept].loc[:, 'connection_size'].mean()
+    plt.axvline(x=mean_value, color='red')
+    ax.set_title('Synapse / connection: {}'.format(mean_value))
+    fig.savefig(os.path.join(folder, 'syns_per_connection.png'))
+
+    fig, ax = _get_ax()
+    target_cells = choose_connections[choose_connections.mtype.isin(target_mtypes)]
+    target_cells[choose_connections.kept].loc[:, 'connection_size'].hist(bins=bins_syn)
+    mean_value = target_cells[choose_connections.kept].loc[:, 'connection_size'].mean()
     plt.axvline(x=mean_value, color='red')
     ax.set_xlabel('Synapse count per connection')
-    ax.set_title(
-        'Number of synapses/connection for L4_PC cells pre-pruning\nmean value = {}'
-        .format(mean_value))
-    fig.savefig(os.path.join(folder, 'syns_per_connection_L4_PC_pre_pruning.png'))
+    ax.set_title('Number of synapses/connection for {} cells\n'
+                 'mean value = {}'.format(target_mtypes, mean_value))
+    fig.savefig(os.path.join(folder, 'syns_per_connection_checked.png'))
+
+    fig, ax = _get_ax()
+    target_cells.loc[:, 'connection_size'].hist(bins=bins_syn)
+    mean_value = target_cells.loc[:, 'connection_size'].mean()
+    plt.axvline(x=mean_value, color='red')
+    ax.set_xlabel('Synapse count per connection')
+    ax.set_title('Number of synapses/connection for {} cells pre-pruning\n'
+                 'mean value = {}'.format(target_mtypes, mean_value))
+    fig.savefig(os.path.join(folder, 'syns_per_connection_checked_pre_pruning.png'))
 
 
 def efferent_neuron_per_fiber(df, fibers, folder):
@@ -280,7 +285,7 @@ class Analyse(CommonParams):
                                                        all_fibers[all_fibers['apron']].index)
             fraction_pruned_vs_height(self.folder, self.n_total_chunks)
             innervation_width(pruned, self.circuit_config, self.folder)
-            layers = yaml.load(self.layers)
+            layers = self.layers
             synapse_density_per_voxel(self.folder,
                                       sampled,
                                       layers,
@@ -296,7 +301,7 @@ class Analyse(CommonParams):
 
         synapse_density_per_voxel(self.folder, pruned_no_edge, layers, distmap, 1., 'pruned')
         synapse_density(pruned_no_edge, distmap, layers, folder=self.folder)
-        syns_per_connection(connections, cutoffs, self.folder)
+        syns_per_connection(connections, cutoffs, self.folder, self.target_mtypes)
 
         efferent_neuron_per_fiber(pruned, fibers, self.folder)
 

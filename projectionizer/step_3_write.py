@@ -7,7 +7,7 @@ import traceback
 
 import numpy as np
 
-from luigi import FloatParameter, IntParameter
+from luigi import FloatParameter, IntParameter, Parameter
 from luigi.local_target import LocalTarget
 from projectionizer.luigi_utils import CommonParams, CsvTask, JsonTask, RunAnywayTargetTempDir
 from projectionizer.step_1_assign import VirtualFibersNoOffset
@@ -100,6 +100,7 @@ class WriteNrnH5(CommonParams):
 
 class WriteUserTargetTxt(CommonParams):
     '''write user.target'''
+    target_name = Parameter('proj_Thalamocortical_VPM_Source')
 
     def requires(self):
         return self.clone(ReducePrune)
@@ -110,7 +111,7 @@ class WriteUserTargetTxt(CommonParams):
         synapses = load(self.input().path)
         write_nrn.write_user_target(self.output().path,
                                     synapses,
-                                    name='proj_Thalamocortical_VPM_Source')
+                                    name=self.target_name)
 
     def output(self):
         return LocalTarget('{}/user.target'.format(self.folder))
@@ -137,12 +138,9 @@ class SynapseCountPerConnectionL4PC(JsonTask):  # pragma: no cover
 
     def run(self):
         connections = load(self.input().path)
-        l4_pc_mtypes = ['L4_PC', 'L4_UPC', 'L4_TPC']
 
-        # pylint: disable=maybe-no-member
-        l4_pc_cells = connections[(connections.mtype.isin(l4_pc_mtypes)) &
-                                  (connections.kept)]
-        mean = l4_pc_cells.loc[:, '0'].mean()
+        mask = (connections.mtype.isin(self.target_mtypes)) & (connections.kept)
+        mean = connections[mask].connection_size.mean()
         if np.isnan(mean):
             raise Exception('SynapseCountPerConnectionL4PC returned NaN')
         with self.output().open('w') as outputf:

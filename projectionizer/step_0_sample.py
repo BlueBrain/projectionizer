@@ -6,9 +6,8 @@ import os
 import numpy as np
 import pandas as pd
 import voxcell
-import yaml
 
-from luigi import BoolParameter, FloatParameter, IntParameter, Parameter
+from luigi import BoolParameter, FloatParameter, IntParameter, ListParameter
 from projectionizer.luigi_utils import FeatherTask, JsonTask, NrrdTask
 from projectionizer.sscx import REGION_INFO, recipe_to_height_and_density
 from projectionizer.synapses import (build_synapses_CA3_CA1,
@@ -61,7 +60,7 @@ class Height(NrrdTask):  # pragma: no cover
             distance.raw[np.invert(mask)] = 0.
         elif self.geometry == 'hex':
             from projectionizer.sscx_hex import voxel_space
-            max_height = sum(h for _, h in yaml.load(self.layers))
+            max_height = sum(h for _, h in self.layers)  # pylint: disable=not-an-iterable
             fiber_locations = self.load_data(self.hex_fiber_locations)
             voxels = voxel_space(hex_edge_len=self.hex_side,
                                  locations_path=fiber_locations,
@@ -120,19 +119,19 @@ class FullSample(FeatherTask):  # pragma: no cover
 
 class SynapseDensity(JsonTask):  # pragma: no cover
     '''Return the synaptic density profile'''
-    density_params = Parameter()
+    density_params = ListParameter()
 
     def run(self):
         if self.geometry == 'CA3_CA1':
-            res = yaml.load(self.density_params)
+            res = self.density_params
         else:
-            density_params = yaml.load(self.density_params)
-            res = [recipe_to_height_and_density(yaml.load(self.layers),
+            density_params = self.density_params
+            res = [recipe_to_height_and_density(self.layers,
                                                 data['low_layer'],
                                                 data['low_fraction'],
                                                 data['high_layer'],
                                                 data['high_fraction'],
                                                 data['density_profile'])
-                   for data in density_params]
+                   for data in density_params]  # pylint: disable=not-an-iterable
         with self.output().open('w') as outfile:
             json.dump(res, outfile)

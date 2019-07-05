@@ -48,8 +48,11 @@ class ReduceGroupByConnection(luigi_utils.FeatherTask):
 
     def run(self):  # pragma: no cover
         dfs = load_all(self.input())
-        fat = pd.concat(dfs, ignore_index=True)
-        res = fat.groupby(['mtype', 'sgid', 'tgid']).size().reset_index()
+        res = (pd.concat(dfs, ignore_index=True)
+               .groupby(['mtype', 'sgid', 'tgid'])
+               .size()
+               .reset_index(name='connection_size')
+               )
         write_feather(self.output().path, res)
 
 
@@ -97,9 +100,10 @@ class CutoffMeans(luigi_utils.FeatherTask):
         mtypes, dfs = zip(*not_empty_mtypes)
 
         fraction_to_remove = 1 - 1 / self.oversampling
-        cutoffs = [find_cutoff_mean_per_mtype(df.loc[:, '0'].value_counts(sort=False).sort_index(),
-                                              fraction_to_remove)
-                   for df in dfs]
+        cutoffs = [
+            find_cutoff_mean_per_mtype(df.connection_size.value_counts(sort=False).sort_index(),
+                                       fraction_to_remove)
+            for df in dfs]
         res = pd.DataFrame({'mtype': pd.Series(mtypes, dtype='category'),
                             'cutoff': cutoffs})
         write_feather(self.output().path, res)
@@ -126,7 +130,7 @@ class ChooseConnectionsToKeep(luigi_utils.FeatherTask):
         df = mtype_sgid_tgid.merge(cutoff_means, how='left', on='mtype')
         if self.oversampling > 1.0:
             df['random'] = np.random.random(size=len(df))
-            df['proba'] = norm.cdf(df.loc[:, '0'], df['cutoff'], self.cutoff_var)
+            df['proba'] = norm.cdf(df.connection_size, df['cutoff'], self.cutoff_var)
             df['kept'] = df['random'] < df['proba']
         else:
             df['kept'] = True

@@ -5,6 +5,7 @@ import re
 import pkg_resources
 
 from luigi import (Config, FloatParameter, IntParameter, Parameter, Task,
+                   ListParameter,
                    )
 from luigi.contrib.simulate import RunAnywayTarget
 from luigi.local_target import LocalTarget
@@ -35,7 +36,8 @@ class CommonParams(Config):
     n_total_chunks = IntParameter()
     sgid_offset = IntParameter()
     oversampling = FloatParameter()
-    layers = Parameter()  # list of pairs of (layer name, thickness), starting at 'bottom'
+    layers = ListParameter()  # list of pairs of (layer name, thickness), starting at 'bottom'
+    target_mtypes = ListParameter(default=['L4_PC', 'L4_UPC', 'L4_TPC', ])  # list of mtypes
 
     # S1HL/S1 region parameters
     voxel_path = Parameter(default='')

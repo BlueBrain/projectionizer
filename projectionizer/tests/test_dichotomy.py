@@ -1,11 +1,10 @@
 import json
 
-from luigi import FloatParameter, LocalTarget, Parameter, Task, build, run
+from luigi import FloatParameter, LocalTarget, Parameter, Task, build
 from nose.tools import ok_
-from numpy.testing import assert_allclose, assert_equal
+from numpy.testing import assert_equal
 
 from projectionizer.dichotomy import Dichotomy
-from projectionizer.luigi_utils import RunAnywayTargetTempDir
 
 from utils import setup_tempdir
 
@@ -50,21 +49,6 @@ class MismatchLinearTask(Task):
     def output(self):
         return LocalTarget('{}/MismatchLinearTask-{}.json'.format(self.folder,
                                                                   self.param))
-
-
-class TestDichotomy(Task):
-    folder = Parameter()
-
-    def requires(self):
-        return self.clone(Dichotomy, folder=self.folder)
-
-    def run(self):
-        with self.input().open() as inputf:
-            assert_allclose(json.load(inputf)['param'], -47, atol=0.5)
-        self.output().done()
-
-    def output(self):
-        return RunAnywayTargetTempDir(self, self.folder)
 
 
 def test_dichotomy():
