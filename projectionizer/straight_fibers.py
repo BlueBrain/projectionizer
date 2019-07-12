@@ -2,6 +2,7 @@
 Functions related to calculating distances to straight fibers, like the ones used in the SSCX
 hex and S1
 '''
+from functools import partial
 import logging
 
 import numpy as np
@@ -9,7 +10,7 @@ from numpy import matlib
 import pandas as pd
 from scipy.stats import norm  # pylint: disable=no-name-in-module
 
-from projectionizer.utils import choice, XYZUVW, IJK, XYZ
+from projectionizer.utils import choice, map_parallelize, XYZUVW, IJK, XYZ
 
 L = logging.getLogger(__name__)
 
@@ -56,6 +57,15 @@ def calc_pathlength_to_fiber_start(locations, sgid_fibers):
     return distances
 
 
+def _closest_fibers_per_voxel(pos, virtual_fibers, closest_count):
+    '''get closest_count closest virtual fibers for positions in pos'''
+    distances = calc_distances(pos, virtual_fibers[XYZUVW].values)
+    closest_count = min(closest_count, distances.shape[1] - 1)
+    fiber_idx = np.argpartition(distances, closest_count, axis=1)[:, :closest_count]
+    fibers = pd.DataFrame(virtual_fibers.index[fiber_idx].values)
+    return fibers
+
+
 def closest_fibers_per_voxel(synapse_counts, virtual_fibers, closest_count):
     '''for each occupied voxel in `synapse_counts`, find the `closest_count` number
     of virtual fibers to it
@@ -67,13 +77,14 @@ def closest_fibers_per_voxel(synapse_counts, virtual_fibers, closest_count):
     ijks = np.transpose(np.nonzero(synapse_counts.raw))
     pos = synapse_counts.indices_to_positions(ijks)
     pos += synapse_counts.voxel_dimensions / 2.
-    distances = calc_distances(pos, virtual_fibers[XYZUVW].values)
 
-    closest_count = min(closest_count, distances.shape[1] - 1)
+    split_count = len(pos) // 1000 + 1
+    fibers = map_parallelize(partial(_closest_fibers_per_voxel,
+                                     virtual_fibers=virtual_fibers,
+                                     closest_count=closest_count),
+                             np.array_split(pos, split_count))
+    fibers = pd.concat(fibers, sort=False, ignore_index=True)
 
-    # get closest_count closest virtual fibers
-    partition = np.argpartition(distances, closest_count, axis=1)[:, :closest_count]
-    fibers = pd.DataFrame(virtual_fibers.index[partition].values)
     return pd.concat([fibers, pd.DataFrame(ijks, columns=IJK)], axis=1)
 
 
