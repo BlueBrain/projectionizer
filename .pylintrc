@@ -1,5 +1,7 @@
 [MESSAGES CONTROL]
-disable=bad-continuation,fixme,invalid-name,len-as-condition,no-else-return,useless-object-inheritance
+# TODO: remove consider-using-f-string after moving to GitLab and mitigate the issue.
+# Also, consider disabling unsubscriptable-object project-wide as it keeps breaking the CI checks.
+disable=bad-continuation,fixme,invalid-name,len-as-condition,no-else-return,useless-object-inheritance,consider-using-f-string
 
 [FORMAT]
 # Maximum number of characters on a single line.

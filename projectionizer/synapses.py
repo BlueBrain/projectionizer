@@ -197,8 +197,10 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
     if segs_df is None:
         return None
 
+    # pylint: disable=unsubscriptable-object
     starts = segs_df[SEGMENT_START_COLS].to_numpy().astype(np.float)
     ends = segs_df[SEGMENT_END_COLS].to_numpy().astype(np.float)
+    # pylint: enable=unsubscriptable-object
 
     # keep only the segments whose midpoints are in the current voxel
     in_bb = pd.DataFrame((ends + starts) / 2., columns=list('xyz'), index=segs_df.index)

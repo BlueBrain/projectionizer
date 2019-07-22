@@ -218,3 +218,14 @@ def convert_to_smallest_allowed_int_type(data):
             return int_type(data)
 
     return data
+
+
+@contextmanager
+def delete_file_on_exception(path):
+    '''Delete the file on given path if an exception is thrown in the body'''
+    try:
+        yield
+    except:  # noqa pylint: disable=bare-except
+        if os.path.exists(path):
+            os.unlink(path)
+        raise
