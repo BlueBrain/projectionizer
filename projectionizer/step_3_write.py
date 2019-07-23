@@ -4,16 +4,17 @@ import json
 import logging
 import os
 import traceback
+from functools import partial
 
 import numpy as np
 
-from luigi import FloatParameter, IntParameter, Parameter
+from luigi import FloatParameter, IntParameter, Parameter, DictParameter
 from luigi.local_target import LocalTarget
 from projectionizer.luigi_utils import CommonParams, CsvTask, JsonTask, RunAnywayTargetTempDir
 from projectionizer.step_1_assign import VirtualFibersNoOffset
 from projectionizer.step_2_prune import ChooseConnectionsToKeep, ReducePrune
 from projectionizer.utils import load, ignore_exception
-from projectionizer import write_nrn
+from projectionizer import write_nrn, write_syn2
 
 L = logging.getLogger(__name__)
 
@@ -161,15 +162,60 @@ class WriteNrnH5Efferent(CommonParams):  # pragma: no cover
         return LocalTarget('{}/{}'.format(self.folder, name))
 
 
-class WriteAll(CommonParams):  # pragma: no cover
-    """Run all write tasks"""
+class WriteSyn2(CommonParams):
+    '''write proj_nrn.syn2'''
+    synapse_parameters = DictParameter()
+    # micron/ms, from original Projectionizer: InputMappers.py
+    conduction_velocity = FloatParameter(default=300.)
 
     def requires(self):
-        return [self.clone(WriteNrnH5Efferent),
-                self.clone(WriteSummary),
-                self.clone(WriteUserTargetTxt),
-                self.clone(SynapseCountPerConnectionTarget),
-                ]
+        return self.clone(ReducePrune)
+
+    def run(self):
+        try:
+            # pylint thinks load() isn't returning a DataFrame
+            # pylint: disable=maybe-no-member
+            syns = load(self.input().path)
+            syns['offset'] = syns['synapse_offset']
+
+            # currently only support a single synapse type
+            syns['synapse_type_name'] = 0
+
+            syns['delay'] = (syns['sgid_path_distance'].values / self.conduction_velocity)
+
+            synapse_data_creator = partial(write_syn2.create_synapse_data,
+                                           synapse_data=self.synapse_parameters)
+            write_syn2.write_synapses(syns,
+                                      self.output().path,
+                                      synapse_data_creator)
+        except Exception as e:
+            traceback.print_exc()
+            with ignore_exception(OSError):
+                os.remove(self.output().path)
+            raise e
+
+    def output(self):
+        name = 'proj_nrn.syn2'
+        return LocalTarget('{}/{}'.format(self.folder, name))
+
+
+class WriteAll(CommonParams):  # pragma: no cover
+    """Run all write tasks"""
+    output_type = Parameter(default='nrn')
+
+    def requires(self):
+        output_type = str(self.output_type).lower()
+        if output_type == 'nrn':
+            return [self.clone(WriteNrnH5Efferent),
+                    self.clone(WriteSummary),
+                    self.clone(WriteUserTargetTxt),
+                    self.clone(SynapseCountPerConnectionTarget),
+                    ]
+        elif output_type == 'syn2':
+            return [self.clone(WriteSyn2),
+                    ]
+
+        raise Exception('unknown synapse output type: %s' % self.output_type)
 
     def run(self):
         self.output().done()

@@ -104,10 +104,10 @@ def in_bounding_box(min_xyz, max_xyz, df):
 
     df must have ['x', 'y', 'z'] columns
     '''
-    ret = ((min_xyz[X] < df['x']) & (df['x'] < max_xyz[X]) &
-           (min_xyz[Y] < df['y']) & (df['y'] < max_xyz[Y]) &
-           (min_xyz[Z] < df['z']) & (df['z'] < max_xyz[Z]))
-    return ret
+    ret = ((min_xyz[X] < df['x'].values) & (df['x'].values < max_xyz[X]) &
+           (min_xyz[Y] < df['y'].values) & (df['y'].values < max_xyz[Y]) &
+           (min_xyz[Z] < df['z'].values) & (df['z'].values < max_xyz[Z]))
+    return pd.Series(ret, index=df.index)
 
 
 def choice(probabilities):
