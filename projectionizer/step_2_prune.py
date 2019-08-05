@@ -149,11 +149,18 @@ class ChooseConnectionsToKeep(luigi_utils.FeatherTask):
 
 
 class PruneChunk(luigi_utils.FeatherTask):
-    '''
+    '''Write out connections to keep for a subset of the samples (ie: chunk)
+
     Args:
-        chunk_num(float):
+        chunk_num(int): which chunk
+        additive_path_distance(float): distance added to sgid_path_distance,
+        can be used to add delay to cope with neurodamus requiring a minimum
+        delay > dt
+
+    Note: this also assigns the 'sgid_path_distance'
     '''
     chunk_num = luigi.IntParameter()
+    additive_path_distance = luigi.FloatParameter(default=0.)
 
     def requires(self):  # pragma: no cover
         return (self.clone(task) for task in [ChooseConnectionsToKeep,
@@ -166,24 +173,27 @@ class PruneChunk(luigi_utils.FeatherTask):
         # pylint: disable=maybe-no-member
         connections, sample, sgids, fibers = load_all(self.input())
         sample.rename(columns={'gid': 'tgid'}, inplace=True)
+
         is_kept = connections[['sgid', 'tgid', 'kept']]
         assert len(sgids) == len(sample)
+
         fat = sample.join(sgids).merge(is_kept, how='left', on=['tgid', 'sgid'])
-        pruned = fat[fat['kept']]
-        pruned_no_apron = (pd.merge(pruned, fibers[~fibers.apron][['apron']],
+        pruned_no_apron = (pd.merge(fat[fat['kept']],
+                                    fibers[~fibers.apron][['apron']],
                                     left_on='sgid', right_index=True)
                            .drop(['kept', 'apron'], axis=1)
                            .reset_index(drop=True))
 
-        pruned_no_apron['sgid_path_distance'] = straight_fibers.calc_pathlength_to_fiber_start(
+        distance = straight_fibers.calc_pathlength_to_fiber_start(
             pruned_no_apron[list('xyz')].values,
             fibers[list('xyzuvw')].iloc[pruned_no_apron['sgid']].values)
+        pruned_no_apron['sgid_path_distance'] = distance + self.additive_path_distance
+
         write_feather(self.output().path, pruned_no_apron)
 
 
 class ReducePrune(luigi_utils.FeatherTask):
-    '''Load all pruned chunks, and concat them together
-    '''
+    '''Load all pruned chunks, and concat them together '''
 
     def requires(self):  # pragma: no cover
         return [self.clone(PruneChunk, chunk_num=i) for i in range(self.n_total_chunks)]
