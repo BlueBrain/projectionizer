@@ -10,8 +10,8 @@ import voxcell
 from luigi import BoolParameter, FloatParameter, IntParameter, ListParameter
 from projectionizer.luigi_utils import FeatherTask, JsonTask, NrrdTask
 from projectionizer.sscx import REGION_INFO, recipe_to_height_and_density
-from projectionizer.synapses import (build_synapses_CA3_CA1,
-                                     build_synapses_default, pick_synapses)
+from projectionizer.synapses import (build_synapses_default,
+                                     pick_synapses)
 from projectionizer.utils import load, load_all, mask_by_region, write_feather
 
 
@@ -21,21 +21,13 @@ class VoxelSynapseCount(NrrdTask):  # pragma: no cover
     oversampling = FloatParameter()
 
     def requires(self):
-        if self.geometry == 'CA3_CA1':
-            return self.clone(SynapseDensity)
         return self.clone(Height), self.clone(SynapseDensity)
 
     def run(self):
-        if self.geometry == 'CA3_CA1':
-            synapse_density = load(self.input().path)
-            res = build_synapses_CA3_CA1(synapse_density, self.voxel_path,
-                                         self.prefix, self.oversampling)
-            res.save_nrrd(self.output().path)
-        else:
-            height, synapse_density = load_all(self.input())
-            res = build_synapses_default(
-                height, synapse_density, self.oversampling)
-            res.save_nrrd(self.output().path)
+        height, synapse_density = load_all(self.input())
+        res = build_synapses_default(
+            height, synapse_density, self.oversampling)
+        res.save_nrrd(self.output().path)
 
 
 class Height(NrrdTask):  # pragma: no cover
@@ -51,7 +43,7 @@ class Height(NrrdTask):  # pragma: no cover
     '''
 
     def run(self):
-        if self.geometry in ('s1hl', 's1', 'CA3_CA1'):
+        if self.geometry in ('s1hl', 's1', ):
             prefix = self.prefix or ''
             region = REGION_INFO[self.geometry]['region']
             mask = mask_by_region(region, self.voxel_path, prefix)
@@ -122,16 +114,12 @@ class SynapseDensity(JsonTask):  # pragma: no cover
     density_params = ListParameter()
 
     def run(self):
-        if self.geometry == 'CA3_CA1':
-            res = self.density_params
-        else:
-            density_params = self.density_params
-            res = [recipe_to_height_and_density(self.layers,
-                                                data['low_layer'],
-                                                data['low_fraction'],
-                                                data['high_layer'],
-                                                data['high_fraction'],
-                                                data['density_profile'])
-                   for data in density_params]  # pylint: disable=not-an-iterable
+        res = [recipe_to_height_and_density(self.layers,
+                                            data['low_layer'],
+                                            data['low_fraction'],
+                                            data['high_layer'],
+                                            data['high_fraction'],
+                                            data['density_profile'])
+               for data in self.density_params]  # pylint: disable=not-an-iterable
         with self.output().open('w') as outfile:
             json.dump(res, outfile)

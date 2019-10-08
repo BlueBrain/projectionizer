@@ -1,19 +1,18 @@
 '''Functions for picking synpases'''
-import json
 import logging
 import os
 from functools import partial
 
 import numpy as np
 import pandas as pd
-import voxcell
 from bluepy.v2.enums import Section, Segment
 from bluepy.v2.index import SegmentIndex
 from neurom import NeuriteType
 from tqdm import tqdm
 
-from projectionizer.utils import (ErrorCloseToZero, in_bounding_box,
-                                  map_parallelize, mask_by_region,
+from projectionizer.utils import (ErrorCloseToZero,
+                                  in_bounding_box,
+                                  map_parallelize,
                                   normalize_probability)
 
 L = logging.getLogger(__name__)
@@ -44,20 +43,6 @@ def build_synapses_default(height, synapse_density, oversampling):
             raw[idx] = int(voxel_volume * density * oversampling)
 
     return height.with_data(raw)
-
-
-def build_synapses_CA3_CA1(synapse_density, voxel_path, prefix, oversampling):  # pragma: no cover
-    '''Build voxel count from densities according to regions'''
-    atlas = voxcell.VoxelData.load_nrrd(os.path.join(voxel_path, prefix + 'brain_regions.nrrd'))
-    raw = np.zeros_like(atlas.raw, dtype=np.uint)
-    with open(os.path.join(voxel_path, 'hierarchy.json')) as fd:
-        region_data = json.load(fd)
-
-    for region in region_data['children']:
-        for sub_region in region['children']:
-            mask = mask_by_region([sub_region['id']], voxel_path, prefix)
-            raw[mask] = int(synapse_density[sub_region['name']] * atlas.voxel_volume * oversampling)
-    return atlas.with_data(raw)
 
 
 def _min_max_axis(min_xyz, max_xyz):

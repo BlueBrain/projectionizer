@@ -5,8 +5,8 @@ from projectionizer.version import VERSION as __version__  # pylint: disable=W06
 from projectionizer.step_0_sample import (VoxelSynapseCount, Height, FullSample,
                                           SampleChunk, SynapseDensity)
 from projectionizer.step_1_assign import (VirtualFibersNoOffset, ClosestFibersPerVoxel,
-                                          SynapseIndices, CandidateFibersPerSynapse, Centroids,
-                                          SynapticDistributionPerAxon, FiberAssignment)
+                                          SynapseIndices, CandidateFibersPerSynapse,
+                                          FiberAssignment)
 from projectionizer.step_2_prune import (GroupByConnection, ReduceGroupByConnection, CutoffMeans,
                                          ChooseConnectionsToKeep, PruneChunk, ReducePrune)
 from projectionizer.step_3_write import (WriteSummary, WriteNrnH5, WriteUserTargetTxt,

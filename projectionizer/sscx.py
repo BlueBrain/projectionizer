@@ -14,8 +14,7 @@ REGION_INFO = {'s1hl': {'region': 'primary somatosensory cortex, hindlimb region
                         'layer6': 'primary somatosensory cortex, hindlimb region, layer 6'},
                's1': {'region': [725, 726, 728, 730, ],
                       'layer6': [1124, 1130, 1142, 1148, ], },
-               'CA3_CA1': {'region': [725, 726, 728, 730, ],
-                           'layer6': [1124, 1130, 1142, 1148, ], }}
+               }
 
 
 def column_layers(layers):
