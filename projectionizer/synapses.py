@@ -67,7 +67,9 @@ def _min_max_axis(min_xyz, max_xyz):
 
 def _sample_with_flat_index(index_path, min_xyz, max_xyz):
     '''use flat index to get segments within min_xyz, max_xyz'''
-    import libFLATIndex as FI
+    #  this is loaded late so that multiprocessing loads it outside of the main
+    #  python binary - at one point, this was necessary, as there was shared state
+    import libFLATIndex as FI  # pylint: disable=import-outside-toplevel
     try:
         index = FI.loadIndex(str(os.path.join(index_path, 'SEGMENT')))  # pylint: disable=no-member
         min_xyz_ = tuple(map(float, min_xyz))
