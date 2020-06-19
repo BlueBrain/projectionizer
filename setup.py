@@ -12,7 +12,7 @@ setup(
     install_requires=[
         'toolz>=0.8',
         'partd>=0.3',
-        'luigi>=2.7',
+        'luigi>=2.7,<3.0',
         'tables>=3.4',
         'pyarrow>=0.11.1',
         # BBP
@@ -32,4 +32,5 @@ setup(
     license='BBP-internal-confidential',
     url='http://bluebrain.epfl.ch',
     include_package_data=True,
+    python_requires='>=2.7,<3',
 )
