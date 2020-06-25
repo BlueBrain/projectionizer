@@ -33,6 +33,9 @@ DATASETS_TYPES = {'connected_neurons_pre': 'i8',
                   # guessing on this, not in syn2 spec
                   'morpho_segment_id_post': 'i8',
                   'morpho_offset_segment_post': 'f',
+
+                  'conductance_scale_factor': 'f',
+                  'u_hill_coefficient': 'f',
                   }
 
 # physiology properties, dispached to _distribute_param
@@ -43,6 +46,8 @@ DATASET_PHYSIOLOGY_MAP = {
     'facilitation_time': 'F',
     'decay_time': 'dtc',
     'n_rrp_vesicles': 'nrrp',
+    'conductance_scale_factor': 'conductance_scale_factor',
+    'u_hill_coefficient': 'u_hill_coefficient',
 }
 
 # properties that can be directly copied from DataFrame to output
@@ -61,6 +66,15 @@ DATASETS_DIRECT_MAP = {
 #  &page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel
 #  #comment-84681
 TRUNCATED_MAX_STDDEV = 1.
+
+OPTIONAL_PARAMETERS = [
+    'conductance_scale_factor',
+    'u_hill_coefficient',
+]
+
+
+class OptionalParameterException(Exception):
+    '''Raised if optional parameter not given.'''
 
 
 def _truncated_gaussian(mean, std, count, truncated_max_stddev=TRUNCATED_MAX_STDDEV):
@@ -86,8 +100,14 @@ def _distribute_param(df, synapse_data, prop, dtype):
     ret = np.empty(len(df), dtype=dtype)
     for synapse_type_name, frame in df.reset_index().groupby('synapse_type_name'):
         dist = synapse_data['type_' + str(int(synapse_type_name))]
+
+        if prop in OPTIONAL_PARAMETERS and DATASET_PHYSIOLOGY_MAP[prop] not in dist['physiology']:
+            raise OptionalParameterException('Optional parameter not given.')
+
         dist = dist['physiology'][DATASET_PHYSIOLOGY_MAP[prop]]['distribution']
-        assert dist['name'] in ('uniform_int', 'truncated_gaussian'), 'unknown distribution'
+        assert dist['name']\
+            in ('uniform_int', 'truncated_gaussian', 'fixed_value'),\
+            'unknown distribution'
 
         if dist['name'] == 'uniform_int':
             low, high = dist['params']['min'], dist['params']['max']
@@ -95,6 +115,8 @@ def _distribute_param(df, synapse_data, prop, dtype):
         elif dist['name'] == 'truncated_gaussian':
             mean, std = dist['params']['mean'], dist['params']['std']
             ret[frame.index] = _truncated_gaussian(mean, std, len(frame))
+        elif dist['name'] == 'fixed_value':
+            ret[frame.index] = dist['params']['value']
     return ret
 
 
@@ -151,5 +173,8 @@ def write_synapses(syns, output, synapse_data_creator, datasets_types=None):
         properties = h5.create_group(DEFAULT_GROUP)
         for name, dtype in datasets_types.items():
             L.debug('Writing %s[%s]', output, name)
-            properties.create_dataset(name,
-                                      data=synapse_data_creator(name, dtype, syns))
+            try:
+                properties.create_dataset(name,
+                                          data=synapse_data_creator(name, dtype, syns))
+            except OptionalParameterException:
+                L.info('Optional parameter %s not given', name)

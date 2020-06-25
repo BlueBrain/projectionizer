@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from nose.tools import eq_, ok_
-from numpy.testing import assert_allclose
+from numpy.testing import assert_allclose, assert_raises
 
 from projectionizer import write_syn2
 from utils import setup_tempdir
@@ -63,7 +63,9 @@ def test__distribute_param():
          {'gsyn': {'distribution': {'name': 'truncated_gaussian',
                                     'params': {'mean': 1., 'std': 1.}}},
           'nrrp': {'distribution': {'name': 'uniform_int',
-                                    'params': {'min': 0, 'max': 10}}}
+                                    'params': {'min': 0, 'max': 10}}},
+          'u_hill_coefficient': {'distribution': {'name': 'fixed_value',
+                                                  'params': {'value': 2.79}}}
           },
          },
         'type_1':
@@ -71,7 +73,9 @@ def test__distribute_param():
          {'gsyn': {'distribution': {'name': 'truncated_gaussian',
                                     'params': {'mean': 0.1, 'std': 0.1}}},
           'nrrp': {'distribution': {'name': 'uniform_int',
-                                    'params': {'min': 10, 'max': 20}}}
+                                    'params': {'min': 10, 'max': 20}}},
+          'u_hill_coefficient': {'distribution': {'name': 'fixed_value',
+                                                  'params': {'value': 2.79}}}
           },
          },
         }
@@ -81,6 +85,12 @@ def test__distribute_param():
 
     ret = write_syn2._distribute_param(syns, synapse_data, prop='n_rrp_vesicles', dtype=np.int)
     assert_allclose(ret, [8, 10, 1, 16, 17])
+
+    with assert_raises(write_syn2.OptionalParameterException):
+        ret = write_syn2._distribute_param(syns, synapse_data, prop='conductance_scale_factor', dtype=np.float)
+
+    ret = write_syn2._distribute_param(syns, synapse_data, prop='u_hill_coefficient', dtype=np.float)
+    assert_allclose(ret, np.ones(len(syns)) * 2.79)
 
 
 def test_create_synapse_data():
@@ -122,3 +132,4 @@ def test__truncated_gaussian():
     ok_(np.all(ret > 0.))
 
     ok_(np.all(ret < mean + 10. * std))
+
