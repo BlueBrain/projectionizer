@@ -78,6 +78,7 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
         segment_pref(callable (df -> floats)): function to assign probabilities per segment
         dataframe_cleanup(callable (df -> df)): function to remove any unnecessary columns
         and do other processing, *must do all operations in place*, None if not needed
+
     Returns:
         DataFrame with `WANTED_COLS`
     '''
@@ -88,23 +89,19 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
     if segs_df is None:
         return None
 
-    starts = segs_df[SEGMENT_START_COLS].values
-    ends = segs_df[SEGMENT_END_COLS].values
+    starts = segs_df[SEGMENT_START_COLS].to_numpy().astype(np.float)
+    ends = segs_df[SEGMENT_END_COLS].to_numpy().astype(np.float)
 
-    # pick point somewhere along the segment
-    alpha = np.random.random_sample((len(segs_df), 1))
-    locations = alpha * starts + (1. - alpha) * ends
-    locations = pd.DataFrame(locations, columns=list('xyz'))
-    in_bb = in_bounding_box(*_min_max_axis(min_xyz, max_xyz), df=locations)
-    segs_df = segs_df.join(locations)[in_bb].copy()
+    # keep only the segments whose midpoints are in the current voxel
+    in_bb = pd.DataFrame((ends + starts) / 2., columns=list('xyz'), index=segs_df.index)
+    in_bb = in_bounding_box(*_min_max_axis(min_xyz, max_xyz), df=in_bb)
 
-    if not segs_df[SEGMENT_START_COLS].size:
+    segs_df = segs_df[in_bb].copy()
+
+    if len(segs_df) == 0:
         return None
 
-    starts = segs_df[SEGMENT_START_COLS].values.astype(np.float)
-    ends = segs_df[SEGMENT_END_COLS].values.astype(np.float)
-    segs_df['segment_length'] = np.linalg.norm(ends - starts, axis=1)
-    segs_df['synapse_offset'] = alpha[in_bb].ravel() * segs_df['segment_length']
+    segs_df['segment_length'] = np.linalg.norm(ends[in_bb] - starts[in_bb], axis=1)
 
     prob_density = segment_pref(segs_df)
     try:
@@ -113,8 +110,19 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
         return None
 
     picked = np.random.choice(np.arange(len(segs_df)), size=count, replace=True, p=prob_density)
+    segs_df = segs_df.iloc[picked].reset_index()
 
-    segs_df = segs_df[WANTED_COLS].iloc[picked]
+    alpha = np.random.random(size=len(segs_df))
+
+    segs_df['synapse_offset'] = alpha * segs_df['segment_length']
+
+    segs_df = segs_df.join(
+        pd.DataFrame(alpha[:, None] * segs_df[SEGMENT_START_COLS].to_numpy().astype(np.float) +
+                     (1. - alpha[:, None]) * segs_df[SEGMENT_END_COLS].to_numpy().astype(np.float),
+                     columns=list('xyz'),
+                     index=segs_df.index))
+
+    segs_df = segs_df[WANTED_COLS]
 
     if dataframe_cleanup is not None:
         dataframe_cleanup(segs_df)

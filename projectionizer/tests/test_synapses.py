@@ -56,7 +56,11 @@ def test_pick_synapses_voxel():
     with patch('projectionizer.synapses._sample_with_flat_index') as mock_sample:
         mock_sample.return_value = _fake_segments(min_xyz, max_xyz, 2 * count)
 
-        xyz_count = (min_xyz, max_xyz, count)
+        # ask for duplicates, to make sure locations are different, eventhough
+        # the same segment is being used
+        count *= 10
+
+        xyz_count = min_xyz, max_xyz, count
         segs_df = synapses.pick_synapses_voxel(xyz_count,
                                                circuit_path,
                                                mock_segment_pref,
@@ -66,30 +70,44 @@ def test_pick_synapses_voxel():
         ok_('x' in segs_df.columns)
         ok_('segment_length' in segs_df.columns)
 
-    #with patch('projectionizer.synapses.FI') as mock_FI, \
-    #    patch('projectionizer.synapses.SegmentIndex') as mock_si:
+        # make sure locations are different
+        eq_(len(segs_df), len(segs_df.drop_duplicates()))
 
-    #    mock_si._wrap_result.return_value = _fake_segments(min_xyz, max_xyz, 2 * count)
+        # no segments with their midpoint in the voxel
+        xyz_count = np.array([10, 10, 10]), np.array([11, 11, 11]), count
+        segs_df = synapses.pick_synapses_voxel(xyz_count,
+                                               circuit_path,
+                                               mock_segment_pref,
+                                               dataframe_cleanup=None
+                                               )
+        ok_(segs_df is None)
 
-    #    xyz_count = (min_xyz, max_xyz, count)
-    #    segs_df = synapses.pick_synapses_voxel(xyz_count, circuit_path, mock_segment_pref)
-    #    eq_(count, len(segs_df))
-    #    ok_('x' in segs_df.columns)
-    #    ok_('segment_length' in segs_df.columns)
+        # single segment with its midpoint in the voxel
+        segments = _fake_segments(min_xyz, max_xyz, 2 * count)
+        segments.iloc[0][[Segment.X1, Segment.Y1, Segment.Z1,
+                          Segment.X2, Segment.Y2, Segment.Z2]] = [10, 10, 10,
+                                                                  11, 11, 11]
+        mock_sample.return_value = segments
 
-    #    # segment_pref picks no synapses
-    #    segs_df = synapses.pick_synapses_voxel(xyz_count, circuit_path, lambda x: 0)
-    #    ok_(segs_df is None)
+        segs_df = synapses.pick_synapses_voxel(xyz_count,
+                                               circuit_path,
+                                               mock_segment_pref,
+                                               dataframe_cleanup=None
+                                               )
+        eq_(count, len(segs_df))
+        ok_('x' in segs_df.columns)
+        ok_('segment_length' in segs_df.columns)
+        eq_(len(segs_df), len(segs_df.drop_duplicates()))
 
-    #    # no segments found
-    #    mock_si._wrap_result.return_value = _fake_segments(min_xyz, max_xyz, count=0)
-    #    segs_df = synapses.pick_synapses_voxel(xyz_count, circuit_path, lambda x: 0)
-    #    ok_(segs_df is None)
+        # all get the same section/segment/gid, since only a single segment lies in the voxel
+        eq_(1, len(segs_df[[Section.ID, Segment.ID, 'gid']].drop_duplicates()))
 
-    #    # FI throws exception
-    #    mock_FI.numpy_windowQuery.side_effect = Exception()
-    #    segs_df = synapses.pick_synapses_voxel(xyz_count, circuit_path, lambda x: 0)
-    #    ok_(segs_df is None)
+        # segment_pref picks no synapses
+        segs_df = synapses.pick_synapses_voxel(xyz_count,
+                                               circuit_path,
+                                               lambda x: 0,
+                                               dataframe_cleanup=None)
+        ok_(segs_df is None)
 
 
 def test__min_max_axis():
