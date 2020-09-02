@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from voxcell.nexus.voxelbrain import Atlas
 from nose.tools import ok_, eq_
 from numpy.testing import assert_allclose, assert_equal
 
@@ -7,6 +8,8 @@ from voxcell import VoxelData
 from projectionizer import sscx
 from projectionizer.step_1_assign import assign_synapse_fiber
 from projectionizer.utils import choice
+
+from utils import TEST_DATA_DIR
 
 from mocks import (
     create_candidates,
@@ -97,3 +100,18 @@ def test_relative_distance_layer():
     assert_allclose(res.raw,
                      [[[0.5, 0.4],
                       [np.nan, 0.4]]])
+
+
+def test_get_fiber_directions():
+    # rotations for the positions in orientation.nrrd are:
+    # [0,...] : 90deg x-axiswise
+    # [1,...] : 90deg z-axiswise
+    # [2,...] : 180deg x-axiswise
+    fiber_pos = [[0, 0, 0], [1, 0, 0], [2, 0, 0]]
+    atlas = Atlas.open(TEST_DATA_DIR)
+    res = sscx.get_fiber_directions(fiber_pos, atlas, '')
+
+    assert_allclose(res,
+                    [(0, 0, 1),
+                     (-1, 0, 0),
+                     (0, -1, 0)], atol=1e-15)

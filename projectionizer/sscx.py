@@ -5,14 +5,22 @@ import os
 import numpy as np
 import pandas as pd
 import voxcell
+from voxcell.nexus.voxelbrain import Atlas
+import scipy.ndimage as nd
 
 from projectionizer.utils import mask_by_region, XYZUVW, load
 
 L = logging.getLogger(__name__)
 
 REGION_INFO = {'s1hl': {'region': 'primary somatosensory cortex, hindlimb region',
+                        'layer3': 'primary somatosensory cortex, hindlimb region, layer 3',
+                        'layer4': 'primary somatosensory cortex, hindlimb region, layer 4',
+                        'layer5': 'primary somatosensory cortex, hindlimb region, layer 5',
                         'layer6': 'primary somatosensory cortex, hindlimb region, layer 6'},
                's1': {'region': [725, 726, 728, 730, ],
+                      'layer3': [1121, 1127, 1139, 1145, ],
+                      'layer4': [1122, 1128, 1140, 1146, ],
+                      'layer5': [1123, 1129, 1141, 1147, ],
                       'layer6': [1124, 1130, 1142, 1148, ], },
                }
 
@@ -156,27 +164,78 @@ def recipe_to_height_and_density(layers,
             for low, density in zip(heights, density)]
 
 
+def get_fiber_positions(distance, geometry, voxel_path, prefix):
+    '''Get the fiber positions.
+
+    i.e., the positions of the voxels that lie on the border of L5 and L3/L4.
+    '''
+    layer5_region = REGION_INFO[geometry]['layer5']
+    layer4_region = REGION_INFO[geometry]['layer4']
+    layer3_region = REGION_INFO[geometry]['layer3']
+    mask5 = mask_by_region(layer5_region, voxel_path, prefix)
+    mask4 = mask_by_region(layer4_region, voxel_path, prefix)
+    mask3 = mask_by_region(layer3_region, voxel_path, prefix)
+
+    bd = nd.binary_dilation(mask4 | mask3)
+    mask = mask5 & bd
+    idx = np.transpose(np.where(mask))
+
+    return distance.indices_to_positions(idx)
+
+
+def get_fiber_directions(fiber_pos, atlas, prefix):
+    '''Get the fiber directions at fiber_pos positions.
+    '''
+    orientation = atlas.load_data(prefix + 'orientation', cls=voxcell.OrientationField)
+    orientation.raw = orientation.raw.astype(np.int8)
+    y_vec = np.array([0, 1, 0])
+    R = orientation.lookup(fiber_pos)
+
+    return np.matmul(R, y_vec)
+
+
+def mask_layer_6_bottom(distance, geometry, voxel_path, prefix):
+    '''Get the mask for the bottom of layer6.'''
+    layer6_region = REGION_INFO[geometry]['layer6']
+    mask6 = mask_by_region(layer6_region, voxel_path, prefix)
+    distance.raw[np.invert(mask6)] = np.nan
+    min_dist = np.min(distance.raw[np.isfinite(distance.raw)])
+
+    return distance.raw == min_dist
+
+
 def load_s1_virtual_fibers(geometry, voxel_path, prefix):
     '''get the s1 virtual fibers
 
-    One is 'created' for every voxel that is in layer 6 and has distance 0
+    Tracing back from L5/L43 boundary along the orientations to bottom of L6 and picking
+    those fibers that do hit the bottom of L6 voxels.
     '''
     prefix = prefix or ''
-    layer6_region = REGION_INFO[geometry]['layer6']
-    mask = mask_by_region(layer6_region, voxel_path, prefix)
-    distance = voxcell.VoxelData.load_nrrd(os.path.join(voxel_path, prefix + 'distance.nrrd'))
-    distance.raw[np.invert(mask)] = np.nan
-    idx = np.transpose(np.nonzero(distance.raw == 0.0))
-    fiber_pos = distance.indices_to_positions(idx)
+
+    atlas = Atlas.open(voxel_path)
+    distance = atlas.load_data(prefix + 'distance')
+    fiber_pos = get_fiber_positions(distance, geometry, voxel_path, prefix)
+    mask = mask_layer_6_bottom(distance, geometry, voxel_path, prefix)
 
     count = None  # should be a parameter
     if count is not None:
         fiber_pos = fiber_pos[np.random.choice(np.arange(len(fiber_pos)), count)]
 
-    orientation = voxcell.OrientationField.load_nrrd(
-        os.path.join(voxel_path, prefix + 'orientation.nrrd'))
-    orientation.raw = orientation.raw.astype(np.int8)
-    y_vec = np.array([0, 1, 0])
-    fiber_directions = -y_vec.dot(orientation.lookup(fiber_pos))
+    fiber_dir = get_fiber_directions(fiber_pos, atlas, prefix)
 
-    return pd.DataFrame(np.hstack((fiber_pos, fiber_directions)), columns=XYZUVW)
+    ret = []
+
+    # TODO: more effective way of tracing the fibers to bottom of L6.
+    for pos, dirs in zip(fiber_pos, fiber_dir):
+        try:
+            while not mask[tuple(distance.positions_to_indices(pos))]:
+                pos -= dirs * distance.voxel_dimensions[1]
+        except voxcell.exceptions.VoxcellError:
+            # Expecting out of bounds error
+            continue
+
+        ret.append(np.concatenate((pos, dirs)))
+
+    ret = np.vstack(ret)
+
+    return pd.DataFrame(ret, columns=XYZUVW)
