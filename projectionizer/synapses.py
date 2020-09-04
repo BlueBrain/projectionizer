@@ -33,13 +33,19 @@ def segment_pref_length(df):
 
 
 def build_synapses_default(height, synapse_density, oversampling):
-    '''Build voxel count from densities according to the height along the column'''
+    '''Build voxel count from densities according to the height along the column.
+
+    Height and densities can be in relative height <layer_index>.<fraction> format or absolute
+    values. (See: sscx.recipe_to_relative_height_and_density)
+    '''
     raw = np.zeros_like(height.raw, dtype=np.uint)  # pylint: disable=no-member
 
     voxel_volume = np.prod(np.abs(height.voxel_dimensions))
     for dist in synapse_density:
         for (bottom, density), (top, _) in zip(dist[:-1], dist[1:]):
-            idx = np.nonzero((bottom <= height.raw) & (height.raw < top))
+            with np.errstate(invalid='ignore'):  # ignore warning about nans in height.raw
+                idx = (bottom <= height.raw) & (height.raw < top)
+            idx = np.nonzero(np.nan_to_num(idx, 0))
             raw[idx] = int(voxel_volume * density * oversampling)
 
     return height.with_data(raw)

@@ -9,7 +9,10 @@ import voxcell
 
 from luigi import BoolParameter, FloatParameter, IntParameter, ListParameter
 from projectionizer.luigi_utils import FeatherTask, JsonTask, NrrdTask
-from projectionizer.sscx import REGION_INFO, recipe_to_height_and_density
+from projectionizer.sscx import (REGION_INFO,
+                                 recipe_to_relative_heights_per_layer,
+                                 recipe_to_relative_height_and_density,
+                                 recipe_to_height_and_density)
 from projectionizer.synapses import (build_synapses_default,
                                      pick_synapses)
 from projectionizer.utils import load, load_all, mask_by_region, write_feather
@@ -31,10 +34,10 @@ class VoxelSynapseCount(NrrdTask):  # pragma: no cover
 
 
 class Height(NrrdTask):  # pragma: no cover
-    '''return a VoxelData instance w/ all the heights for given region_name
+    '''return a VoxelData instance w/ all the layer-wise relative heights for given region_name
 
     distance is defined as from the voxel to the bottom of L6, voxels
-    outside of region_name are set to 0
+    outside of region_name are set to nan
 
     Args:
         region_name(str): name to look up in atlas
@@ -49,7 +52,8 @@ class Height(NrrdTask):  # pragma: no cover
             mask = mask_by_region(region, self.voxel_path, prefix)
             distance = voxcell.VoxelData.load_nrrd(
                 os.path.join(self.voxel_path, prefix + 'distance.nrrd'))
-            distance.raw[np.invert(mask)] = 0.
+            distance.raw[np.invert(mask)] = np.nan
+            distance = recipe_to_relative_heights_per_layer(distance, self.layers, self.voxel_path)
         elif self.geometry == 'hex':
             from projectionizer.sscx_hex import voxel_space
             max_height = sum(h for _, h in self.layers)  # pylint: disable=not-an-iterable
@@ -114,12 +118,21 @@ class SynapseDensity(JsonTask):  # pragma: no cover
     density_params = ListParameter()
 
     def run(self):
-        res = [recipe_to_height_and_density(self.layers,
-                                            data['low_layer'],
-                                            data['low_fraction'],
-                                            data['high_layer'],
-                                            data['high_fraction'],
-                                            data['density_profile'])
-               for data in self.density_params]  # pylint: disable=not-an-iterable
+        if self.geometry in ('s1hl', 's1', ):
+            res = [recipe_to_relative_height_and_density(self.layers,
+                                                         data['low_layer'],
+                                                         data['low_fraction'],
+                                                         data['high_layer'],
+                                                         data['high_fraction'],
+                                                         data['density_profile'])
+                   for data in self.density_params]  # pylint: disable=not-an-iterable
+        else:
+            res = [recipe_to_height_and_density(self.layers,
+                                                data['low_layer'],
+                                                data['low_fraction'],
+                                                data['high_layer'],
+                                                data['high_fraction'],
+                                                data['density_profile'])
+                   for data in self.density_params]  # pylint: disable=not-an-iterable
         with self.output().open('w') as outfile:
             json.dump(res, outfile)

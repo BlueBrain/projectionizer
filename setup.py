@@ -15,6 +15,7 @@ setup(
         'luigi>=2.7,<3.0',
         'tables>=3.4',
         'pyarrow>=0.11.1',
+        'pyrsistent==0.16.0',  # To fix a bug regarding py27 support of pyrsistent
         # BBP
         'bluepy>=0.10',
         'libFLATIndex>=1.8.11',

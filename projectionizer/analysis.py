@@ -1,6 +1,7 @@
 '''Plotting module'''
 import logging
 import os
+import json
 from itertools import chain, repeat
 
 import matplotlib
@@ -12,10 +13,12 @@ import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from bluepy.v2.circuit import Circuit
+import voxcell
+from voxcell.nexus.voxelbrain import Atlas
+from bluepy.v2 import Circuit, Cell
 
 from projectionizer.sscx_hex import get_minicol_virtual_fibers
-from projectionizer.luigi_utils import CommonParams, RunAnywayTargetTempDir
+from projectionizer.luigi_utils import CommonParams, RunAnywayTargetTempDir, JsonTask
 from projectionizer.step_0_sample import FullSample, SynapseDensity
 from projectionizer.step_2_prune import (ChooseConnectionsToKeep, CutoffMeans,
                                          ReducePrune)
@@ -79,6 +82,7 @@ def fill_voxels(voxel_like, coordinates):
 
 
 def synapse_density_per_voxel(folder, synapses, layers, distmap, oversampling, prefix=''):
+    # pylint: disable=too-many-locals
     '''2D-distribution: voxel height - voxel density'''
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
@@ -89,11 +93,21 @@ def synapse_density_per_voxel(folder, synapses, layers, distmap, oversampling, p
     counts = fill_voxels(heights, synapses[list('xyz')].values).raw / voxel_volume
     heights_counts = np.stack((heights.raw, counts), axis=3).reshape(-1, 2)
     heights_counts = heights_counts[heights_counts[:, 1] > 0]
+    total_height = np.sum(np.array(layers)[:, 1])
 
-    x = heights_counts[:, 0]
+    # Get the counts and heights for the distribution, fill the rest with zeros
+    x = relative_height_to_absolute(heights_counts[:, 0], layers)
     y = heights_counts[:, 1]
+    x_min_fill = np.array(range(int(np.min(heights_counts))))
+    x_max_fill = np.array(range(int(np.max(heights_counts)), int(total_height)))
+    y_min_fill = np.zeros_like(x_min_fill)
+    y_max_fill = np.zeros_like(x_max_fill)
+    x = np.hstack((x_min_fill, x, x_max_fill))
+    y = np.hstack((y_min_fill, y, y_max_fill))
+
     ax.hist2d(x, y, bins=40, label='synaptic density')
 
+    distmap = distmap_with_heights(distmap, layers)
     draw_distmap(ax, distmap, oversampling, linewidth=1)
     draw_layer_boundaries(ax, layers)
 
@@ -109,6 +123,45 @@ def remove_synapses_with_sgid(synapses, sgids):
     return synapses
 
 
+def relative_height_to_absolute(height, layers):
+    '''Converts relative height in layer to absolute height'''
+    layers = np.array(layers)
+    ind = np.array(height).astype(int)
+    fractions = height % 1
+    layer_heights = layers[:, 1]
+    cum_layer_height = np.hstack([0, np.cumsum(layer_heights)])
+
+    return cum_layer_height[ind] + layer_heights[ind] * fractions
+
+
+def distmap_with_heights(distmap, layers):
+    '''Returns a distmap with absolute heights'''
+    heights = []
+    for dist in np.array(distmap):
+        absolute_heights = relative_height_to_absolute(dist[:, 0], layers)
+        heights.append(np.transpose([absolute_heights, dist[:, 1]]))
+
+    return heights
+
+
+def synapse_heights(full_sample, voxel_path, prefix='', folder='.'):
+    '''Plots a histogram of the heights'''
+    distance = voxcell.VoxelData.load_nrrd(os.path.join(voxel_path, prefix + 'distance.nrrd'))
+    xyz = full_sample.sample(frac=0.01)[list('xyz')].to_numpy()
+    idx = distance.positions_to_indices(xyz)
+    dist = distance.raw[tuple(idx.T)]
+
+    fig, ax = _get_ax()
+    bin_width = dist.max() / 99
+    bins = np.arange(0, dist.max(), bin_width)
+    height = _make_hist(dist, bins)
+    ax.bar(x=bins[:-1], height=height, width=bin_width, align='edge')
+    ax.set_title('Synapse height histogram')
+    ax.set_xlabel('Height')
+    ax.set_ylabel('Number of synapses')
+    fig.savefig(os.path.join(folder, 'synapse_heights.png'))
+
+
 def synapse_density(keep_syn, distmap, layers, bin_width=25, oversampling=1, folder='.'):
     '''Plot synaptic density profile'''
     def vol(df):
@@ -119,7 +172,8 @@ def synapse_density(keep_syn, distmap, layers, bin_width=25, oversampling=1, fol
 
     fig, ax = _get_ax()
 
-    draw_distmap(ax, np.array(distmap), oversampling)
+    dmap = distmap_with_heights(distmap, layers)
+    draw_distmap(ax, np.array(dmap), oversampling)
     draw_layer_boundaries(ax, layers)
 
     bins = np.arange(keep_syn.y.min(), keep_syn.y.max(), bin_width)
@@ -253,6 +307,315 @@ def innervation_width(pruned, circuit_config, folder):
     fig.savefig('{}/innervation_x_width.png'.format(folder))
 
 
+def thalamo_cortical_cells_per_fiber(pruned, folder):
+    '''Plots the histogram of thalamo-cortical cells per fiber'''
+    # Thalamo-cortical sources
+    tc_src = np.unique(pruned.sgid)
+    counts = [len(np.unique(pruned[pruned.sgid == sgid].tgid)) for sgid in tc_src]
+
+    # Plot number of efferent talamo-cortical target cells per fiber (Fig. 13C)
+    bar_pos = 0.75
+    plt.figure(figsize=(8, 6))
+    plt.gcf().patch.set_facecolor('w')
+    plt.hist(counts, range=(0, 10000), bins=50, rwidth=0.75, color='k')
+    plt.ylim([0, np.ceil(max(plt.ylim()) / 100) * 100])
+    plt.plot(np.mean(counts), bar_pos * max(plt.ylim()), 'o', color='gray')
+    plt.plot([np.mean(counts) - np.std(counts), np.mean(counts) + np.std(counts)],
+             np.full(2, bar_pos * max(plt.ylim())), '|-', color='gray', linewidth=1.0)
+    plt.text(np.mean(counts), (bar_pos + 0.025) * max(plt.ylim()),
+             '{:.2f}'.format(np.mean(counts)), color='gray', va='bottom', ha='center')
+    plt.gca().spines['top'].set_visible(False)
+    plt.gca().spines['right'].set_visible(False)
+    plt.title('Thalamo-cortical projections (N={} fibers)'.format(len(tc_src)))
+    plt.xlabel('#Efferent neurons per thalamic fiber')
+    plt.ylabel('Count')
+    plt.savefig(os.path.join(folder, 'tc_efferents.png'), dpi=150)
+
+
+def distribution_synapses_per_connection(pruned, folder):
+    '''Plots the histogram of synapses per connection'''
+
+    # Compute number of synapses per connection
+    _, counts = np.unique(pruned[['tgid', 'sgid']].values, axis=0, return_counts=True)
+
+    # Plot distribution of overall number of synapses per connection
+    bar_pos = 0.75
+    bar_colors = ['b']
+    mean_colors = ['cornflowerblue']
+    plt.figure(figsize=(8, 6))
+    plt.gcf().patch.set_facecolor('w')
+    plt.hist(counts, range=(0, 50), bins=50, rwidth=0.75, color=bar_colors[0])
+    plt.ylim([0, np.ceil(max(plt.ylim()) / 1e6) * 1e6])
+    plt.plot(np.mean(counts), bar_pos * max(plt.ylim()), 'o', color=mean_colors[0])
+    plt.plot([np.mean(counts) - np.std(counts), np.mean(counts) + np.std(counts)],
+             np.full(2, bar_pos * max(plt.ylim())), '|-', color=mean_colors[0], linewidth=1.0)
+    plt.text(np.mean(counts), (bar_pos + 0.025) * max(plt.ylim()),
+             '{:.2f}'.format(np.mean(counts)), color=mean_colors[0], va='bottom', ha='center')
+    plt.gca().spines['top'].set_visible(False)
+    plt.gca().spines['right'].set_visible(False)
+    plt.title('Thalamo-cortical projections')
+    plt.xlabel('#Synapses per connection')
+    plt.ylabel('Count')
+    plt.savefig(os.path.join(folder, 'synapses_per_connection_overall.png'), dpi=150)
+
+
+def _synapses_per_connection_stats(pruned, cells, reg, sclass, lay):
+    '''Get synapses per connection for region, synapse class and layer.
+    Return the connections, mean and standard deviation.'''
+    tids_tmp = cells[np.logical_and(cells.region == reg,
+                     np.logical_and(cells.synapse_class == sclass, cells.layer == lay))].index
+    syn_prop_sel = pruned[np.in1d(pruned.tgid, tids_tmp)]
+    if syn_prop_sel.size > 0:
+        conns_tmp = np.unique(syn_prop_sel[['tgid', 'sgid']].values, axis=0, return_counts=True)[1]
+        return conns_tmp, conns_tmp.mean(), conns_tmp.std()
+
+    return [], np.nan, np.nan
+
+
+def distribution_synapses_per_connection_per_layer(atlas, pruned, circuit_config, folder):
+    '''Plots histograms of synapses per connection for each layer, region and synapse class.'''
+    # pylint: disable=too-many-locals
+    c = Circuit(circuit_config)
+    cells = c.cells.get(properties={Cell.REGION, Cell.X, Cell.Y,
+                                    Cell.Z, Cell.LAYER, Cell.SYNAPSE_CLASS})
+    regions = np.unique(cells.region).tolist()
+    syn_classes = np.unique(cells.synapse_class).tolist()
+
+    _, layers = _regions_layers(atlas)
+
+    # Plot separate results
+    bar_pos = [0.9, 0.7]
+    bar_colors = ['b', 'g']
+    mean_colors = ['cornflowerblue', 'mediumseagreen']
+    for sidx, sclass in enumerate(syn_classes):
+        plt.figure(figsize=(12, 8))
+        plt.gcf().patch.set_facecolor('w')
+        for lidx, layer in enumerate(layers):
+            for ridx, region in enumerate(regions):
+                # Extract number of synapses per connection for each region/layer/synapse class
+                conns, conns_mn, conns_sd = _synapses_per_connection_stats(pruned, cells, region,
+                                                                           sclass, layer)
+                plt.subplot(len(layers), len(regions), lidx * len(regions) + ridx + 1)
+                plt.hist(conns, range=(0, 50), bins=25, rwidth=0.75,
+                         color=bar_colors[sidx], label=syn_classes[sidx])
+
+                plt.ylim(plt.ylim())
+                plt.gca().spines['top'].set_visible(False)
+                plt.gca().spines['left'].set_visible(False)
+                plt.gca().spines['right'].set_visible(False)
+
+                if np.isfinite(conns_mn):
+                    plt.plot(conns_mn, bar_pos[sidx] * max(plt.ylim()), 'o',
+                             color=mean_colors[sidx], markersize=3)
+                    plt.plot([conns_mn - conns_sd, conns_mn + conns_sd],
+                             np.full(2, bar_pos[sidx] * max(plt.ylim())),
+                             '|-', color=mean_colors[sidx], linewidth=1.0)
+                    plt.text(conns_mn, (bar_pos[sidx] + 0.01) * max(plt.ylim()),
+                             '{:.2f}'.format(conns_mn), color=mean_colors[sidx],
+                             va='bottom', ha='center')
+
+                plt.xlim([-10, 50])
+
+                if lidx == 0:
+                    plt.title(region)
+                if lidx < len(layers) - 1:
+                    plt.gca().set_xticklabels([])
+                else:
+                    plt.xlabel('#Syn/conn')
+
+                if ridx == 0:
+                    plt.ylabel('L{}'.format(layer))
+
+                if lidx == len(layers) - 1 and ridx == len(regions) - 1:
+                    plt.legend()
+
+            plt.suptitle('Thalamo-cortical projections [{}]'.format(syn_classes[sidx]))
+
+            save_path = os.path.join(folder,
+                                     'tc_syn_per_conn_{}.png'.format(syn_classes[sidx].lower()))
+            plt.savefig(save_path, dpi=150)
+
+
+def _voxel_based_densities(atlas_regions, pruned):
+    '''Compute voxel-based densities'''
+    syn_pos = pruned[['x', 'y', 'z']]
+    syn_atlas_idx = atlas_regions.positions_to_indices(syn_pos.values)
+
+    vox_syn_count = np.zeros_like(atlas_regions.raw, dtype=int)
+    idx, counts = np.unique(syn_atlas_idx, axis=0, return_counts=True)
+    vox_syn_count[tuple(idx.T)] = counts
+
+    return vox_syn_count / atlas_regions.voxel_volume
+
+
+def _voxel_relative_depth(atlas):
+    '''Compute voxel-based rel. depth values (rel_depth = (height - distance) / height'''
+    atlas_height = atlas.load_data('height')
+    atlas_distance = atlas.load_data('distance')
+    return (atlas_height.raw - atlas_distance.raw) / atlas_height.raw
+
+
+def _regions_layers(atlas):
+    '''Get list of regions and layers in the atlas.'''
+    atlas_hierarchy = atlas.load_hierarchy()
+    atlas_regions = atlas.load_data('brain_regions')
+
+    rids = list(np.unique(atlas_regions.raw[atlas_regions.raw > 0]))
+    racrs = [list(atlas_hierarchy.collect('id', rid, 'acronym'))[0] for rid in rids]
+
+    regions = list(np.unique([racr.split(';')[0] for racr in racrs]))
+    layers = list(np.unique([int(racr.split(';')[1][1:]) for racr in racrs]))
+
+    return regions, layers
+
+
+def _atlas_ids(atlas, regions, layers):
+    '''Get the atlas IDs of the regions for each layer.'''
+    atlas_hierarchy = atlas.load_hierarchy()
+    atlas_ids = np.zeros((len(layers), len(regions)), dtype=int)
+    for ridx, region in enumerate(regions):
+        for lidx, layer in enumerate(layers):
+            atlas_id = atlas_hierarchy.collect('acronym', '{};L{}'.format(region, layer), 'id')
+            atlas_ids[lidx, ridx] = list(atlas_id)[0]
+
+    return atlas_ids
+
+
+def _depth_histogram(atlas, pruned, regions, layers):
+    '''Get the depth histogram for each region.'''
+    # pylint: disable=too-many-locals
+    atlas_regions = atlas.load_data('brain_regions')
+    vox_syn_density = _voxel_based_densities(atlas_regions, pruned)
+    voxel_depth = _voxel_relative_depth(atlas)
+    atlas_ids = _atlas_ids(atlas, regions, layers)
+
+    # Compute depth histogram per region
+    n_bins = 100
+    bins = np.linspace(np.nanmin(voxel_depth), np.nanmax(voxel_depth), n_bins + 1)
+    bin_centers = np.array([np.mean(bins[i:i + 2]) for i in range(n_bins)])
+
+    rel_depth_values = voxel_depth[~np.isnan(voxel_depth)]
+    density_values = vox_syn_density[~np.isnan(voxel_depth)]
+    regid_values = atlas_regions.raw[~np.isnan(voxel_depth)]
+
+    density_hist = np.zeros((n_bins, len(regions)))
+    for ridx in range(len(regions)):
+        for didx in range(n_bins):
+            dmin = bins[didx]
+            dmax = bins[didx + 1]
+
+            # To include border values in the last bin
+            if didx + 1 == n_bins:
+                dmax += 1
+
+            # pylint: disable=assignment-from-no-return
+            dsel = np.logical_and(rel_depth_values >= dmin, rel_depth_values < dmax)
+            # pylint: enable=assignment-from-no-return
+            rsel = np.in1d(regid_values, atlas_ids[:, ridx])
+
+            # Mean density in a given depth range
+            density_hist[didx, ridx] = np.mean(density_values[np.logical_and(dsel, rsel)])
+
+    # Estimate rel. layer depth boundaries (voxel-based)
+    layer_depth_range = np.zeros((len(layers), len(regions), 2))
+    for ridx in range(len(regions)):
+        for lidx in range(len(layers)):
+            dval_tmp = rel_depth_values[regid_values == atlas_ids[lidx, ridx]]
+            layer_depth_range[lidx, ridx, :] = [np.min(dval_tmp), np.max(dval_tmp)]
+
+    return density_hist, bins, bin_centers, layer_depth_range
+
+
+def synapse_density_profiles_region(atlas, pruned, density_params, folder):
+    '''Plot expected and resulting density profile for each region.'''
+    # pylint: disable=too-many-locals
+
+    # Rel. depth profiles (voxel-based densities & depth estimates)
+    regions, layers = _regions_layers(atlas)
+    histogram, bins, bin_centers, depth_range = _depth_histogram(atlas, pruned, regions, layers)
+
+    # Select regions for plotting
+    plot_regions = np.in1d(regions, ['S1HL', 'S1FL', 'S1Tr', 'S1Sh'])
+
+    # Plot rel. synapse density profiles (voxel-based)
+    lcolors = plt.cm.jet(np.linspace(0, 1, len(layers)))  # pylint: disable=no-member
+    plt.figure(figsize=(8, 6))
+    plt.gcf().patch.set_facecolor('w')
+    for pidx, ridx in enumerate(np.where(plot_regions)[0]):
+        reg = regions[ridx]
+        plt.subplot(1, np.sum(plot_regions), pidx + 1)
+        plt.barh(100.0 * bin_centers, histogram[:, ridx], np.diff(100.0 * bin_centers[:2]))
+        plt.gca().spines['top'].set_visible(False)
+        plt.gca().spines['right'].set_visible(False)
+        plt.xlim([0, 0.05])
+        plt.ylim([100.0 * bins[0], 100.0 * bins[-1]])
+        plt.gca().invert_yaxis()
+        plt.title(reg)
+        plt.xlabel('Density\n[#Syn/um3]')
+
+        # Plot (overlapping) layer boundaries
+        for lidx, lay in enumerate(layers):
+            plt.plot(np.ones(2) * max(plt.xlim()), 100.0 * depth_range[lidx, ridx, :], '-_',
+                     color=lcolors[lidx, :], linewidth=5, alpha=0.5, solid_capstyle='butt',
+                     markersize=10, clip_on=False)
+
+            plt.text(max(plt.xlim()), 100.0 * np.mean(depth_range[lidx, ridx, :]),
+                     '  L{}'.format(lay), color=lcolors[lidx, :], ha='left', va='center')
+
+            plt.plot(plt.xlim(), np.ones(2) * 100.0 * depth_range[lidx, ridx, 0], '-',
+                     color=lcolors[lidx, :], linewidth=1, alpha=0.1, zorder=0)
+
+            plt.plot(plt.xlim(), np.ones(2) * 100.0 * depth_range[lidx, ridx, 1], '-',
+                     color=lcolors[lidx, :], linewidth=1, alpha=0.1, zorder=0)
+
+        if pidx == 0:
+            plt.ylabel('Rel. depth [%]')
+        else:
+            plt.gca().set_yticklabels([])
+
+        # Plot intended densities in the recipe
+        for ditem in density_params:
+            dprof_steps_x, dprof_steps_y = intended_densities(ditem, ridx, depth_range)
+            h_step = plt.step(dprof_steps_x, 100.0 * dprof_steps_y, 'm',
+                              where='pre', linewidth=1.5, alpha=0.5)
+
+    plt.legend(h_step, ['Recipe'], loc='lower right')
+    plt.tight_layout()
+    plt.savefig(os.path.join(folder, 'tc_rel_synapse_density_profiles_voxel.png'), dpi=150)
+
+
+def intended_densities(ditem, ridx, layer_depth_range):
+    '''Get the intended density for a density profile.'''
+    dens = np.array(ditem)
+
+    # Translate relative notation to layer and its fraction: 2.45 > 2, .45
+    layers, fractions = (dens[:, 0] // 1).astype(int), dens[:, 0] % 1
+
+    # Layer indexes in ditem are counted from bottom [0,1,2, ..., 5], change it
+    lidx = tuple(5 - layers)
+    ranges = layer_depth_range[lidx, ridx, :]
+    diffs = np.diff(ranges).flatten()
+    densities = dens[:, 1]
+    steps = ranges[:, 1] - diffs * fractions
+
+    return densities, steps
+
+
+class LayerThickness(JsonTask):
+    '''Genereate json data containing the mean layer thicknesses for each layer.'''
+
+    def run(self):  # pragma: no cover
+        res = []
+        for layer, _ in self.layers:  # pylint: disable=not-an-iterable
+            ph = load(os.path.join(self.voxel_path, '[PH]{}.nrrd'.format(layer)))
+            thickness = ph.raw[..., 1] - ph.raw[..., 0]
+            mean = thickness[np.isfinite(thickness)].mean()
+            res.append([layer, float(mean)])
+
+        with self.output().open('w') as outfile:
+            json.dump(res, outfile)
+
+
 class Analyse(CommonParams):
     '''Run the analysis'''
 
@@ -271,6 +634,7 @@ class Analyse(CommonParams):
                      CutoffMeans,
                      SynapseDensity,
                      VirtualFibers,
+                     LayerThickness,
                      )
         return [self.clone(task) for task in tasks]
 
@@ -293,9 +657,17 @@ class Analyse(CommonParams):
                                       self.oversampling,
                                       'sampled')
         else:
-            pruned, connections, cutoffs, distmap, fibers = load_all(self.input())
+            pruned, connections, cutoffs, distmap, fibers, layers = load_all(self.input())
             pruned_no_edge = pruned
-            layers = []
+            atlas = Atlas.open(self.voxel_path)
+            prefix = self.prefix or ''
+
+            synapse_heights(pruned_no_edge, self.voxel_path, prefix=prefix, folder=self.folder)
+            thalamo_cortical_cells_per_fiber(pruned, self.folder)
+            distribution_synapses_per_connection(pruned, self.folder)
+            distribution_synapses_per_connection_per_layer(atlas, pruned,
+                                                           self.circuit_config, self.folder)
+            synapse_density_profiles_region(atlas, pruned, distmap, self.folder)
 
         connections.sgid += self.sgid_offset
 
@@ -312,7 +684,7 @@ class Analyse(CommonParams):
 
 
 class DoAll(CommonParams):
-    """Launch the full projectionizer pipeline"""
+    '''Launch the full projectionizer pipeline'''
 
     def requires(self):
         return self.clone(ReducePrune), self.clone(Analyse), self.clone(WriteAll)

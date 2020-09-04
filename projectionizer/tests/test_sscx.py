@@ -3,6 +3,7 @@ import pandas as pd
 from nose.tools import ok_, eq_
 from numpy.testing import assert_allclose, assert_equal
 
+from voxcell import VoxelData
 from projectionizer import sscx
 from projectionizer.step_1_assign import assign_synapse_fiber
 from projectionizer.utils import choice
@@ -54,3 +55,45 @@ def test_recipe_to_height_and_density():
                      (1517.0, 0.01),
                      (1553.5, 0.01),
                      (1590.0, 0.01)])
+
+
+def test_relative_recipe_to_height_and_density():
+    profile = [[0.05, 0.01], [0.15, 0.02], [0.25, 0.03], [0.35, 0.04], [0.45, 0.04],
+               [0.55, 0.04], [0.65, 0.03], [0.75, 0.02], [0.85, 0.01], [0.95, 0.01]]
+
+    layers = [[6, 0],
+              [5, 0],
+              [4, 0],
+              [3, 0],
+              [2, 0],
+              [1, 0]]
+
+
+    layer4 = 4
+    layer3 = 3
+    res = sscx.recipe_to_relative_height_and_density(layers, layer4, 0, layer3, 0.5, profile)
+
+    assert_allclose(res,
+                    [[2.0, 0.01],
+                     [2.15, 0.02],
+                     [2.3, 0.03],
+                     [2.45, 0.04],
+                     [2.6, 0.04],
+                     [2.75, 0.04],
+                     [2.9, 0.03],
+                     [3.05, 0.02],
+                     [3.2, 0.01],
+                     [3.35, 0.01],
+                     [3.5, 0.01]])
+
+
+def test_relative_distance_layer():
+    layer_ph = np.array([[[[100, 200], [110, 200]],
+                          [[110, 210], [120, 230]]]], dtype=float)
+    distance = VoxelData(np.array([[[150, 146], [np.nan, 164]]], dtype=float), (1,1,1))
+
+    res = sscx.relative_distance_layer(distance, layer_ph)
+
+    assert_allclose(res.raw,
+                     [[[0.5, 0.4],
+                      [np.nan, 0.4]]])
