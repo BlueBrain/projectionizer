@@ -2,67 +2,67 @@ import os
 from voxcell import VoxelData
 import numpy as np
 from nose.tools import eq_, ok_, raises
+from numpy.testing import assert_array_equal
 from projectionizer import sscx_hex, utils
 
 
-HEX_EDGE_LEN = 230.92
+BOUNDING_BOX = np.array([[110, 400], [579.99, 799.99]])
+BOUNDING_BOX_APRON = [BOUNDING_BOX[0] - 10,  BOUNDING_BOX[1] + 10]
 TEMPLATES = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
 LOCATIONS_PATH = os.path.join(TEMPLATES, 'rat_fibers.csv')
 
 
-def test_tiled_locations():
-    voxel_size = 10
-    locations = sscx_hex.tiled_locations(voxel_size,
-                                         hex_edge_len=HEX_EDGE_LEN,
-                                         locations_path=LOCATIONS_PATH)
-    eq_(set(np.diff(locations, axis=0).flatten()), set((0, -400, 10)))
+def test_get_virtual_fiber_locations():
+    vf = sscx_hex.get_virtual_fiber_locations(bounding_box=BOUNDING_BOX,
+                                              locations_path=LOCATIONS_PATH)
+    eq_(len(vf), 414)
 
-
-def test_hexagon():
-    points = sscx_hex.hexagon(hex_edge_len=HEX_EDGE_LEN)
-    eq_(len(points), 7)
-
-
-def test_get_virtual_fiber_locations(apron_size=0.0):
-    vf = sscx_hex.get_virtual_fiber_locations(hex_edge_len=HEX_EDGE_LEN,
-                                              locations_path=LOCATIONS_PATH,
-                                              apron_size=0.0)
-    eq_(len(vf), 407)
-
-    vf = sscx_hex.get_virtual_fiber_locations(hex_edge_len=HEX_EDGE_LEN,
-                                              locations_path=LOCATIONS_PATH,
-                                              apron_size=10)
-    ok_(len(vf) > 407)
-
-
-def test_voxel_space():
-    MAX_HEIGHT = 2081.75641787
-    vs = sscx_hex.voxel_space(hex_edge_len=HEX_EDGE_LEN,
-                              locations_path=LOCATIONS_PATH,
-                              max_height=MAX_HEIGHT,
-                              voxel_size_um=10)
-    ok_(isinstance(vs, VoxelData))
-    eq_(vs.raw.shape, (46, 208, 40))
-
-    vs = sscx_hex.voxel_space(hex_edge_len=HEX_EDGE_LEN,
-                              locations_path=LOCATIONS_PATH,
-                              max_height=MAX_HEIGHT,
-                              voxel_size_um=100)
-    eq_(vs.raw.shape, (5, 20, 4))
+    vf = sscx_hex.get_virtual_fiber_locations(bounding_box=BOUNDING_BOX_APRON,
+                                              locations_path=LOCATIONS_PATH)
+    ok_(len(vf) > 414)
 
 
 def test_get_minicol_virtual_fibers():
-    df = sscx_hex.get_minicol_virtual_fibers(apron_size=0.0,
-                                             hex_edge_len=HEX_EDGE_LEN,
-                                             locations_path=LOCATIONS_PATH)
-    eq_(len(df), 407)
+    # Create voxel data that resembles BOUNDING_BOX
+    offset = [-230, 0, 0]
+    height = np.full((120, 10, 120), np.nan)
+    height[34:81, :, 40:80] = 1
+    height = VoxelData(height, [10, 10, 10], offset=offset)
 
-    df = sscx_hex.get_minicol_virtual_fibers(apron_size=10.0,
-                                             hex_edge_len=HEX_EDGE_LEN,
+    # Create a region mask
+    mask = np.isfinite(height.raw)
+
+    df = sscx_hex.get_minicol_virtual_fibers(apron_bounding_box=[],
+                                             height=height,
+                                             region_mask=mask,
                                              locations_path=LOCATIONS_PATH)
-    ok_(len(df) > 407)
-    ok_(len(df.index.unique()) > 407)
+    eq_(len(df), 414)
+    ok_(len(df[df.apron]) == 0)
+
+    # Create voxel data that resembles BOUNDING_BOX_APRON
+    height = height.raw
+    height[33:82, :, 39:81] = 1
+    height = VoxelData(height, [10, 10, 10], offset)
+
+    df = sscx_hex.get_minicol_virtual_fibers(apron_bounding_box=BOUNDING_BOX_APRON,
+                                             height=height,
+                                             region_mask=mask,
+                                             locations_path=LOCATIONS_PATH)
+    ok_(len(df) > 414)
+    ok_(len(df[df.apron]) > 0)
 
     eq_(df.apron.dtype, bool)
     for c in utils.XYZUVW:
         eq_(df[c].dtype, float)
+
+
+def test_get_mask_bounding_box():
+    # Create voxel data that resembles BOUNDING_BOX
+    offset = [-230, 0, 0]
+    mask = np.full((120, 10, 120), np.nan)
+    mask[34:81, :, 40:80] = 1
+    height = VoxelData(mask, [10, 10, 10], offset=offset)
+
+    mask = sscx_hex.get_mask_bounding_box(height, mask, BOUNDING_BOX)
+
+    assert_array_equal(np.isfinite(height.raw), mask)

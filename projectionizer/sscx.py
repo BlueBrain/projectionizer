@@ -47,18 +47,18 @@ def relative_distance_layer(distance, layer_ph):
     return distance.with_data(relative_height / thickness)
 
 
-def recipe_to_relative_heights_per_layer(atlas, layers):
+def recipe_to_relative_heights_per_layer(distance, atlas, layers):
     '''
     Get the relative voxel height in a layer from the bottom of the layer to the top.
 
     Args:
+        distance (VoxelData): distance from the bottom
         atlas (voxcell.Atlas): atlas instance for the circuit
         layers(list of tuples(name, thickness)): aranged from 'bottom' to 'top'
 
     Returns:
         relative_height (VoxelData): relative voxel heights in <layer_index>.<fraction> format
     '''
-    distance = atlas.load_data('[PH]y')
     relative_heights = np.full_like(distance.raw, np.nan)
     names, _ = zip(*layers)
 
@@ -148,17 +148,25 @@ def recipe_to_height_and_density(layers,
             for low, density in zip(heights, density)]
 
 
-def mask_layers_in_regions(atlas, layers, regions):
-    '''Get the mask for defined layers in all defined regions.'''
+def get_region_ids(atlas, layers, regions):
+    '''Get region id's for the regions and layers.'''
     rmap = atlas.load_region_map()
     regex_str_regions = '@^({})$'.format('|'.join(regions))
     regex_str_layers = '@^.*({})$'.format('|'.join(layers))
 
     id_regions_children = rmap.find(regex_str_regions, attr='acronym', with_descendants=True)
-    id_all_layers = rmap.find(regex_str_layers, attr='acronym')
-    id_wanted_layers = set.intersection(id_regions_children, id_all_layers)
+    id_layers_all_regions = rmap.find(regex_str_layers, attr='acronym')
+    id_wanted_layers = set.intersection(id_regions_children, id_layers_all_regions)
 
-    return mask_by_region_ids(atlas.load_data('brain_regions').raw, id_wanted_layers)
+    return list(id_wanted_layers)
+
+
+def mask_layers_in_regions(atlas, layers, regions):
+    '''Get the mask for defined layers in all defined regions.'''
+    brain_regions = atlas.load_data('brain_regions')
+    ids = get_region_ids(atlas, layers, regions)
+
+    return mask_by_region_ids(brain_regions.raw, ids)
 
 
 def get_l5_l34_border_voxel_indices(atlas, regions):

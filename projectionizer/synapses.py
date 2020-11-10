@@ -46,7 +46,13 @@ def build_synapses_default(height, synapse_density, oversampling):
             with np.errstate(invalid='ignore'):  # ignore warning about nans in height.raw
                 idx = (bottom <= height.raw) & (height.raw < top)
             idx = np.nonzero(np.nan_to_num(idx, 0))
-            raw[idx] = int(voxel_volume * density * oversampling)
+            count = voxel_volume * density * oversampling
+            if count < 1:
+                datalen = np.shape(idx)[1]
+                raw[idx] = (count > np.random.rand(datalen)).astype(int)
+                L.debug('assigned density: %.3f, target:%.3f', np.sum(raw[idx]) / datalen, count)
+            else:
+                raw[idx] = int(count)
 
     return height.with_data(raw)
 

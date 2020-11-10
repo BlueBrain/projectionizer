@@ -177,9 +177,10 @@ def test_recipe_to_relative_heights_per_layer():
     # min limit is 0, max limit is the highest point of L6 in [PH]y.nrrd
     atlas = Atlas.open(TEST_DATA_DIR)
     brain_regions = atlas.load_data('brain_regions')
+    distance = atlas.load_data('[PH]y')
     layers = [(6, None)]
 
-    ret = sscx.recipe_to_relative_heights_per_layer(atlas, layers)
+    ret = sscx.recipe_to_relative_heights_per_layer(distance, atlas, layers)
 
     assert_array_equal(np.isfinite(ret.raw), atlas.get_region_mask('L6', attr='acronym').raw)
     assert_equal(True, np.all(ret.raw[np.isfinite(ret.raw)] >= 0.0))

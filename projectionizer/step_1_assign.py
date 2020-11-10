@@ -10,8 +10,8 @@ from projectionizer.straight_fibers import (assign_synapse_fiber,
                                             candidate_fibers_per_synapse
                                             )
 from projectionizer.luigi_utils import CsvTask, FeatherTask
-from projectionizer.step_0_sample import SampleChunk, VoxelSynapseCount, Regions
-from projectionizer.utils import load, load_all, write_feather, IJK, XYZ
+from projectionizer.step_0_sample import SampleChunk, VoxelSynapseCount, Height, Regions
+from projectionizer.utils import load_all, write_feather, IJK, XYZ, mask_by_region
 
 L = logging.getLogger(__name__)
 
@@ -22,22 +22,23 @@ class VirtualFibersNoOffset(CsvTask):
 
     Note: apron is a bool indicating if the fiber is in the apron or not
     '''
-
-    def requires(self):
-        return self.clone(Regions)
+    def requires(self):  # pragma: no cover
+        return self.clone(Height), self.clone(Regions)
 
     def run(self):  # pragma: no cover
-        if self.geometry in ('s1hl', 's1', ):
+        height, regions = load_all(self.input())
+        if self.hex_fiber_locations is None:
             from projectionizer.sscx import load_s1_virtual_fibers
-            regions = load(self.input().path)
             atlas = Circuit(self.circuit_config).atlas
             df = load_s1_virtual_fibers(atlas, regions)
             df['apron'] = False
-        elif self.geometry == 'hex':
+        else:
             from projectionizer.sscx_hex import get_minicol_virtual_fibers
             locations_path = self.load_data(self.hex_fiber_locations)
-            df = get_minicol_virtual_fibers(apron_size=self.hex_apron_size,
-                                            hex_edge_len=self.hex_side,
+            mask = mask_by_region(regions, self.voxel_path)
+            df = get_minicol_virtual_fibers(apron_bounding_box=self.hex_apron_bounding_box,
+                                            height=height,
+                                            region_mask=mask,
                                             locations_path=locations_path)
         df.to_csv(self.output().path, index_label='sgid')
 

@@ -5,19 +5,18 @@ import os
 
 import numpy as np
 import pandas as pd
-import voxcell
 from bluepy.v2 import Circuit
 
 from luigi import BoolParameter, FloatParameter, IntParameter, ListParameter
 from projectionizer.luigi_utils import FeatherTask, JsonTask, NrrdTask
 from projectionizer.sscx import (recipe_to_relative_heights_per_layer,
-                                 recipe_to_relative_height_and_density,
-                                 recipe_to_height_and_density)
+                                 recipe_to_relative_height_and_density)
+from projectionizer.sscx_hex import get_mask_bounding_box
 from projectionizer.synapses import (build_synapses_default,
                                      pick_synapses)
 from projectionizer.utils import (load,
                                   load_all,
-                                  mask_by_region,
+                                  mask_by_region_acronyms,
                                   read_regions_from_manifest,
                                   write_feather)
 
@@ -71,20 +70,19 @@ class Height(NrrdTask):  # pragma: no cover
         return self.clone(Regions)
 
     def run(self):
-        if self.geometry in ('s1hl', 's1', ):
-            region = load(self.input().path)
-            atlas = Circuit(self.circuit_config).atlas
-            mask = mask_by_region(region, self.voxel_path)
-            distance = voxcell.VoxelData.load_nrrd(
-                os.path.join(self.voxel_path, 'distance.nrrd'))
-            distance.raw[np.invert(mask)] = np.nan
-            distance = recipe_to_relative_heights_per_layer(atlas, self.layers)
-        elif self.geometry == 'hex':
-            # TODO: thoroughly test the columns work as expected when this is merged with NSETM-854
-            raise NotImplementedError('"hex" is not working. '
-                                      'This will be fixed in an upcoming merge.')
-        else:
-            raise Exception('Unknown geometry: {}'.format(self.geometry))
+        region = load(self.input().path)
+        atlas = Circuit(self.circuit_config).atlas
+        brain_regions = atlas.load_data('brain_regions')
+        hierarchy = atlas.load_hierarchy()
+        mask = mask_by_region_acronyms(brain_regions.raw, hierarchy, region)
+        distance = atlas.load_data('[PH]y')
+
+        if len(self.hex_apron_bounding_box):
+            mask = get_mask_bounding_box(distance, mask, self.hex_apron_bounding_box)
+
+        distance.raw[np.invert(mask)] = np.nan
+        distance = recipe_to_relative_heights_per_layer(distance, atlas, self.layers)
+
         distance.save_nrrd(self.output().path)
 
 
@@ -136,21 +134,12 @@ class SynapseDensity(JsonTask):  # pragma: no cover
     density_params = ListParameter()
 
     def run(self):
-        if self.geometry in ('s1hl', 's1', ):
-            res = [recipe_to_relative_height_and_density(self.layers,
-                                                         data['low_layer'],
-                                                         data['low_fraction'],
-                                                         data['high_layer'],
-                                                         data['high_fraction'],
-                                                         data['density_profile'])
-                   for data in self.density_params]  # pylint: disable=not-an-iterable
-        else:
-            res = [recipe_to_height_and_density(self.layers,
-                                                data['low_layer'],
-                                                data['low_fraction'],
-                                                data['high_layer'],
-                                                data['high_fraction'],
-                                                data['density_profile'])
-                   for data in self.density_params]  # pylint: disable=not-an-iterable
+        res = [recipe_to_relative_height_and_density(self.layers,
+                                                     data['low_layer'],
+                                                     data['low_fraction'],
+                                                     data['high_layer'],
+                                                     data['high_fraction'],
+                                                     data['density_profile'])
+               for data in self.density_params]  # pylint: disable=not-an-iterable
         with self.output().open('w') as outfile:
             json.dump(res, outfile)

@@ -2,7 +2,7 @@ from bluepy.v2.enums import Section, Segment
 from mock import Mock, patch
 from neurom import NeuriteType
 from nose.tools import ok_, eq_
-from numpy.testing import assert_equal, assert_allclose
+from numpy.testing import assert_equal, assert_allclose, assert_approx_equal
 from projectionizer import synapses
 import numpy as np
 import pandas as pd
@@ -153,6 +153,13 @@ def test_build_synapses_default():
     oversampling = 3
     syns = synapses.build_synapses_default(height, synapse_density, oversampling)
     assert_equal(syns.raw, [[[21, 21], [24, 201]], [[201, 201], [201, 0]]])
+
+    # Test low density
+    height = VoxelData(np.full((1000,1,1000), 1), (1,1,1))
+    synapse_density = [[[0, .1], [2, .1]]]
+    oversampling = 1
+    syns = synapses.build_synapses_default(height, synapse_density, oversampling)
+    assert_approx_equal(syns.raw.sum()/1e6, .1, significant=3)
 
 
 def test_organize_indices():

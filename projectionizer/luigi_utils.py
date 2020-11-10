@@ -32,7 +32,6 @@ class CommonParams(Config):
     """Paramaters that must be passed to all Task"""
     circuit_config = Parameter()
     folder = Parameter()
-    geometry = Parameter()
     n_total_chunks = IntParameter()
     sgid_offset = IntParameter()
     oversampling = FloatParameter()
@@ -44,12 +43,12 @@ class CommonParams(Config):
     voxel_path = Parameter(default='')
 
     # hex parameters
-    hex_side = FloatParameter(default=0)  # size of a hexagon side
-    # size of apron around the hexagon, so that there aren't edge effects when assigning
+    # bounding box for apron around the hexagon, so that there aren't edge effects when assigning
     # synapses to fibers
-    hex_apron_size = FloatParameter(default=50)
+    # ListParameter can not default to None without further problems with luigi
+    hex_apron_bounding_box = ListParameter(default=[])
     # path to CSV with two columns; x/z: location of fibers
-    hex_fiber_locations = Parameter(default='rat_fibers.csv')
+    hex_fiber_locations = Parameter(default=None)
 
     extension = None
 

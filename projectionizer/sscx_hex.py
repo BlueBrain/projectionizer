@@ -1,83 +1,42 @@
 '''SSCX functions related to working w/ hex'''
 import numpy as np
 import pandas as pd
-from voxcell import VoxelData
 
 from projectionizer.utils import XYZUVW
 
-VOXEL_SIZE_UM = 10
 
-
-def hexagon(hex_edge_len):
-    '''make central column hexagon'''
-    angles = np.arange(6 + 1) * ((2 * np.pi) / 6)
-    points = hex_edge_len * np.transpose(np.array([np.cos(angles), np.sin(angles)]))
-    return points
-
-
-def get_virtual_fiber_locations(hex_edge_len, locations_path, apron_size=0.0):
+def get_virtual_fiber_locations(bounding_box, locations_path):
     '''get locations in bounding box of central column'''
-    points = hexagon(hex_edge_len)
 
-    locations = pd.read_csv(locations_path)[['x', 'z']].values
-    mean_locations = np.mean(locations, axis=0)
+    if not len(bounding_box):
+        return []
 
-    min_xz = np.min(points, axis=0) + mean_locations - apron_size
-    max_xz = np.max(points, axis=0) + mean_locations + apron_size
+    min_xz, max_xz = bounding_box
+
+    locations = pd.read_csv(locations_path)[['x', 'z']].to_numpy()
 
     idx = np.all((min_xz <= locations) & (locations <= max_xz), axis=1)
     return locations[idx]
 
 
-def tiled_locations(voxel_size, hex_edge_len, locations_path):
-    '''create grid spanning the bounding box of the central minicolum
-    '''
-    locations = get_virtual_fiber_locations(hex_edge_len, locations_path)
+def get_fibers_in_region(mask, height, locations_path):
+    """Get fibers that are located inside the region (mask)"""
+    fibers = pd.read_csv(locations_path)[list('xyz')]
 
-    min_x, min_z = np.min(locations, axis=0).astype(int)
-    max_x, max_z = np.max(locations, axis=0).astype(int)
-
-    x = np.arange(min_x, max_x + voxel_size, voxel_size)
-    z = np.arange(min_z, max_z + voxel_size, voxel_size)
-
-    grid = np.vstack(np.transpose(np.meshgrid(x, z)))
-
-    return grid
+    mask_xz = mask.any(axis=1)
+    ind = height.positions_to_indices(fibers.to_numpy())
+    ret = fibers[mask_xz[tuple(ind[:, [0, 2]].T)]]
+    return ret[list('xz')].to_numpy()
 
 
-def voxel_space(hex_edge_len, locations_path, max_height, voxel_size_um=VOXEL_SIZE_UM):
-    '''returns VoxelData with the densities from `distmap`
-
-    This is a 'stack' of (x == z == y == voxel_size) voxels stacked to
-    the full y-height of the hexagon.  It can then be tiled across a whole
-    space to get the desired density.
-
-    Args:
-        hex_edge_len(float): length of hexagon side (um)
-        locations_path(str): path to csv file w/ fiber locations and directions
-        max_height(float): max height of the column
-        voxel_size_um(int): length of a voxel side (um)
-    '''
-    tiles = tiled_locations(voxel_size_um, hex_edge_len=hex_edge_len, locations_path=locations_path)
-    xyz_tiles = np.stack((tiles[:, 0], np.zeros(len(tiles)), tiles[:, 1])).T
-    xyz_tiles[-1, 1] = max_height
-    xyz_tiles_min, xyz_tiles_max = np.min(xyz_tiles, axis=0), np.max(xyz_tiles, axis=0)
-
-    shape = ((xyz_tiles_max - xyz_tiles_min) // voxel_size_um).astype(int)
-    raw = np.zeros(shape=shape, dtype=np.int)
-    return VoxelData(raw, [voxel_size_um] * 3, xyz_tiles_min)
-
-
-def get_minicol_virtual_fibers(apron_size, hex_edge_len, locations_path):
+def get_minicol_virtual_fibers(apron_bounding_box, height, region_mask, locations_path):
     """returns Nx6 matrix: first 3 columns are XYZ pos of fibers, last 3 are direction vector"""
-
-    fibers = set(tuple(loc)
-                 for loc in get_virtual_fiber_locations(hex_edge_len=hex_edge_len,
-                                                        locations_path=locations_path))
+    fibers = set(tuple(loc) for loc in get_fibers_in_region(region_mask,
+                                                            height,
+                                                            locations_path))
     extra_fibers = set(tuple(loc)
-                       for loc in get_virtual_fiber_locations(apron_size=apron_size,
-                                                              locations_path=locations_path,
-                                                              hex_edge_len=hex_edge_len))
+                       for loc in get_virtual_fiber_locations(bounding_box=apron_bounding_box,
+                                                              locations_path=locations_path))
     extra_fibers = extra_fibers - fibers
 
     def to_dataframe(points, is_apron):
@@ -94,3 +53,28 @@ def get_minicol_virtual_fibers(apron_size, hex_edge_len, locations_path):
     return pd.concat((to_dataframe(fibers, False),
                       to_dataframe(extra_fibers, True)),
                      ignore_index=True, sort=True)
+
+
+def get_mask_bounding_box(distance, mask, bounding_box):
+    '''return a mask of the area/volume covered by the bounding box '''
+
+    mask_bb = np.full_like(mask, False, dtype=bool)
+
+    # Add y for the bounding box
+    bb = np.copy(bounding_box)
+    min_xyz = np.insert(bb[0], 1, distance.offset[1])
+    max_xyz = np.insert(bb[1], 1, distance.offset[1])
+
+    # Get x and z indexes for bounding box
+    min_ind = distance.positions_to_indices(min_xyz)
+    max_ind = distance.positions_to_indices(max_xyz) + 1
+
+    # Get y index for bounding box
+    min_ind[1] = np.where(mask)[1].min()
+    max_ind[1] = np.where(mask)[1].max() + 1
+
+    mask_bb[min_ind[0]:max_ind[0],
+            min_ind[1]:max_ind[1],
+            min_ind[2]:max_ind[2]] = True
+
+    return mask_bb

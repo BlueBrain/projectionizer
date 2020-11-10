@@ -9,7 +9,6 @@ import re
 
 import numpy as np
 import pandas as pd
-from six import string_types
 from voxcell import Hierarchy, VoxelData
 import pyarrow
 from pyarrow import feather
@@ -141,11 +140,11 @@ def mask_by_region_ids(annotation_raw, region_ids):
     return in_region
 
 
-def mask_by_region_names(annotation_raw, hierarchy, names):
-    '''get a binary voxel mask where the voxel belonging to the given region names are True'''
+def mask_by_region_acronyms(annotation_raw, hierarchy, acronyms):
+    '''get a binary voxel mask where the voxel belonging to the given region acronyms are True'''
     all_ids = []
-    for n in names:
-        ids = hierarchy.collect('name', n, 'id')
+    for n in acronyms:
+        ids = hierarchy.collect('acronym', n, 'id')
         if not ids:
             raise KeyError(n)
         all_ids.extend(ids)
@@ -162,13 +161,13 @@ def mask_by_region(region, path):
     atlas = VoxelData.load_nrrd(os.path.join(path, 'brain_regions.nrrd'))
     with open(os.path.join(path, 'hierarchy.json')) as fd:
         hierarchy = Hierarchy(json.load(fd))
-    if isinstance(region, string_types):
-        mask = mask_by_region_names(atlas.raw, hierarchy, [region])
-    else:
+    if all([isinstance(reg, int) for reg in region]):
         region_ids = list(chain.from_iterable(hierarchy.collect('id', id_, 'id')
                                               for id_ in region))
 
         mask = mask_by_region_ids(atlas.raw, region_ids)
+    else:
+        mask = mask_by_region_acronyms(atlas.raw, hierarchy, region)
     return mask
 
 

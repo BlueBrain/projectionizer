@@ -134,8 +134,7 @@ def test_in_bounding_box():
 
 
 def test_mask_by_region():
-    region = 'primary somatosensory cortex, hindlimb region'
-    mask = test_module.mask_by_region(region, TEST_DATA_DIR)
+    mask = test_module.mask_by_region(['S1HL'], TEST_DATA_DIR)
     assert_equal(mask.sum(), 101857)
 
     mask = test_module.mask_by_region([726], TEST_DATA_DIR)

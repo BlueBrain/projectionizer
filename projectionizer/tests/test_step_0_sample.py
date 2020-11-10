@@ -18,7 +18,6 @@ def test_SampleChunk():
         write_feather(mock_path, pd.DataFrame(np.arange(100), columns=['foo', ]))
         params = {'circuit_config': 'circuit',
                   'folder': tmp_folder,
-                  'geometry': 'geo',
                   'sgid_offset': 0,
                   'oversampling': 0,
                   'voxel_path': '',

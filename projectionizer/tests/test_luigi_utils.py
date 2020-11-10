@@ -28,7 +28,6 @@ def test_FolderTask():
 def test_common_params():
     params = {'circuit_config': 'circuit',
               'folder': '/none/existant/path',
-              'geometry': 'geo',
               'n_total_chunks': 'n_chunks',
               'sgid_offset': 0,
               'oversampling': 0,
