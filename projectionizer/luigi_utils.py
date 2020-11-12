@@ -131,6 +131,7 @@ class RunAnywayTargetTempDir(RunAnywayTarget):
     this target, it fails.  By using this target, the directory
     is under the user's control, and thus there won't be conflicts
     '''
+
     def __init__(self, task_obj, base_dir):
         self.temp_dir = os.path.join(base_dir, 'luigi-tmp')
         super().__init__(task_obj)

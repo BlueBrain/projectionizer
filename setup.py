@@ -32,5 +32,5 @@ setup(
     license='BBP-internal-confidential',
     url='http://bluebrain.epfl.ch',
     include_package_data=True,
-    python_requires='>=3.6,<3.8', # no libFLATIndex available for py38
+    python_requires='>=3.6,<3.8',  # no libFLATIndex available for py38
 )

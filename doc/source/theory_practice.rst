@@ -15,7 +15,7 @@ Fiber locations can be generated using two different methods: K-means clustering
  #. For each of these so-called boundary voxels, start tracing its normal (a.k.a., direction) vector backwards:
      * If the ray trace hits a voxel in the bottom of a bottom layer (e.g., L6 in SSCX), take its position as that of the fiber and the normal direction as that of the fiber.
      * Otherwise, continue to the next boundary voxel.
- #. (Upcoming) If fiber count is less than desired, generate extra fibers
+ #. If fiber count is less than desired, generate extra fibers
 The trace back from upper layers is done to ensure that the column and fiber directions are a better match.
 
 .. image:: images/ray_cast.png
@@ -69,7 +69,7 @@ Tasks related to pruning (in order of appearence in `step_2_prune.py`):
 
 Write
 -----
-Projectionizer supports nrn, syn2 and SONATA (upcoming) formats. In the future, SONATA will be the only supported format.
+Projectionizer supports nrn, syn2 and SONATA formats. In the future, SONATA will be the only supported format.
 
 **nrn** produces several files
  * **proj_nrn.h5**: projections are grouped by the the neuron ID (tgid)
@@ -82,6 +82,4 @@ Projectionizer supports nrn, syn2 and SONATA (upcoming) formats. In the future, 
 **sonata** outputs two files:
  * **projections.sonata**: projections in a SONATA format functionalized with spykfunc
  * **user.target**: target file containing the fiber IDs (sgid)
-
-If SONATA format is used, the projections need to be functionalized/parameterized using spykfunc after the main run. For more information on how to run it, see the tutorial.
 

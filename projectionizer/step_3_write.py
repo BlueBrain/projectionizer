@@ -3,9 +3,13 @@
 import json
 import logging
 import os
+import re
+import shutil
+import subprocess
 import traceback
 from functools import partial
 
+import h5py
 import numpy as np
 
 from luigi import FloatParameter, IntParameter, Parameter, DictParameter
@@ -14,7 +18,7 @@ from projectionizer.luigi_utils import CommonParams, CsvTask, JsonTask, RunAnywa
 from projectionizer.step_1_assign import VirtualFibersNoOffset
 from projectionizer.step_2_prune import ChooseConnectionsToKeep, ReducePrune
 from projectionizer.utils import load, ignore_exception
-from projectionizer import write_nrn, write_syn2
+from projectionizer import write_nrn, write_syn2, write_sonata
 
 L = logging.getLogger(__name__)
 
@@ -101,7 +105,7 @@ class WriteNrnH5(CommonParams):
 
 class WriteUserTargetTxt(CommonParams):
     '''write user.target'''
-    target_name = Parameter('proj_Thalamocortical_VPM_Source')
+    target_name = Parameter('proj_Thalamocortical_VPM_Source')  # name of the target
 
     def requires(self):
         return self.clone(ReducePrune)
@@ -150,6 +154,7 @@ class SynapseCountPerConnectionTarget(JsonTask):  # pragma: no cover
 
 class WriteNrnH5Efferent(CommonParams):  # pragma: no cover
     '''write proj_nrn_efferent.h5'''
+
     def requires(self):
         return self.clone(WriteNrnH5)
 
@@ -199,9 +204,67 @@ class WriteSyn2(CommonParams):
         return LocalTarget('{}/{}'.format(self.folder, name))
 
 
+class WriteSonata(CommonParams):
+    """Write projections in SONATA format."""
+    morphology_path = Parameter()
+    recipe_path = Parameter()
+    target_population = Parameter('All')
+    mtype = Parameter('projections')
+    node_population = Parameter('projections')
+    edge_population = Parameter('projections')
+    node_file_name = Parameter('projections_nodes.h5')
+    edge_file_name = Parameter('projections_edges.h5')
+    module_archive = Parameter('archive/2021-07')
+
+    def requires(self):
+        # NOTE by herttuai on 02/09/2021:
+        # temporary hack that we can get rid of when we get rid of WriteNrn and WriteSyn2
+        write_user_target = self.clone(WriteUserTargetTxt)
+        write_user_target.target_name = self.mtype
+
+        return (self.clone(RunParquetConverter),
+                self.clone(ReducePrune),
+                self.clone(WriteSonataNodes),
+                self.clone(WriteSonataEdges),
+                write_user_target)
+
+    def _get_full_path_output(self, filename):
+        """Get full path (required by spykfunc) for output files."""
+        return os.path.realpath(os.path.join(self.folder, filename))
+
+    def run(self):
+        """Run checks on resulting files to eradicate e.g., off-by-1 errors."""
+        edge_file = self.input()[0].path
+        syns = load(self.input()[1].path)
+        node_file = self.input()[2].path
+        nonparameterized_edge_file = self.input()[3].path
+
+        with h5py.File(edge_file, 'r') as h5:
+            population = h5[f'edges/{self.edge_population}']
+            len_edges = len(population['source_node_id'])
+        with h5py.File(nonparameterized_edge_file, 'r') as h5:
+            population = h5[f'edges/{self.edge_population}']
+            len_np_edges = len(population['source_node_id'])
+            assert len_np_edges == len_edges, 'Edge count mismatch (parameterized)'
+
+            assert np.all(population['source_node_id'][:] == (syns.sgid - 1)), \
+                'SGID conversion mismatch (feather -> h5)'
+
+            assert np.all(population['target_node_id'][:] == (syns.tgid - 1)), \
+                'TGID conversion mismatch (feather -> h5)'
+
+        with h5py.File(node_file, 'r') as h5:
+            population = h5[f'nodes/{self.node_population}']
+            len_nodes = len(population['node_type_id'])
+            assert len_nodes == syns.sgid.max(), 'Node count mismatch (feather -> h5)'
+
+    def output(self):
+        return LocalTarget(self.input()[0].path)
+
+
 class WriteAll(CommonParams):  # pragma: no cover
     """Run all write tasks"""
-    output_type = Parameter(default='nrn')
+    output_type = Parameter(default='sonata')
 
     def requires(self):
         output_type = str(self.output_type).lower()
@@ -214,6 +277,9 @@ class WriteAll(CommonParams):  # pragma: no cover
         elif output_type == 'syn2':
             return [self.clone(WriteSyn2),
                     ]
+        elif output_type == 'sonata':
+            return [self.clone(WriteSonata),
+                    ]
 
         raise Exception('unknown synapse output type: %s' % self.output_type)
 
@@ -222,3 +288,125 @@ class WriteAll(CommonParams):  # pragma: no cover
 
     def output(self):
         return RunAnywayTargetTempDir(self, base_dir=self.folder)
+
+
+class WriteSonataNodes(WriteSonata):
+    """Write Sonata nodes file to be parameterized with Spykfunc."""
+
+    def requires(self):
+        return self.clone(ReducePrune)
+
+    def run(self):
+        write_sonata.write_nodes(load(self.input().path),
+                                 self.output().path,
+                                 self.node_population,
+                                 self.mtype)
+
+    def output(self):
+        return LocalTarget(self._get_full_path_output(self.node_file_name))
+
+
+class WriteSonataEdges(WriteSonata):
+    """Write Sonata edges file to be parameterized with Spykfunc."""
+
+    def requires(self):
+        return self.clone(ReducePrune)
+
+    def run(self):
+        write_sonata.write_edges(load(self.input().path),
+                                 self.output().path,
+                                 self.edge_population)
+
+    def output(self):
+        return LocalTarget(self._get_full_path_output('nonparameterized_' + self.edge_file_name))
+
+
+def _check_if_old_syntax(archive):
+    """Check if old command format needs to be used with spykfunc and parquet-converters.
+
+    New format is expected starting from archive/2021-07."""
+    m = re.match(r'archive/(?P<year>\d+)-(?P<month>\d+)', archive)
+    return m is not None and not (m.group('year') >= '2021' and m.group('month') >= '07')
+
+
+class RunSpykfunc(WriteSonata):
+    """Run spykfunc for the projections."""
+
+    def requires(self):
+        return self.clone(WriteSonataEdges), self.clone(WriteSonataNodes)
+
+    def _parse_command(self):
+        circuit_dir = os.path.dirname(self.circuit_config)
+        spykfunc_dir = self.output().path
+        edges = self.input()[0].path
+        from_nodes = self.input()[1].path
+        to_nodes = os.path.join(circuit_dir,
+                                'sonata/networks/nodes/',
+                                self.target_population,
+                                'nodes.h5')
+        cluster_dir = self._get_full_path_output('_sm_cluster')
+        command = (f"module purge; module load {self.module_archive} spykfunc; "
+                   f"sm_run -m 0 -w {cluster_dir} spykfunc --output-dir={spykfunc_dir} "
+                   f"-p spark.master=spark://$(hostname):7077 "
+                   f"--from {from_nodes} {self.node_population} "
+                   f"--to {to_nodes} {self.target_population} "
+                   f"--filters AddID,SynapseProperties ")
+
+        if _check_if_old_syntax(self.module_archive):
+            command += (f"--touches {edges} {self.edge_population} "
+                        f"{self.recipe_path} "
+                        f"{self.morphology_path} ")
+        else:
+            command += (f"'--recipe' {self.recipe_path} "
+                        f"'--morphologies' {self.morphology_path} "
+                        f"{edges} {self.edge_population} ")
+
+        return command
+
+    def run(self):
+        try:
+            subprocess.run(self._parse_command(), shell=True, check=True)
+        except subprocess.CalledProcessError:
+            if os.path.isdir(self.output().path):
+                shutil.rmtree(self.output().path)
+            raise
+
+    def output(self):
+        return LocalTarget(self._get_full_path_output('spykfunc'))
+
+
+class RunParquetConverter(WriteSonata):
+    """Run parquet converters for the spykfunc parquet files."""
+
+    def requires(self):
+        return self.clone(RunSpykfunc), self.clone(WriteSonataNodes)
+
+    def _parse_command(self):
+        circuit_dir = os.path.dirname(self.circuit_config)
+        from_nodes = self.input()[1].path
+        parquet_dir = os.path.join(self.input()[0].path, "circuit.parquet")
+        parquet_glob = os.path.join(parquet_dir, "*.parquet")
+        to_nodes = os.path.join(circuit_dir, 'sonata/networks/nodes/',
+                                self.target_population, 'nodes.h5')
+        edge_file_name = self.output().path
+        command = (f"module purge; "
+                   f"module load {self.module_archive} parquet-converters; "
+                   f"parquet2hdf5 ")
+
+        if _check_if_old_syntax(self.module_archive):
+            command += (f"--format SONATA "
+                        f"--from {from_nodes} {self.node_population} "
+                        f"--to {to_nodes} {self.target_population} "
+                        f"'-o' {edge_file_name} "
+                        f"'-p' {self.edge_population} "
+                        f"{parquet_glob} ")
+        else:
+            command += f"{parquet_dir} {edge_file_name} {self.edge_population}"
+
+        return command
+
+    def run(self):
+        subprocess.run(self._parse_command(), shell=True, check=True)
+
+    def output(self):
+        return LocalTarget(self._get_full_path_output(self.edge_file_name))

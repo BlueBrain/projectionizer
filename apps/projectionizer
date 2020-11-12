@@ -104,8 +104,8 @@ def common_parser():
     set_fiber_args(parser_fibers)
 
     parser_hex_fibers = subparsers.add_parser(
-            'generate-fibers-hex',
-            help='Generate the fiber locations CSV file for microcolumns.')
+        'generate-fibers-hex',
+        help='Generate the fiber locations CSV file for microcolumns.')
     parser_hex_fibers.set_defaults(which='generate-fibers-hex')
     set_fiber_args(parser_hex_fibers)
 
@@ -118,6 +118,7 @@ def common_parser():
                                          '"[[xmin, zmin], [xmax, zmax]]"'))
 
     return parser
+
 
 def load_config(path):
     '''load a yaml config'''

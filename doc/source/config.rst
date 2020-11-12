@@ -45,8 +45,15 @@ Parameters
   - **cutoff_var**: Connections are filtered based on there number of synapses. The filter function is a sigmoid function centered at the cutoff value. `cutoff_var` is the width of the sigmoid.
 
 **WriteAll** writes the projections in a given format
-  - **output_type**: The format to use. Accepts: 'nrn', 'syn2', (soon: 'sonata')
+  - **output_type**: The format to use. Accepts: 'nrn', 'syn2', 'sonata'
 
-**SpykfuncParametrization (upcoming)** parameterizes the SONATA files (assumes 'sonata' format was used in WriteAll)
+**WriteSonata** parameterizes the SONATA files (assumes 'sonata' format was used in WriteAll)
   - **recipe_path**: The path to the XML recipe that is used by spykfunc
-  - **morphology_path**: path to the morphology release
+  - **morphology_path**: The path to the morphology release
+  - **target_population**: The name of the target node population (default: All)
+  - **mtype**: mtype of the nodes (default: projections)
+  - **node_population**: The name of the created node population (default: projections)
+  - **edge_population**: The name of the created edge population (default: projections)
+  - **node_file_name**: file name for the sonata node file (default: projections_nodes.h5)
+  - **edge_file_name**: file name for the sonata edge file (default: projections_edges.h5)
+  - **module_archive**: which archive to load spykfunc and parquet-converters from (default: archive/2021-07)

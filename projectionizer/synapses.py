@@ -108,7 +108,7 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
     in_bb = pd.DataFrame((ends + starts) / 2., columns=list('xyz'), index=segs_df.index)
     in_bb = in_bounding_box(*_min_max_axis(min_xyz, max_xyz), df=in_bb)
 
-    segs_df = segs_df[in_bb].copy()
+    segs_df = segs_df[in_bb].copy()  # pylint: disable=unsubscriptable-object
 
     if len(segs_df) == 0:
         return None

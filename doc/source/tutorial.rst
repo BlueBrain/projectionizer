@@ -26,6 +26,10 @@ Since it depends on FLATIndex, it cannot be installed through `spack` currently,
 Usage
 -----
 
+.. note::
+
+    Since sonata format relies on `Spykfunc <https://bbpteam.epfl.ch/documentation/projects/spykfunc/latest/usage.html>`_ (if output_type is sonata), Projectionizer needs to be run in an exclusive allocation to ensure that Spykfunc functions as expected.
+
 Starting a new job
 ~~~~~~~~~~~~~~~~~~
 
@@ -85,19 +89,3 @@ command for columns that will generate exactly 300 fibers in region "mc2_Column"
     projectionizer generate-fibers-hex -o output_file.csv -c CircuitConfig -b '[[xmin, zmin], [xmax, zmax]]' -n 300 -v -1.0 -y 0
 
 command for columns that will generate exactly 300 fiber inside the bounding rectangle limited by xmin, zmin, xmax and zmax. Fibers start from the y-position 0 towards negative y direction (-v -1.0) using K means clustering.
-
-
-.. _tutorial-spykfunc:
-Spykfunc parameterisation (upcoming)
-------------------------------------
-.. note::
-    This command is only run **after** the main projectionizer run is finished.
-
-    This command also requires that the parameter **output_type** (in task **WriteAll**) is set to 'sonata' in the YAML config file.
-
-
-.. code-block:: console
-
-    projectionizer spykfunc -o output_folder
-
-command that parameterises the projections using the recipe file and and morphology release provided in the YAML config file (**SpykfuncParametrization** task).

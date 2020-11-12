@@ -300,6 +300,7 @@ def efferent_neuron_per_fiber(df, fibers, folder):
 
     ax.set_xlabel('X fiber coordinate')
     ax.set_ylabel('Z fiber coordinate')
+    ax.axis('equal')
 
     fig.savefig(os.path.join(folder, 'efferent_count_2d.png'))
 
