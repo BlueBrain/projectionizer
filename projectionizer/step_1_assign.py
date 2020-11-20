@@ -4,7 +4,7 @@ import logging
 import pandas as pd
 import numpy as np
 from luigi import FloatParameter, IntParameter
-from bluepy.v2 import Circuit
+from bluepy import Circuit
 
 from projectionizer.straight_fibers import (assign_synapse_fiber,
                                             closest_fibers_per_voxel,

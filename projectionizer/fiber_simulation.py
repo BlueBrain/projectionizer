@@ -6,7 +6,7 @@ import pandas as pd
 import scipy.ndimage as nd
 from scipy.cluster.vq import kmeans
 
-from bluepy.v2 import Circuit, Cell
+from bluepy import Circuit, Cell
 import voxcell
 
 from projectionizer.utils import mask_by_region, read_regions_from_manifest, XYZUVW

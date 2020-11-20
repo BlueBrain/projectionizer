@@ -14,7 +14,7 @@ import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from bluepy.v2 import Circuit, Cell
+from bluepy import Circuit, Cell
 
 from projectionizer.fiber_simulation import get_region_ids
 from projectionizer.luigi_utils import CommonParams, RunAnywayTargetTempDir, JsonTask
@@ -480,14 +480,16 @@ def _layers_in_regions(atlas, regions):
     '''Get list of layers for the regions in the atlas.'''
     # NOTE: actually might not be needed, if the layer names defined the same way in config.yaml
     # as in atlas
-    atlas_hierarchy = atlas.load_hierarchy()
+    region_map = atlas.load_region_map()
     region_acronyms = []
 
     for r in regions:
-        children = atlas_hierarchy.find('acronym', r)[0].children
-        region_acronyms.extend([c.data['acronym'] for c in children])
+        all_ids = region_map.find(r, attr='acronym', with_descendants=True)
+        parent_id = region_map.find(r, attr='acronym')
+        children_ids = all_ids - parent_id
+        region_acronyms.extend([region_map.get(c, 'acronym') for c in children_ids])
 
-    layers = list(set([acronym.split(';')[1] for acronym in region_acronyms]))
+    layers = list({acronym.split(';')[1] for acronym in region_acronyms})
     layers.sort()
 
     return layers

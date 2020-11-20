@@ -133,4 +133,4 @@ class RunAnywayTargetTempDir(RunAnywayTarget):
     '''
     def __init__(self, task_obj, base_dir):
         self.temp_dir = os.path.join(base_dir, 'luigi-tmp')
-        super(RunAnywayTargetTempDir, self).__init__(task_obj)
+        super().__init__(task_obj)

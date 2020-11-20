@@ -53,7 +53,7 @@ def read_feather(path, columns=None):
     '''Read a feather from disk, with specified columns'''
     # this turns off mmap, and makes the read *much* (>10x) faster on GPFS
     source = pyarrow.OSFile(path)
-    return feather.FeatherReader(source).read_pandas(columns)
+    return feather.read_feather(source, columns=columns)
 
 
 def read_yaml(path):
@@ -73,8 +73,8 @@ def load(filename):
             '.json': lambda: json.load(open(filename)),
             '.yaml': lambda: read_yaml(filename),
         }[extension]()
-    except KeyError:
-        raise NotImplementedError('Do not know how open: {}'.format(filename))
+    except KeyError as key_error:
+        raise NotImplementedError('Do not know how open: {}'.format(filename)) from key_error
 
 
 def load_all(inputs):
@@ -85,7 +85,7 @@ def load_all(inputs):
 def map_parallelize(func, it, jobs=36, chunksize=100):
     '''apply func to all items in it, using a process pool'''
     if os.environ.get('PARALLEL_VERBOSE', False):
-        from multiprocessing import util
+        from multiprocessing import util  # pylint:disable=import-outside-toplevel
         util.log_to_stderr(logging.DEBUG)
 
     jobs = os.environ.get('PARALLEL_COUNT', jobs)

@@ -5,7 +5,7 @@ import os
 
 import numpy as np
 import pandas as pd
-from bluepy.v2 import Circuit
+from bluepy import Circuit
 
 from luigi import BoolParameter, FloatParameter, IntParameter, ListParameter
 from projectionizer.luigi_utils import FeatherTask, JsonTask, NrrdTask

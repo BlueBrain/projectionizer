@@ -12,14 +12,13 @@ setup(
     install_requires=[
         'toolz>=0.8',
         'partd>=0.3',
-        'luigi>=2.7,<3.0',
+        'luigi>3.0',
         'tables>=3.4',
         'pyarrow>=0.11.1',
-        'pyrsistent==0.16.0',  # To fix a bug regarding py27 support of pyrsistent
         # BBP
-        'bluepy>=0.10,<=0.14.14',
+        'bluepy>=2',
         'libFLATIndex>=1.8.11',
-        'voxcell>=2.5',
+        'voxcell>=3',
     ],
     packages=[
         'projectionizer',
@@ -33,5 +32,5 @@ setup(
     license='BBP-internal-confidential',
     url='http://bluebrain.epfl.ch',
     include_package_data=True,
-    python_requires='>=2.7,<3',
+    python_requires='>=3.6,<3.8', # no libFLATIndex available for py38
 )

@@ -8,7 +8,7 @@ import logging
 import luigi
 import numpy as np
 import pandas as pd
-from bluepy.v2.circuit import Circuit
+from bluepy import Circuit
 from scipy.stats import norm  # pylint: disable=no-name-in-module
 
 from projectionizer import (straight_fibers, synapses as syns, luigi_utils,
@@ -49,7 +49,7 @@ class ReduceGroupByConnection(luigi_utils.FeatherTask):
     def run(self):  # pragma: no cover
         dfs = load_all(self.input())
         res = (pd.concat(dfs, ignore_index=True)
-               .groupby(['mtype', 'sgid', 'tgid'])
+               .groupby(['mtype', 'sgid', 'tgid'], observed=True)
                .size()
                .reset_index(name='connection_size')
                )

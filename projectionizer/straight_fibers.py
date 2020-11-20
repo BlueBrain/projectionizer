@@ -63,8 +63,7 @@ def _closest_fibers_per_voxel(pos, virtual_fibers, closest_count):
     distances = calc_distances(pos, virtual_fibers[XYZUVW].values)
     closest_count = min(closest_count, distances.shape[1] - 1)
     fiber_idx = np.argpartition(distances, closest_count, axis=1)[:, :closest_count]
-    fibers = pd.DataFrame(virtual_fibers.index[fiber_idx].values)
-    return fibers
+    return pd.DataFrame(fiber_idx)
 
 
 def closest_fibers_per_voxel(synapse_counts, virtual_fibers, closest_count):

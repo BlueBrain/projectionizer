@@ -1,4 +1,4 @@
-from bluepy.v2.enums import Section, Segment
+from bluepy import Section, Segment
 from mock import Mock, patch
 from neurom import NeuriteType
 from nose.tools import ok_, eq_

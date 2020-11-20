@@ -2,8 +2,7 @@ import luigi
 import numpy as np
 import pandas as pd
 import yaml
-from bluepy.v2.circuit import Circuit
-from bluepy.v2.enums import Cell, Section, Segment
+from bluepy import Circuit, Cell, Section, Segment
 from luigi import FloatParameter, Parameter
 from luigi.local_target import LocalTarget
 from neurom.core.dataformat import COLS

@@ -5,8 +5,8 @@ from functools import partial
 
 import numpy as np
 import pandas as pd
-from bluepy.v2.enums import Section, Segment
-from bluepy.v2.index import SegmentIndex
+from bluepy import Section, Segment
+from bluepy.index import SegmentIndex
 from neurom import NeuriteType
 from tqdm import tqdm
 
@@ -66,7 +66,7 @@ def _sample_with_flat_index(index_path, min_xyz, max_xyz):
     '''use flat index to get segments within min_xyz, max_xyz'''
     #  this is loaded late so that multiprocessing loads it outside of the main
     #  python binary - at one point, this was necessary, as there was shared state
-    import libFLATIndex as FI
+    import libFLATIndex as FI  # pylint:disable=import-outside-toplevel
     try:
         index = FI.loadIndex(str(os.path.join(index_path, 'SEGMENT')))  # pylint: disable=no-member
         min_xyz_ = tuple(map(float, min_xyz))
@@ -167,7 +167,7 @@ def pick_synapses(index_path, synapse_counts,
                    segment_pref=segment_pref,
                    dataframe_cleanup=dataframe_cleanup)
 
-    synapses = list(map_parallelize(func, tqdm(xyz_counts)))
+    synapses = list(map_parallelize(func, tqdm(xyz_counts, total=len(min_xyzs))))
 
     n_none_dfs = sum(df is None for df in synapses)
     percentage_none = n_none_dfs / float(len(synapses)) * 100
