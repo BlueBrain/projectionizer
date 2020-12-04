@@ -10,6 +10,8 @@ from luigi import (Config, FloatParameter, IntParameter, Parameter, Task,
 from luigi.contrib.simulate import RunAnywayTarget
 from luigi.local_target import LocalTarget
 
+from projectionizer.utils import read_regions_from_manifest
+
 
 def camel2spinal_case(name):
     '''Camel case to snake case'''
@@ -39,6 +41,9 @@ class CommonParams(Config):
     target_mtypes = ListParameter(default=['L4_PC', 'L4_UPC', 'L4_TPC', ])  # list of mtypes
     regions = ListParameter(default=[])
 
+    # path to CSV with six columns; x,y,z,u,v,w: location and direction of fibers
+    fiber_locations_path = Parameter(default='rat_fibers.csv')
+
     # S1HL/S1 region parameters
     voxel_path = Parameter(default='')
 
@@ -47,10 +52,15 @@ class CommonParams(Config):
     # synapses to fibers
     # ListParameter can not default to None without further problems with luigi
     hex_apron_bounding_box = ListParameter(default=[])
-    # path to CSV with two columns; x/z: location of fibers
-    hex_fiber_locations = Parameter(default=None)
+    hex_fiber_locations = Parameter(default='')
 
     extension = None
+
+    def __init__(self, *args, **kwargs):
+        Config.__init__(self, *args, **kwargs)
+
+        assert self.hex_fiber_locations == '', \
+               '"hex_fiber_locations" is deprecated, use "fiber_locations_path" instead'
 
     def output(self):
         name = camel2spinal_case(self.__class__.__name__)
@@ -71,6 +81,21 @@ class CommonParams(Config):
         else:
             templates = pkg_resources.resource_filename('projectionizer', 'templates')
             return os.path.join(templates, path)
+
+    def get_regions(self):
+        '''Get region from config or parse it from MANIFEST.
+
+        If regions are defined in recipe, the MANIFEST is omitted.'''
+        res = None
+
+        if self.regions:
+            res = self.regions
+        else:
+            res = read_regions_from_manifest(self.circuit_config)
+
+        assert res, 'No regions defined'
+
+        return res
 
 
 class CsvTask(CommonParams):

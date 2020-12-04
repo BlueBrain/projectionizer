@@ -36,10 +36,13 @@ def common_parser():
         epilog='Location of "templates/" path: %s' % TEMPLATES_PATH)
     subparsers = parser.add_subparsers(help='sub-command help')
 
-    def set_common_args(_parser):
+    def set_scheduler_arg(_parser):
         _parser.add_argument('-l', '--no-local-scheduler', action='store_true',
                              help='Do not use the luigi local scheduler '
                              '(luigi daemon (luigid) must be running)')
+
+    def set_common_args(_parser):
+        set_scheduler_arg(_parser)
         _parser.add_argument('-o', '--output',
                              help='Output directory', required=True)
 
@@ -52,6 +55,17 @@ def common_parser():
                                    'Must be passed when running the analysis for '
                                    'the first time. See templates/ path for '
                                    'some examples'))
+
+    def set_fiber_args(_parser):
+        set_scheduler_arg(_parser)
+        _parser.add_argument('-c', '--config', required=True,
+                             help='CircuitConfig file')
+        _parser.add_argument('-r', '--region', default='',
+                             help='Acronyms of regions ("[\'region_1\', \'region_2\']")')
+        _parser.add_argument('-n', '--n-fibers',
+                             help='Count of fibers to create')
+        _parser.add_argument('-o', '--out-file', default="fibers.csv",
+                             help='File name for the CSV containing fiber positions.')
 
     parser_start = subparsers.add_parser('start',
                                          help='Generate new projections from scratch')
@@ -75,7 +89,7 @@ def common_parser():
     set_config_args(parser_dichotomy)
     parser_dichotomy.add_argument(
         '-t', '--connectivity-target', required=True,
-        help='Number of synpase per connection to reach with the dichotomy')
+        help='Number of synapses per connection to reach with the dichotomy')
     parser_dichotomy.add_argument('-s', '--min-param', required=True,
                                   help='Starting range of the dichotomy')
     parser_dichotomy.add_argument('-e', '--max-param', required=True,
@@ -83,8 +97,27 @@ def common_parser():
     parser_dichotomy.add_argument('-m', '--target-margin', required=True,
                                   help='Tolerance of the dichotomy')
 
-    return parser
+    parser_fibers = subparsers.add_parser(
+        'generate-fibers',
+        help='Generate the fiber locations CSV file.')
+    parser_fibers.set_defaults(which='generate-fibers')
+    set_fiber_args(parser_fibers)
 
+    parser_hex_fibers = subparsers.add_parser(
+            'generate-fibers-hex',
+            help='Generate the fiber locations CSV file for microcolumns.')
+    parser_hex_fibers.set_defaults(which='generate-fibers-hex')
+    set_fiber_args(parser_hex_fibers)
+
+    parser_hex_fibers.add_argument('-v', '--v_direction', default="1.0",
+                                   help='Direction for v, either 1.0 or -1.0.')
+    parser_hex_fibers.add_argument('-y', '--y_level', default='0.0',
+                                   help='y plane in which to place fiber positions')
+    parser_hex_fibers.add_argument('-b', '--bounding-rectangle', default='[]',
+                                   help=('Rectangle on a y-plane bounding the generated fibers '
+                                         '"[[xmin, zmin], [xmax, zmax]]"'))
+
+    return parser
 
 def load_config(path):
     '''load a yaml config'''
@@ -169,18 +202,51 @@ def _cmd_dichotomy(args):
              ] + luigi_params(args))
 
 
+def _cmd_generate_fibers(args):
+    '''Luigi argument list for the "generate-fibers" command'''
+    cmd = ['GenerateFibers', '--out-file', args.out_file,
+           '--circuit-config', args.config, '--regions', args.region,
+           '--module', 'projectionizer.fiber_simulation', '--workers', WORKERS,
+           ]
+
+    if args.n_fibers:
+        cmd.extend(['--n-fibers', args.n_fibers])
+
+    if not args.no_local_scheduler:
+        cmd.append('--local-scheduler')
+
+    return cmd
+
+def _cmd_generate_fibers_hex(args):
+    '''Luigi argument list for the "generate-fibers-hex" command'''
+    cmd = _cmd_generate_fibers(args)
+    cmd.extend(['--use-kmeans',
+                '--bounding-rectangle', args.bounding_rectangle,
+                ])
+
+    if args.y_level:
+        cmd.extend(['--y-level', args.y_level])
+
+    if args.y_level:
+        cmd.extend(['--v-direction', args.v_direction])
+
+    return cmd
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     parser = common_parser()
     ARGS = parser.parse_args()
-    if ARGS.which != 'resume' and not ARGS.config:
+    if ARGS.which not in ('resume', 'generate-fibers') and not ARGS.config:
         L.critical('\nerror: argument -c/--config is required\n\nTip: example'
                    'templates configuration files can be found in: %s', TEMPLATES_PATH)
         sys.exit(-1)
 
     cmd = {'start': _cmd_start,
            'resume': _cmd_resume,
-           'dichotomy': _cmd_dichotomy}[ARGS.which](ARGS)
+           'dichotomy': _cmd_dichotomy,
+           'generate-fibers': _cmd_generate_fibers,
+           'generate-fibers-hex': _cmd_generate_fibers_hex}[ARGS.which](ARGS)
 
     print('You can also start the job with the following command:')
     print('luigi ', end='')

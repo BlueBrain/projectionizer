@@ -2,6 +2,7 @@
 import logging
 
 import pandas as pd
+import numpy as np
 from luigi import FloatParameter, IntParameter
 from bluepy.v2 import Circuit
 
@@ -10,8 +11,8 @@ from projectionizer.straight_fibers import (assign_synapse_fiber,
                                             candidate_fibers_per_synapse
                                             )
 from projectionizer.luigi_utils import CsvTask, FeatherTask
-from projectionizer.step_0_sample import SampleChunk, VoxelSynapseCount, Height, Regions
-from projectionizer.utils import load_all, write_feather, IJK, XYZ, mask_by_region
+from projectionizer.step_0_sample import SampleChunk, VoxelSynapseCount, Height
+from projectionizer.utils import load_all, load, write_feather, IJK, XYZ, mask_by_region
 
 L = logging.getLogger(__name__)
 
@@ -23,24 +24,24 @@ class VirtualFibersNoOffset(CsvTask):
     Note: apron is a bool indicating if the fiber is in the apron or not
     '''
     def requires(self):  # pragma: no cover
-        return self.clone(Height), self.clone(Regions)
+        return self.clone(Height)
 
     def run(self):  # pragma: no cover
-        height, regions = load_all(self.input())
-        if self.hex_fiber_locations is None:
-            from projectionizer.sscx import load_s1_virtual_fibers
-            atlas = Circuit(self.circuit_config).atlas
-            df = load_s1_virtual_fibers(atlas, regions)
-            df['apron'] = False
-        else:
-            from projectionizer.sscx_hex import get_minicol_virtual_fibers
-            locations_path = self.load_data(self.hex_fiber_locations)
-            mask = mask_by_region(regions, self.voxel_path)
-            df = get_minicol_virtual_fibers(apron_bounding_box=self.hex_apron_bounding_box,
-                                            height=height,
-                                            region_mask=mask,
-                                            locations_path=locations_path)
-        df.to_csv(self.output().path, index_label='sgid')
+        height = load(self.input().path)
+
+        def is_fiber_outside_region(df, mask):
+            '''Check which fibers are not in region'''
+            mask_xz = mask.any(axis=1)
+            idx = height.positions_to_indices(df[XYZ].to_numpy())
+            return np.invert(mask_xz[tuple(idx[:, [0, 2]].T)])
+
+        atlas = Circuit(self.circuit_config).atlas
+        fibers = load(self.fiber_locations_path)
+        fibers = fibers.reset_index()
+        mask = mask_by_region(self.get_regions(), atlas.dirpath)
+        fibers['apron'] = is_fiber_outside_region(fibers, mask)
+
+        fibers.to_csv(self.output().path, index_label='sgid')
 
 
 class ClosestFibersPerVoxel(FeatherTask):

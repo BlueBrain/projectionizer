@@ -8,7 +8,7 @@ CommonParams:
 
   hex_side: 230.92 # length of hexagon size
   hex_apron_size: 50 # size of apron around the hexagon, so that there aren't edge effects when assigning synapses to fibers
-  hex_fiber_locations: rat_fibers.csv
+  fiber_locations_path: rat_fibers.csv
 
 FullSample:
   n_slices: -1 #  The number of voxels to sample (-1 = all)

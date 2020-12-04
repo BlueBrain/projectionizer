@@ -18,14 +18,13 @@ import voxcell
 from voxcell.nexus.voxelbrain import Atlas
 from bluepy.v2 import Circuit, Cell
 
-from projectionizer.sscx import get_region_ids
-from projectionizer.sscx_hex import get_minicol_virtual_fibers
+from projectionizer.fiber_simulation import get_region_ids
 from projectionizer.luigi_utils import CommonParams, RunAnywayTargetTempDir, JsonTask
-from projectionizer.step_0_sample import FullSample, SynapseDensity, Regions, Height
+from projectionizer.step_0_sample import FullSample, SynapseDensity, Height
 from projectionizer.step_2_prune import (ChooseConnectionsToKeep, CutoffMeans,
                                          ReducePrune)
 from projectionizer.step_3_write import VirtualFibers, WriteAll
-from projectionizer.utils import load, load_all, read_feather, mask_by_region
+from projectionizer.utils import load, load_all, read_feather
 
 
 L = logging.getLogger(__name__)
@@ -297,7 +296,7 @@ def efferent_neuron_per_fiber(df, fibers, folder):
     ax = fig.add_subplot(1, 1, 1)
     ax.set_title(title)
     df = fibers.join(neuron_efferent_count)
-    plt.scatter(df.x, df.z, s=80, c=df.tgid)
+    plt.scatter(df.x, df.z, s=20, c=df.tgid)
 
     ax.set_xlabel('X fiber coordinate')
     ax.set_ylabel('Z fiber coordinate')
@@ -655,7 +654,6 @@ class Analyse(CommonParams):
                 self.clone(SynapseDensity),
                 self.clone(VirtualFibers),
                 self.clone(Height),
-                self.clone(Regions),
                 self.clone(LayerThickness), )
 
     def run(self):  # pragma: no cover
@@ -667,24 +665,13 @@ class Analyse(CommonParams):
          distmap,
          fibers,
          height,
-         regions,
          layers,) = load_all(self.input())
 
+        regions = self.get_regions()
         atlas = Atlas.open(self.voxel_path)
         connections.sgid += self.sgid_offset
 
-        if self.hex_fiber_locations:
-            mask = mask_by_region(regions, self.voxel_path)
-
-            locations_path = self.load_data(self.hex_fiber_locations)
-            all_fibers = get_minicol_virtual_fibers(apron_bounding_box=self.hex_apron_bounding_box,
-                                                    height=height,
-                                                    region_mask=mask,
-                                                    locations_path=locations_path)
-            pruned_no_edge = remove_synapses_with_sgid(pruned,
-                                                       all_fibers[all_fibers['apron']].index)
-        else:
-            pruned_no_edge = pruned
+        pruned_no_edge = remove_synapses_with_sgid(pruned, fibers[fibers['apron']].index)
 
         fraction_pruned_vs_height(self.folder, self.n_total_chunks)
         innervation_width(pruned, self.circuit_config, self.folder)

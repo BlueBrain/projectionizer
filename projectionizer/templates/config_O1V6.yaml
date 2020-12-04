@@ -8,7 +8,7 @@ CommonParams:
 
   hex_side: 230.92 # length of hexagon size
   hex_apron_size: 50 # size of apron around the hexagon, so that there aren't edge effects when assigning synapses to fibers
-  hex_fiber_locations: /gpfs/bbp.cscs.ch/project/proj30/projectionizer/mouse_O1/runs/rat_fibers.csv
+  fiber_locations_path: /gpfs/bbp.cscs.ch/project/proj30/projectionizer/mouse_O1/runs/rat_fibers.csv
 
 SynapseDensity:
   density_params:

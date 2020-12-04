@@ -17,7 +17,6 @@ from projectionizer.synapses import (build_synapses_default,
 from projectionizer.utils import (load,
                                   load_all,
                                   mask_by_region_acronyms,
-                                  read_regions_from_manifest,
                                   write_feather)
 
 
@@ -36,25 +35,6 @@ class VoxelSynapseCount(NrrdTask):  # pragma: no cover
         res.save_nrrd(self.output().path)
 
 
-class Regions(JsonTask):  # pragma: no cover
-    '''Read the regions from recipe or from MANIFEST.
-
-    If regions are defined in recipe, the MANIFEST is omitted.'''
-
-    def run(self):
-        res = None
-
-        if self.regions:
-            res = self.regions
-        else:
-            res = read_regions_from_manifest(self.circuit_config)
-
-        assert res, 'No regions defined'
-
-        with self.output().open('w') as outfile:
-            json.dump(res, outfile)
-
-
 class Height(NrrdTask):  # pragma: no cover
     '''return a VoxelData instance w/ all the layer-wise relative heights for given region_name
 
@@ -66,15 +46,12 @@ class Height(NrrdTask):  # pragma: no cover
         path(str): path to where nrrd files are, must include 'brain_regions.nrrd'
     '''
 
-    def requires(self):
-        return self.clone(Regions)
-
     def run(self):
-        region = load(self.input().path)
+        regions = self.get_regions()
         atlas = Circuit(self.circuit_config).atlas
         brain_regions = atlas.load_data('brain_regions')
         hierarchy = atlas.load_hierarchy()
-        mask = mask_by_region_acronyms(brain_regions.raw, hierarchy, region)
+        mask = mask_by_region_acronyms(brain_regions.raw, hierarchy, regions)
         distance = atlas.load_data('[PH]y')
 
         if len(self.hex_apron_bounding_box):

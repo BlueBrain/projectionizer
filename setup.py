@@ -17,8 +17,7 @@ setup(
         'pyarrow>=0.11.1',
         'pyrsistent==0.16.0',  # To fix a bug regarding py27 support of pyrsistent
         # BBP
-        'bluepy>=0.10,<=0.14.16',
-        'bluepysnap<=0.6.1',  # To have support for p27
+        'bluepy>=0.10,<=0.14.14',
         'libFLATIndex>=1.8.11',
         'voxcell>=2.5',
     ],
