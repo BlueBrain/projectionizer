@@ -33,7 +33,6 @@ def test_common_params():
               'sgid_offset': 0,
               'oversampling': 0,
               'voxel_path': '',
-              'prefix': '',
               'layers': [(6, 700.37845971),
                          (5, 525.05585701),
                          (4, 189.57183895),

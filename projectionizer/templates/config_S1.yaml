@@ -8,9 +8,7 @@ CommonParams:
 
   # Stuff specific to S1HL
   #voxel_path: /gpfs/bbp.cscs.ch/project/proj64/circuits/S1HL/20171004/.atlas/
-  #prefix: C63CB79F-392A-4873-9949-0D347682253A-
   voxel_path: /gpfs/bbp.cscs.ch/project/proj64/circuits/S1.v6/build/.atlas/C63CB79F-392A-4873-9949-0D347682253A/
-  prefix: ""
 
 FullSample:
   n_slices: -1 #  The number of voxels to sample (-1 = all)

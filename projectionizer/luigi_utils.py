@@ -38,10 +38,10 @@ class CommonParams(Config):
     oversampling = FloatParameter()
     layers = ListParameter()  # list of pairs of (layer name, thickness), starting at 'bottom'
     target_mtypes = ListParameter(default=['L4_PC', 'L4_UPC', 'L4_TPC', ])  # list of mtypes
+    regions = ListParameter(default=[])
 
     # S1HL/S1 region parameters
     voxel_path = Parameter(default='')
-    prefix = Parameter(default='')
 
     # hex parameters
     hex_side = FloatParameter(default=0)  # size of a hexagon side

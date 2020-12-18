@@ -22,7 +22,6 @@ def test_SampleChunk():
                   'sgid_offset': 0,
                   'oversampling': 0,
                   'voxel_path': '',
-                  'prefix': '',
                   'layers': '',
                   }
         mock = Mock(path=mock_path)

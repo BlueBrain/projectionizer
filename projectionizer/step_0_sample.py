@@ -6,16 +6,20 @@ import os
 import numpy as np
 import pandas as pd
 import voxcell
+from bluepy.v2 import Circuit
 
 from luigi import BoolParameter, FloatParameter, IntParameter, ListParameter
 from projectionizer.luigi_utils import FeatherTask, JsonTask, NrrdTask
-from projectionizer.sscx import (REGION_INFO,
-                                 recipe_to_relative_heights_per_layer,
+from projectionizer.sscx import (recipe_to_relative_heights_per_layer,
                                  recipe_to_relative_height_and_density,
                                  recipe_to_height_and_density)
 from projectionizer.synapses import (build_synapses_default,
                                      pick_synapses)
-from projectionizer.utils import load, load_all, mask_by_region, write_feather
+from projectionizer.utils import (load,
+                                  load_all,
+                                  mask_by_region,
+                                  read_regions_from_manifest,
+                                  write_feather)
 
 
 class VoxelSynapseCount(NrrdTask):  # pragma: no cover
@@ -33,6 +37,25 @@ class VoxelSynapseCount(NrrdTask):  # pragma: no cover
         res.save_nrrd(self.output().path)
 
 
+class Regions(JsonTask):  # pragma: no cover
+    '''Read the regions from recipe or from MANIFEST.
+
+    If regions are defined in recipe, the MANIFEST is omitted.'''
+
+    def run(self):
+        res = None
+
+        if self.regions:
+            res = self.regions
+        else:
+            res = read_regions_from_manifest(self.circuit_config)
+
+        assert res, 'No regions defined'
+
+        with self.output().open('w') as outfile:
+            json.dump(res, outfile)
+
+
 class Height(NrrdTask):  # pragma: no cover
     '''return a VoxelData instance w/ all the layer-wise relative heights for given region_name
 
@@ -42,29 +65,24 @@ class Height(NrrdTask):  # pragma: no cover
     Args:
         region_name(str): name to look up in atlas
         path(str): path to where nrrd files are, must include 'brain_regions.nrrd'
-        prefix(str): Prefix (ie: uuid) used to identify atlas/voxel set
     '''
+
+    def requires(self):
+        return self.clone(Regions)
 
     def run(self):
         if self.geometry in ('s1hl', 's1', ):
-            prefix = self.prefix or ''
-            region = REGION_INFO[self.geometry]['region']
-            mask = mask_by_region(region, self.voxel_path, prefix)
+            region = load(self.input().path)
+            atlas = Circuit(self.circuit_config).atlas
+            mask = mask_by_region(region, self.voxel_path)
             distance = voxcell.VoxelData.load_nrrd(
-                os.path.join(self.voxel_path, prefix + 'distance.nrrd'))
+                os.path.join(self.voxel_path, 'distance.nrrd'))
             distance.raw[np.invert(mask)] = np.nan
-            distance = recipe_to_relative_heights_per_layer(distance, self.layers, self.voxel_path)
+            distance = recipe_to_relative_heights_per_layer(atlas, self.layers)
         elif self.geometry == 'hex':
-            from projectionizer.sscx_hex import voxel_space
-            max_height = sum(h for _, h in self.layers)  # pylint: disable=not-an-iterable
-            fiber_locations = self.load_data(self.hex_fiber_locations)
-            voxels = voxel_space(hex_edge_len=self.hex_side,
-                                 locations_path=fiber_locations,
-                                 max_height=max_height
-                                 )
-            xyz = voxels.indices_to_positions(np.indices(
-                voxels.raw.shape).transpose(1, 2, 3, 0) + (0.5, 0.5, 0.5))
-            distance = voxels.with_data(xyz[:, :, :, 1])
+            # TODO: thoroughly test the columns work as expected when this is merged with NSETM-854
+            raise NotImplementedError('"hex" is not working. '
+                                      'This will be fixed in an upcoming merge.')
         else:
             raise Exception('Unknown geometry: {}'.format(self.geometry))
         distance.save_nrrd(self.output().path)

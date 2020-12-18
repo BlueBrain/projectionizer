@@ -2,8 +2,9 @@
 import logging
 
 import pandas as pd
-
 from luigi import FloatParameter, IntParameter
+from bluepy.v2 import Circuit
+
 from projectionizer.straight_fibers import (assign_synapse_fiber,
                                             closest_fibers_per_voxel,
                                             candidate_fibers_per_synapse
@@ -25,8 +26,8 @@ class VirtualFibersNoOffset(CsvTask):
     def run(self):  # pragma: no cover
         if self.geometry in ('s1hl', 's1', ):
             from projectionizer.sscx import load_s1_virtual_fibers
-            df = load_s1_virtual_fibers(
-                self.geometry, self.voxel_path, self.prefix)
+            atlas = Circuit(self.circuit_config).atlas
+            df = load_s1_virtual_fibers(atlas, self.regions)
             df['apron'] = False
         elif self.geometry == 'hex':
             from projectionizer.sscx_hex import get_minicol_virtual_fibers

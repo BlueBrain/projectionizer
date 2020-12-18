@@ -5,6 +5,7 @@ import logging
 import os
 from itertools import chain
 import multiprocessing
+import re
 
 import numpy as np
 import pandas as pd
@@ -12,6 +13,9 @@ from six import string_types
 from voxcell import Hierarchy, VoxelData
 import pyarrow
 from pyarrow import feather
+import yaml
+
+from bluepy_configfile.configfile import BlueConfig
 
 
 X, Y, Z = 0, 1, 2
@@ -53,6 +57,12 @@ def read_feather(path, columns=None):
     return feather.FeatherReader(source).read_pandas(columns)
 
 
+def read_yaml(path):
+    '''Read a yaml file from given path'''
+    with open(path, 'r') as fd:
+        return yaml.load(fd, Loader=yaml.Loader)
+
+
 def load(filename):
     """Load a Pandas/Nrrd file based on the extension"""
     extension = os.path.splitext(filename)[1]
@@ -61,7 +71,8 @@ def load(filename):
             '.feather': lambda: read_feather(filename),
             '.nrrd': lambda: VoxelData.load_nrrd(filename),
             '.csv': lambda: pd.read_csv(filename, index_col=0),
-            '.json': lambda: json.load(open(filename))
+            '.json': lambda: json.load(open(filename)),
+            '.yaml': lambda: read_yaml(filename),
         }[extension]()
     except KeyError:
         raise NotImplementedError('Do not know how open: {}'.format(filename))
@@ -142,14 +153,13 @@ def mask_by_region_names(annotation_raw, hierarchy, names):
     return mask_by_region_ids(annotation_raw, all_ids)
 
 
-def mask_by_region(region, path, prefix):
+def mask_by_region(region, path):
     '''
     Args:
         region(str or list of region ids): name/ids to look up in atlas
         path(str): path to where nrrd files are, must include 'brain_regions.nrrd'
-        prefix(str): Prefix (ie: uuid) used to identify atlas/voxel set
     '''
-    atlas = VoxelData.load_nrrd(os.path.join(path, prefix + 'brain_regions.nrrd'))
+    atlas = VoxelData.load_nrrd(os.path.join(path, 'brain_regions.nrrd'))
     with open(os.path.join(path, 'hierarchy.json')) as fd:
         hierarchy = Hierarchy(json.load(fd))
     if isinstance(region, string_types):
@@ -160,3 +170,23 @@ def mask_by_region(region, path, prefix):
 
         mask = mask_by_region_ids(atlas.raw, region_ids)
     return mask
+
+
+def _regex_to_regions(region_str):
+    '''Convert the region regex string in manifest to list of regions'''
+    # Replace @, ^, $, (, ), \ with and empty string and split on |
+    return re.sub(r'[\@\^\$\(\)\\]', '', region_str).split('|')
+
+
+def read_regions_from_manifest(circuit_config):
+    '''Read the regions from the MANIFEST.yaml'''
+    with open(circuit_config, 'r') as fd:
+        bc = BlueConfig(fd)
+
+    if hasattr(bc.Run, 'BioName'):
+        manifest = load(os.path.join(bc.Run.BioName, 'MANIFEST.yaml'))
+
+        if ('common' in manifest) and ('region' in manifest['common']):
+            return _regex_to_regions(manifest['common']['region'])
+
+    return []

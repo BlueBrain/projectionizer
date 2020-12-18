@@ -4,7 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 from nose.tools import eq_, ok_, raises, assert_raises
-from numpy.testing import assert_equal
+from numpy.testing import assert_equal, assert_array_equal
 from voxcell import VoxelData
 
 import projectionizer.utils as test_module
@@ -135,8 +135,20 @@ def test_in_bounding_box():
 
 def test_mask_by_region():
     region = 'primary somatosensory cortex, hindlimb region'
-    mask = test_module.mask_by_region(region, TEST_DATA_DIR, '')
+    mask = test_module.mask_by_region(region, TEST_DATA_DIR)
     assert_equal(mask.sum(), 101857)
 
-    mask = test_module.mask_by_region([726], TEST_DATA_DIR, '')
+    mask = test_module.mask_by_region([726], TEST_DATA_DIR)
     assert_equal(mask.sum(), 101857)
+
+
+def test_regex_to_regions():
+    reg_str = '@^region_1$'
+    res = test_module._regex_to_regions(reg_str)
+
+    assert_array_equal(res, ['region_1'])
+
+    reg_str = '@^(region_1\|region_2)$'
+    res = test_module._regex_to_regions(reg_str)
+
+    assert_array_equal(res, ['region_1', 'region_2'])

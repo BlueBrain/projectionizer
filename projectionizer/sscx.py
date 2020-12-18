@@ -1,28 +1,14 @@
 '''Data and geometry related to somatosensory cortex'''
 import logging
-import os
 
 import numpy as np
 import pandas as pd
 import voxcell
-from voxcell.nexus.voxelbrain import Atlas
 import scipy.ndimage as nd
 
-from projectionizer.utils import mask_by_region, XYZUVW, load
+from projectionizer.utils import mask_by_region_ids, XYZUVW
 
 L = logging.getLogger(__name__)
-
-REGION_INFO = {'s1hl': {'region': 'primary somatosensory cortex, hindlimb region',
-                        'layer3': 'primary somatosensory cortex, hindlimb region, layer 3',
-                        'layer4': 'primary somatosensory cortex, hindlimb region, layer 4',
-                        'layer5': 'primary somatosensory cortex, hindlimb region, layer 5',
-                        'layer6': 'primary somatosensory cortex, hindlimb region, layer 6'},
-               's1': {'region': [725, 726, 728, 730, ],
-                      'layer3': [1121, 1127, 1139, 1145, ],
-                      'layer4': [1122, 1128, 1140, 1146, ],
-                      'layer5': [1123, 1129, 1141, 1147, ],
-                      'layer6': [1124, 1130, 1142, 1148, ], },
-               }
 
 
 def column_layers(layers):
@@ -61,26 +47,24 @@ def relative_distance_layer(distance, layer_ph):
     return distance.with_data(relative_height / thickness)
 
 
-def recipe_to_relative_heights_per_layer(distance, layers, voxel_path):
+def recipe_to_relative_heights_per_layer(atlas, layers):
     '''
     Get the relative voxel height in a layer from the bottom of the layer to the top.
 
     Args:
-        distance (VoxelData): distance from the bottom
+        atlas (voxcell.Atlas): atlas instance for the circuit
         layers(list of tuples(name, thickness)): aranged from 'bottom' to 'top'
-        voxel_path (str): path to the atlas
 
     Returns:
         relative_height (VoxelData): relative voxel heights in <layer_index>.<fraction> format
-
-    TODO: add tests and test data
     '''
+    distance = atlas.load_data('[PH]y')
     relative_heights = np.full_like(distance.raw, np.nan)
     names, _ = zip(*layers)
 
     for layer_index, layer in enumerate(names):
-        ph = load(os.path.join(voxel_path, '[PH]{}.nrrd'.format(layer)))
-        mask = (ph.raw[..., 0] < distance.raw) & (distance.raw < ph.raw[..., 1])
+        ph = atlas.load_data('[PH]{}'.format(layer))
+        mask = (ph.raw[..., 0] <= distance.raw) & (distance.raw <= ph.raw[..., 1])
         ph.raw[np.invert(mask), :] = np.nan
         relative_height = relative_distance_layer(distance, ph.raw)
         idx = np.isfinite(relative_height.raw)  # pylint: disable=assignment-from-no-return
@@ -164,74 +148,74 @@ def recipe_to_height_and_density(layers,
             for low, density in zip(heights, density)]
 
 
-def get_fiber_positions(distance, geometry, voxel_path, prefix):
-    '''Get the fiber positions.
+def mask_layers_in_regions(atlas, layers, regions):
+    '''Get the mask for defined layers in all defined regions.'''
+    rmap = atlas.load_region_map()
+    regex_str_regions = '@^({})$'.format('|'.join(regions))
+    regex_str_layers = '@^.*({})$'.format('|'.join(layers))
 
-    i.e., the positions of the voxels that lie on the border of L5 and L3/L4.
+    id_regions_children = rmap.find(regex_str_regions, attr='acronym', with_descendants=True)
+    id_all_layers = rmap.find(regex_str_layers, attr='acronym')
+    id_wanted_layers = set.intersection(id_regions_children, id_all_layers)
+
+    return mask_by_region_ids(atlas.load_data('brain_regions').raw, id_wanted_layers)
+
+
+def get_l5_l34_border_voxel_indices(atlas, regions):
+    '''Get the fiber indices.
+
+    i.e., the indices of the voxels that lie on the border of L5 and L3/L4.
     '''
-    layer5_region = REGION_INFO[geometry]['layer5']
-    layer4_region = REGION_INFO[geometry]['layer4']
-    layer3_region = REGION_INFO[geometry]['layer3']
-    mask5 = mask_by_region(layer5_region, voxel_path, prefix)
-    mask4 = mask_by_region(layer4_region, voxel_path, prefix)
-    mask3 = mask_by_region(layer3_region, voxel_path, prefix)
+    mask_l5 = mask_layers_in_regions(atlas, ['L5'], regions)
+    mask_l34 = mask_layers_in_regions(atlas, ['L3', 'L4'], regions)
+    mask = mask_l5 & nd.binary_dilation(mask_l34)
 
-    bd = nd.binary_dilation(mask4 | mask3)
-    mask = mask5 & bd
-    idx = np.transpose(np.where(mask))
-
-    return distance.indices_to_positions(idx)
+    return np.transpose(np.where(mask))
 
 
-def get_fiber_directions(fiber_pos, atlas, prefix):
-    '''Get the fiber directions at fiber_pos positions.
-    '''
-    orientation = atlas.load_data(prefix + 'orientation', cls=voxcell.OrientationField)
+def get_fiber_directions(fiber_positions, atlas):
+    '''Get the fiber directions at positions defined in fiber_positions.'''
+    orientation = atlas.load_data('orientation', cls=voxcell.OrientationField)
     orientation.raw = orientation.raw.astype(np.int8)
     y_vec = np.array([0, 1, 0])
-    R = orientation.lookup(fiber_pos)
+    R = orientation.lookup(fiber_positions)
 
     return np.matmul(R, y_vec)
 
 
-def mask_layer_6_bottom(distance, geometry, voxel_path, prefix):
+def mask_layer_6_bottom(atlas, regions):
     '''Get the mask for the bottom of layer6.'''
-    layer6_region = REGION_INFO[geometry]['layer6']
-    mask6 = mask_by_region(layer6_region, voxel_path, prefix)
+    distance = atlas.load_data('[PH]y')
+    mask6 = mask_layers_in_regions(atlas, ['L6'], regions)
     distance.raw[np.invert(mask6)] = np.nan
     min_dist = np.min(distance.raw[np.isfinite(distance.raw)])
 
     return distance.raw == min_dist
 
 
-def load_s1_virtual_fibers(geometry, voxel_path, prefix):
-    '''get the s1 virtual fibers
+def ray_tracing(atlas, target_mask, fiber_positions, fiber_directions):
+    '''Get virtual fiber start positions by ray_tracing.
 
-    Tracing back from L5/L43 boundary along the orientations to bottom of L6 and picking
-    those fibers that do hit the bottom of L6 voxels.
+    Args:
+        atlas (voxcell.Atlas): atlas instance for the circuit
+        target_mask (numpy.array): 3D array masking the potential startpoints (e.g. bottom of L4)
+        fiber_positions (numpy.array): fiber positions to trace back from (e.g., L4/L5 boundary
+                                       voxel positions)
+        fiber_directions (numpy.array): directions of the fibers at the positions given at fiber_pos
+
+    Return:
+        (pandas.DataFrame): virtual fibers found
     '''
-    prefix = prefix or ''
-
-    atlas = Atlas.open(voxel_path)
-    distance = atlas.load_data(prefix + 'distance')
-    fiber_pos = get_fiber_positions(distance, geometry, voxel_path, prefix)
-    mask = mask_layer_6_bottom(distance, geometry, voxel_path, prefix)
-
-    count = None  # should be a parameter
-    if count is not None:
-        fiber_pos = fiber_pos[np.random.choice(np.arange(len(fiber_pos)), count)]
-
-    fiber_dir = get_fiber_directions(fiber_pos, atlas, prefix)
-
     ret = []
+    distance = atlas.load_data('[PH]y')
 
     # TODO: more effective way of tracing the fibers to bottom of L6.
-    for pos, dirs in zip(fiber_pos, fiber_dir):
+    for pos, dirs in zip(fiber_positions, fiber_directions):
         try:
-            while not mask[tuple(distance.positions_to_indices(pos))]:
+            while not target_mask[tuple(distance.positions_to_indices(pos))]:
                 pos -= dirs * distance.voxel_dimensions[1]
         except voxcell.exceptions.VoxcellError:
-            # Expecting out of bounds error
+            # Expecting out of bounds error if ray tracing did not hit any voxels in mask
             continue
 
         ret.append(np.concatenate((pos, dirs)))
@@ -239,3 +223,29 @@ def load_s1_virtual_fibers(geometry, voxel_path, prefix):
     ret = np.vstack(ret)
 
     return pd.DataFrame(ret, columns=XYZUVW)
+
+
+def load_s1_virtual_fibers(atlas, regions):
+    '''get the s1 virtual fibers
+
+    Tracing back from L5/L43 boundary along the orientations to bottom of L6 and picking
+    those fibers that do hit the bottom of L6 voxels.
+
+    Args:
+        atlas (voxcell.Atlas): atlas instance for the circuit
+        regions (list): list of region acronyms
+
+    Return:
+        (pandas.DataFrame): virtual fibers found
+    '''
+    distance = atlas.load_data('[PH]y')
+    mask = mask_layer_6_bottom(atlas, regions)
+    fiber_pos = distance.indices_to_positions(get_l5_l34_border_voxel_indices(atlas, regions))
+
+    count = None  # should be a parameter
+    if count is not None:
+        fiber_pos = fiber_pos[np.random.choice(np.arange(len(fiber_pos)), count)]
+
+    fiber_dir = get_fiber_directions(fiber_pos, atlas)
+
+    return ray_tracing(atlas, mask, fiber_pos, fiber_dir)

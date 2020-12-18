@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from voxcell.nexus.voxelbrain import Atlas
 from nose.tools import ok_, eq_
-from numpy.testing import assert_allclose, assert_equal
+from numpy.testing import assert_allclose, assert_equal, assert_array_equal
 
 from voxcell import VoxelData
 from projectionizer import sscx
@@ -109,9 +109,95 @@ def test_get_fiber_directions():
     # [2,...] : 180deg x-axiswise
     fiber_pos = [[0, 0, 0], [1, 0, 0], [2, 0, 0]]
     atlas = Atlas.open(TEST_DATA_DIR)
-    res = sscx.get_fiber_directions(fiber_pos, atlas, '')
+    brain_regions = atlas.load_data('brain_regions')
+
+    res = sscx.get_fiber_directions(fiber_pos, atlas)
 
     assert_allclose(res,
                     [(0, 0, 1),
                      (-1, 0, 0),
                      (0, -1, 0)], atol=1e-15)
+
+
+def test_get_l5_l34_border_voxel_indices():
+    atlas = Atlas.open(TEST_DATA_DIR)
+    brain_regions = atlas.load_data('brain_regions')
+    ret = sscx.get_l5_l34_border_voxel_indices(atlas, ['S1FL'])
+
+    region_ids = brain_regions.raw[tuple(np.transpose(ret))]
+    assert_array_equal([1123], np.unique(region_ids))
+
+    neighbors = np.array([[-1, 0, 0],
+                          [0, -1, 0],
+                          [0, 0, -1],
+                          [1, 0, 0],
+                          [0, 1, 0],
+                          [0, 0, 1]])
+
+    def check_neighbors(ind, layer_ids):
+        # check that any of the `layer_ids` is found in the neighbors
+        idx = tuple(np.transpose(ind + neighbors))
+        return np.any(np.in1d(brain_regions.raw[idx], layer_ids))
+
+    assert_equal(True, np.all([check_neighbors(i, [1121, 1122]) for i in ret]))
+
+
+def test_mask_layers_in_regions():
+    atlas = Atlas.open(TEST_DATA_DIR)
+    brain_regions = atlas.load_data('brain_regions')
+
+    mask = brain_regions.raw == 1121
+    ret = sscx.mask_layers_in_regions(atlas, ['L3'], ['S1FL'])
+    assert_array_equal(ret, mask)
+
+    mask = brain_regions.raw == 1121
+    mask |= brain_regions.raw == 1122
+    mask |= brain_regions.raw == 1127
+    mask |= brain_regions.raw == 1128
+    ret = sscx.mask_layers_in_regions(atlas, ['L3', 'L4'], ['S1FL', 'S1HL'])
+    assert_array_equal(ret, mask)
+
+
+def test_mask_layer_6_bottom():
+    atlas = Atlas.open(TEST_DATA_DIR)
+    brain_regions = atlas.load_data('brain_regions')
+    distance = atlas.load_data('[PH]y')
+
+    # [PH]y is deliberately constructed from braint_regions so that the bottom of
+    # S1J;L6 bottom has a distance of 0
+    mask = brain_regions.raw == 1136
+    mask &= distance.raw == 0
+
+    ret = sscx.mask_layer_6_bottom(atlas, ['S1J'])
+    assert_array_equal(ret, mask)
+
+
+def test_recipe_to_relative_heights_per_layer():
+    # [PH]6 is created from [PH]y. It's equally thick throughout the L6:
+    # min limit is 0, max limit is the highest point of L6 in [PH]y.nrrd
+    atlas = Atlas.open(TEST_DATA_DIR)
+    brain_regions = atlas.load_data('brain_regions')
+    layers = [(6, None)]
+
+    ret = sscx.recipe_to_relative_heights_per_layer(atlas, layers)
+
+    assert_array_equal(np.isfinite(ret.raw), atlas.get_region_mask('L6', attr='acronym').raw)
+    assert_equal(True, np.all(ret.raw[np.isfinite(ret.raw)] >= 0.0))
+    assert_equal(True, np.all(ret.raw[np.isfinite(ret.raw)] <= 1.0))
+
+def test_ray_tracing():
+    atlas = Atlas.open(TEST_DATA_DIR)
+    brain_regions = atlas.load_data('brain_regions')
+    distance = atlas.load_data('[PH]y')
+
+    mask = brain_regions.raw == 1136
+    mask &= distance.raw == 0
+
+    ind_zero = np.transpose(np.where(mask))
+    fiber_pos = distance.indices_to_positions(ind_zero) + np.array([0, 1000, 0])
+    fiber_dir = np.zeros(fiber_pos.shape) + np.array([0, 1, 0])
+    ret = sscx.ray_tracing(atlas, mask, fiber_pos, fiber_dir)
+    ind_fibers = distance.positions_to_indices(ret[list('xyz')].values)
+
+    assert_equal(len(ind_fibers), len(ind_zero))
+    assert_array_equal(ind_fibers, ind_zero)

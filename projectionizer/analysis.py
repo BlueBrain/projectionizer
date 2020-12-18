@@ -1,6 +1,7 @@
 '''Plotting module'''
 import logging
 import os
+import re
 import json
 from itertools import chain, repeat
 
@@ -19,7 +20,7 @@ from bluepy.v2 import Circuit, Cell
 
 from projectionizer.sscx_hex import get_minicol_virtual_fibers
 from projectionizer.luigi_utils import CommonParams, RunAnywayTargetTempDir, JsonTask
-from projectionizer.step_0_sample import FullSample, SynapseDensity
+from projectionizer.step_0_sample import FullSample, SynapseDensity, Regions
 from projectionizer.step_2_prune import (ChooseConnectionsToKeep, CutoffMeans,
                                          ReducePrune)
 from projectionizer.step_3_write import VirtualFibers, WriteAll
@@ -144,9 +145,9 @@ def distmap_with_heights(distmap, layers):
     return heights
 
 
-def synapse_heights(full_sample, voxel_path, prefix='', folder='.'):
+def synapse_heights(full_sample, voxel_path, folder='.'):
     '''Plots a histogram of the heights'''
-    distance = voxcell.VoxelData.load_nrrd(os.path.join(voxel_path, prefix + 'distance.nrrd'))
+    distance = voxcell.VoxelData.load_nrrd(os.path.join(voxel_path, 'distance.nrrd'))
     xyz = full_sample.sample(frac=0.01)[list('xyz')].to_numpy()
     idx = distance.positions_to_indices(xyz)
     dist = distance.raw[tuple(idx.T)]
@@ -310,8 +311,8 @@ def innervation_width(pruned, circuit_config, folder):
 def thalamo_cortical_cells_per_fiber(pruned, folder):
     '''Plots the histogram of thalamo-cortical cells per fiber'''
     # Thalamo-cortical sources
-    tc_src = np.unique(pruned.sgid)
-    counts = [len(np.unique(pruned[pruned.sgid == sgid].tgid)) for sgid in tc_src]
+    n_fibers = pruned.sgid.nunique()
+    counts = pruned.groupby('sgid')['tgid'].nunique().to_numpy()
 
     # Plot number of efferent talamo-cortical target cells per fiber (Fig. 13C)
     bar_pos = 0.75
@@ -326,7 +327,7 @@ def thalamo_cortical_cells_per_fiber(pruned, folder):
              '{:.2f}'.format(np.mean(counts)), color='gray', va='bottom', ha='center')
     plt.gca().spines['top'].set_visible(False)
     plt.gca().spines['right'].set_visible(False)
-    plt.title('Thalamo-cortical projections (N={} fibers)'.format(len(tc_src)))
+    plt.title('Thalamo-cortical projections (N={} fibers)'.format(n_fibers))
     plt.xlabel('#Efferent neurons per thalamic fiber')
     plt.ylabel('Count')
     plt.savefig(os.path.join(folder, 'tc_efferents.png'), dpi=150)
@@ -336,7 +337,7 @@ def distribution_synapses_per_connection(pruned, folder):
     '''Plots the histogram of synapses per connection'''
 
     # Compute number of synapses per connection
-    _, counts = np.unique(pruned[['tgid', 'sgid']].values, axis=0, return_counts=True)
+    counts = pruned.groupby(['sgid', 'tgid'])['tgid'].count().values
 
     # Plot distribution of overall number of synapses per connection
     bar_pos = 0.75
@@ -362,26 +363,28 @@ def distribution_synapses_per_connection(pruned, folder):
 def _synapses_per_connection_stats(pruned, cells, reg, sclass, lay):
     '''Get synapses per connection for region, synapse class and layer.
     Return the connections, mean and standard deviation.'''
+    if re.match(r'L\d', lay):
+        lay = int(lay[-1])
     tids_tmp = cells[np.logical_and(cells.region == reg,
                      np.logical_and(cells.synapse_class == sclass, cells.layer == lay))].index
     syn_prop_sel = pruned[np.in1d(pruned.tgid, tids_tmp)]
     if syn_prop_sel.size > 0:
-        conns_tmp = np.unique(syn_prop_sel[['tgid', 'sgid']].values, axis=0, return_counts=True)[1]
+        conns_tmp = syn_prop_sel.groupby(['tgid', 'sgid']).size().values
         return conns_tmp, conns_tmp.mean(), conns_tmp.std()
 
     return [], np.nan, np.nan
 
 
-def distribution_synapses_per_connection_per_layer(atlas, pruned, circuit_config, folder):
+def distribution_synapses_per_connection_per_layer(pruned, regions, circuit_config, folder):
     '''Plots histograms of synapses per connection for each layer, region and synapse class.'''
     # pylint: disable=too-many-locals
     c = Circuit(circuit_config)
+    atlas = c.atlas
     cells = c.cells.get(properties={Cell.REGION, Cell.X, Cell.Y,
                                     Cell.Z, Cell.LAYER, Cell.SYNAPSE_CLASS})
-    regions = np.unique(cells.region).tolist()
-    syn_classes = np.unique(cells.synapse_class).tolist()
+    syn_classes = cells.synapse_class.unique().tolist()
 
-    _, layers = _regions_layers(atlas)
+    layers = _layers_in_regions(atlas, regions)
 
     # Plot separate results
     bar_pos = [0.9, 0.7]
@@ -424,7 +427,7 @@ def distribution_synapses_per_connection_per_layer(atlas, pruned, circuit_config
                     plt.xlabel('#Syn/conn')
 
                 if ridx == 0:
-                    plt.ylabel('L{}'.format(layer))
+                    plt.ylabel('{}'.format(layer))
 
                 if lidx == len(layers) - 1 and ridx == len(regions) - 1:
                     plt.legend()
@@ -455,18 +458,18 @@ def _voxel_relative_depth(atlas):
     return (atlas_height.raw - atlas_distance.raw) / atlas_height.raw
 
 
-def _regions_layers(atlas):
-    '''Get list of regions and layers in the atlas.'''
+def _layers_in_regions(atlas, regions):
+    '''Get list of layers for the regions in the atlas.'''
     atlas_hierarchy = atlas.load_hierarchy()
-    atlas_regions = atlas.load_data('brain_regions')
+    region_acronyms = []
 
-    rids = list(np.unique(atlas_regions.raw[atlas_regions.raw > 0]))
-    racrs = [list(atlas_hierarchy.collect('id', rid, 'acronym'))[0] for rid in rids]
+    for r in regions:
+        children = atlas_hierarchy.find('acronym', r)[0].children
+        region_acronyms.extend([c.data['acronym'] for c in children])
 
-    regions = list(np.unique([racr.split(';')[0] for racr in racrs]))
-    layers = list(np.unique([int(racr.split(';')[1][1:]) for racr in racrs]))
+    layers = list(set([acronym.split(';')[1] for acronym in region_acronyms]))
 
-    return regions, layers
+    return layers
 
 
 def _atlas_ids(atlas, regions, layers):
@@ -475,7 +478,7 @@ def _atlas_ids(atlas, regions, layers):
     atlas_ids = np.zeros((len(layers), len(regions)), dtype=int)
     for ridx, region in enumerate(regions):
         for lidx, layer in enumerate(layers):
-            atlas_id = atlas_hierarchy.collect('acronym', '{};L{}'.format(region, layer), 'id')
+            atlas_id = atlas_hierarchy.collect('acronym', '{};{}'.format(region, layer), 'id')
             atlas_ids[lidx, ridx] = list(atlas_id)[0]
 
     return atlas_ids
@@ -526,24 +529,20 @@ def _depth_histogram(atlas, pruned, regions, layers):
     return density_hist, bins, bin_centers, layer_depth_range
 
 
-def synapse_density_profiles_region(atlas, pruned, density_params, folder):
+def synapse_density_profiles_region(atlas, pruned, density_params, regions, folder):
     '''Plot expected and resulting density profile for each region.'''
     # pylint: disable=too-many-locals
 
     # Rel. depth profiles (voxel-based densities & depth estimates)
-    regions, layers = _regions_layers(atlas)
+    layers = _layers_in_regions(atlas, regions)
     histogram, bins, bin_centers, depth_range = _depth_histogram(atlas, pruned, regions, layers)
-
-    # Select regions for plotting
-    plot_regions = np.in1d(regions, ['S1HL', 'S1FL', 'S1Tr', 'S1Sh'])
 
     # Plot rel. synapse density profiles (voxel-based)
     lcolors = plt.cm.jet(np.linspace(0, 1, len(layers)))  # pylint: disable=no-member
     plt.figure(figsize=(8, 6))
     plt.gcf().patch.set_facecolor('w')
-    for pidx, ridx in enumerate(np.where(plot_regions)[0]):
-        reg = regions[ridx]
-        plt.subplot(1, np.sum(plot_regions), pidx + 1)
+    for ridx, reg in enumerate(regions):
+        plt.subplot(1, len(regions), ridx + 1)
         plt.barh(100.0 * bin_centers, histogram[:, ridx], np.diff(100.0 * bin_centers[:2]))
         plt.gca().spines['top'].set_visible(False)
         plt.gca().spines['right'].set_visible(False)
@@ -560,7 +559,7 @@ def synapse_density_profiles_region(atlas, pruned, density_params, folder):
                      markersize=10, clip_on=False)
 
             plt.text(max(plt.xlim()), 100.0 * np.mean(depth_range[lidx, ridx, :]),
-                     '  L{}'.format(lay), color=lcolors[lidx, :], ha='left', va='center')
+                     '  {}'.format(lay), color=lcolors[lidx, :], ha='left', va='center')
 
             plt.plot(plt.xlim(), np.ones(2) * 100.0 * depth_range[lidx, ridx, 0], '-',
                      color=lcolors[lidx, :], linewidth=1, alpha=0.1, zorder=0)
@@ -568,7 +567,7 @@ def synapse_density_profiles_region(atlas, pruned, density_params, folder):
             plt.plot(plt.xlim(), np.ones(2) * 100.0 * depth_range[lidx, ridx, 1], '-',
                      color=lcolors[lidx, :], linewidth=1, alpha=0.1, zorder=0)
 
-        if pidx == 0:
+        if ridx == 0:
             plt.ylabel('Rel. depth [%]')
         else:
             plt.gca().set_yticklabels([])
@@ -634,6 +633,7 @@ class Analyse(CommonParams):
                      CutoffMeans,
                      SynapseDensity,
                      VirtualFibers,
+                     Regions,
                      LayerThickness,
                      )
         return [self.clone(task) for task in tasks]
@@ -657,17 +657,16 @@ class Analyse(CommonParams):
                                       self.oversampling,
                                       'sampled')
         else:
-            pruned, connections, cutoffs, distmap, fibers, layers = load_all(self.input())
+            pruned, connections, cutoffs, distmap, fibers, regions, layers = load_all(self.input())
             pruned_no_edge = pruned
             atlas = Atlas.open(self.voxel_path)
-            prefix = self.prefix or ''
 
-            synapse_heights(pruned_no_edge, self.voxel_path, prefix=prefix, folder=self.folder)
+            synapse_heights(pruned_no_edge, self.voxel_path, folder=self.folder)
             thalamo_cortical_cells_per_fiber(pruned, self.folder)
             distribution_synapses_per_connection(pruned, self.folder)
-            distribution_synapses_per_connection_per_layer(atlas, pruned,
+            distribution_synapses_per_connection_per_layer(pruned, regions,
                                                            self.circuit_config, self.folder)
-            synapse_density_profiles_region(atlas, pruned, distmap, self.folder)
+            synapse_density_profiles_region(atlas, pruned, distmap, regions, self.folder)
 
         connections.sgid += self.sgid_offset
 
