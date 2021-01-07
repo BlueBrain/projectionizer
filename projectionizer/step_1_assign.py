@@ -10,8 +10,8 @@ from projectionizer.straight_fibers import (assign_synapse_fiber,
                                             candidate_fibers_per_synapse
                                             )
 from projectionizer.luigi_utils import CsvTask, FeatherTask
-from projectionizer.step_0_sample import SampleChunk, VoxelSynapseCount
-from projectionizer.utils import load_all, write_feather, IJK, XYZ
+from projectionizer.step_0_sample import SampleChunk, VoxelSynapseCount, Regions
+from projectionizer.utils import load, load_all, write_feather, IJK, XYZ
 
 L = logging.getLogger(__name__)
 
@@ -23,11 +23,15 @@ class VirtualFibersNoOffset(CsvTask):
     Note: apron is a bool indicating if the fiber is in the apron or not
     '''
 
+    def requires(self):
+        return self.clone(Regions)
+
     def run(self):  # pragma: no cover
         if self.geometry in ('s1hl', 's1', ):
             from projectionizer.sscx import load_s1_virtual_fibers
+            regions = load(self.input().path)
             atlas = Circuit(self.circuit_config).atlas
-            df = load_s1_virtual_fibers(atlas, self.regions)
+            df = load_s1_virtual_fibers(atlas, regions)
             df['apron'] = False
         elif self.geometry == 'hex':
             from projectionizer.sscx_hex import get_minicol_virtual_fibers
