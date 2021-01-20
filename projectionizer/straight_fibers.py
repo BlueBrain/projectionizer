@@ -77,6 +77,7 @@ def closest_fibers_per_voxel(synapse_counts, virtual_fibers, closest_count):
     L.debug('closest_fibers_per_voxel...')
     ijks = np.transpose(np.nonzero(synapse_counts.raw))
     pos = synapse_counts.indices_to_positions(ijks)
+    pos += synapse_counts.voxel_dimensions / 2.
 
     split_count = len(pos) // 1000 + 1
     fibers = map_parallelize(partial(_closest_fibers_per_voxel,

@@ -249,6 +249,7 @@ def load_s1_virtual_fibers(atlas, regions):
     distance = atlas.load_data('[PH]y')
     mask = mask_layer_6_bottom(atlas, regions)
     fiber_pos = distance.indices_to_positions(get_l5_l34_border_voxel_indices(atlas, regions))
+    fiber_pos += distance.voxel_dimensions / 2.
 
     count = None  # should be a parameter
     if count is not None:
