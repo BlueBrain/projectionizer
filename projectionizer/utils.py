@@ -9,7 +9,7 @@ import re
 
 import numpy as np
 import pandas as pd
-from voxcell import Hierarchy, VoxelData
+from voxcell import VoxelData
 import pyarrow
 from pyarrow import feather
 import yaml
@@ -140,11 +140,11 @@ def mask_by_region_ids(annotation_raw, region_ids):
     return in_region
 
 
-def mask_by_region_acronyms(annotation_raw, hierarchy, acronyms):
+def mask_by_region_acronyms(annotation_raw, region_map, acronyms):
     '''get a binary voxel mask where the voxel belonging to the given region acronyms are True'''
     all_ids = []
     for n in acronyms:
-        ids = hierarchy.collect('acronym', n, 'id')
+        ids = region_map.find(n, 'acronym', with_descendants=True)
         if not ids:
             raise KeyError(n)
         all_ids.extend(ids)
@@ -152,22 +152,20 @@ def mask_by_region_acronyms(annotation_raw, hierarchy, acronyms):
     return mask_by_region_ids(annotation_raw, all_ids)
 
 
-def mask_by_region(region, path):
+def mask_by_region(regions, atlas):
     '''
     Args:
         region(str or list of region ids): name/ids to look up in atlas
         path(str): path to where nrrd files are, must include 'brain_regions.nrrd'
     '''
-    atlas = VoxelData.load_nrrd(os.path.join(path, 'brain_regions.nrrd'))
-    with open(os.path.join(path, 'hierarchy.json')) as fd:
-        hierarchy = Hierarchy(json.load(fd))
-    if all([isinstance(reg, int) for reg in region]):
-        region_ids = list(chain.from_iterable(hierarchy.collect('id', id_, 'id')
-                                              for id_ in region))
-
-        mask = mask_by_region_ids(atlas.raw, region_ids)
+    brain_regions = atlas.load_data('brain_regions')
+    region_map = atlas.load_region_map()
+    if all([isinstance(reg, int) for reg in regions]):
+        region_ids = list(chain.from_iterable(region_map.find(id_, 'id', with_descendants=True)
+                                              for id_ in regions))
+        mask = mask_by_region_ids(brain_regions.raw, region_ids)
     else:
-        mask = mask_by_region_acronyms(atlas.raw, hierarchy, region)
+        mask = mask_by_region_acronyms(brain_regions.raw, region_map, regions)
     return mask
 
 

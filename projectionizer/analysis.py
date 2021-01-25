@@ -14,8 +14,6 @@ import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import voxcell
-from voxcell.nexus.voxelbrain import Atlas
 from bluepy.v2 import Circuit, Cell
 
 from projectionizer.fiber_simulation import get_region_ids
@@ -153,9 +151,9 @@ def distmap_with_heights(distmap, layers):
     return heights
 
 
-def synapse_heights(full_sample, voxel_path, folder='.'):
+def synapse_heights(full_sample, atlas, folder='.'):
     '''Plots a histogram of the heights'''
-    distance = voxcell.VoxelData.load_nrrd(os.path.join(voxel_path, '[PH]y.nrrd'))
+    distance = atlas.load_data('[PH]y')
     xyz = full_sample.sample(frac=0.01)[list('xyz')].to_numpy()
     idx = distance.positions_to_indices(xyz)
     dist = distance.raw[tuple(idx.T)]
@@ -633,8 +631,9 @@ class LayerThickness(JsonTask):
 
     def run(self):  # pragma: no cover
         res = []
+        atlas = Circuit(self.circuit_config).atlas
         for layer, _ in self.layers:  # pylint: disable=not-an-iterable
-            ph = load(os.path.join(self.voxel_path, '[PH]{}.nrrd'.format(layer)))
+            ph = atlas.load_data('[PH]{}'.format(layer))
             thickness = ph.raw[..., 1] - ph.raw[..., 0]
             mean = thickness[np.isfinite(thickness)].mean()
             res.append([layer, float(mean)])
@@ -668,7 +667,7 @@ class Analyse(CommonParams):
          layers,) = load_all(self.input())
 
         regions = self.get_regions()
-        atlas = Atlas.open(self.voxel_path)
+        atlas = Circuit(self.circuit_config).atlas
         connections.sgid += self.sgid_offset
 
         pruned_no_edge = remove_synapses_with_sgid(pruned, fibers[fibers['apron']].index)
@@ -691,7 +690,7 @@ class Analyse(CommonParams):
         synapse_density(pruned_no_edge, distmap, layers, folder=self.folder)
         synapse_density_profiles_region(atlas, height, pruned, distmap, regions, layers,
                                         self.folder)
-        synapse_heights(pruned_no_edge, self.voxel_path, folder=self.folder)
+        synapse_heights(pruned_no_edge, atlas, folder=self.folder)
 
         thalamo_cortical_cells_per_fiber(pruned, self.folder)
         distribution_synapses_per_connection(pruned, self.folder)

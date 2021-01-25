@@ -44,7 +44,7 @@ def test_write_synapses():
 
         ok_(os.path.exists(output_path))
 
-        with h5py.File(output_path) as h5:
+        with h5py.File(output_path, 'r') as h5:
             props = h5[write_syn2.DEFAULT_GROUP]
             ok_('delay' in props)
             eq_(list(props['delay']), [1.] * 5)

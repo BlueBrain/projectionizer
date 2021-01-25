@@ -38,7 +38,7 @@ class VirtualFibersNoOffset(CsvTask):
         atlas = Circuit(self.circuit_config).atlas
         fibers = load(self.fiber_locations_path)
         fibers = fibers.reset_index()
-        mask = mask_by_region(self.get_regions(), atlas.dirpath)
+        mask = mask_by_region(self.get_regions(), atlas)
         fibers['apron'] = is_fiber_outside_region(fibers, mask)
 
         fibers.to_csv(self.output().path, index_label='sgid')

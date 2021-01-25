@@ -6,6 +6,7 @@ import pandas as pd
 from nose.tools import eq_, ok_, raises, assert_raises
 from numpy.testing import assert_equal, assert_array_equal
 from voxcell import VoxelData
+from voxcell.nexus.voxelbrain import Atlas
 
 import projectionizer.utils as test_module
 
@@ -134,10 +135,11 @@ def test_in_bounding_box():
 
 
 def test_mask_by_region():
-    mask = test_module.mask_by_region(['S1HL'], TEST_DATA_DIR)
+    atlas = Atlas.open(TEST_DATA_DIR)
+    mask = test_module.mask_by_region(['S1HL'], atlas)
     assert_equal(mask.sum(), 101857)
 
-    mask = test_module.mask_by_region([726], TEST_DATA_DIR)
+    mask = test_module.mask_by_region([726], atlas)
     assert_equal(mask.sum(), 101857)
 
 

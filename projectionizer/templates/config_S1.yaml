@@ -5,10 +5,7 @@ CommonParams:
   sgid_offset: 5000000 # The offset from which to start numbering the fiber IDs
   oversampling: 2.6 # The number of sampled synapse is: expected count * oversampling
   layers: [[6, 700.37845971], [5, 525.05585701], [4, 189.57183895], [3, 352.92508322], [2, 148.87602025], [1, 164.94915873]]
-
-  # Stuff specific to S1HL
-  #voxel_path: /gpfs/bbp.cscs.ch/project/proj64/circuits/S1HL/20171004/.atlas/
-  voxel_path: /gpfs/bbp.cscs.ch/project/proj64/circuits/S1.v6/build/.atlas/C63CB79F-392A-4873-9949-0D347682253A/
+  fiber_locations_path: /some/path/to/fibers.csv #  Path to the CSV file conaining the fibers
 
 FullSample:
   n_slices: -1 #  The number of voxels to sample (-1 = all)

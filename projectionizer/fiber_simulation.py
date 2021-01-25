@@ -179,7 +179,7 @@ def mask_layers_in_regions(atlas, layers, regions):
     '''Get the mask for defined layers in all defined regions.'''
     ids = get_region_ids(atlas, layers, regions)
 
-    return mask_by_region(ids, atlas.dirpath)
+    return mask_by_region(ids, atlas)
 
 
 def get_region_ids(atlas, layers, regions):

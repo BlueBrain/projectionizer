@@ -16,7 +16,7 @@ from projectionizer.synapses import (build_synapses_default,
                                      pick_synapses)
 from projectionizer.utils import (load,
                                   load_all,
-                                  mask_by_region_acronyms,
+                                  mask_by_region,
                                   write_feather)
 
 
@@ -49,9 +49,7 @@ class Height(NrrdTask):  # pragma: no cover
     def run(self):
         regions = self.get_regions()
         atlas = Circuit(self.circuit_config).atlas
-        brain_regions = atlas.load_data('brain_regions')
-        hierarchy = atlas.load_hierarchy()
-        mask = mask_by_region_acronyms(brain_regions.raw, hierarchy, regions)
+        mask = mask_by_region(regions, atlas)
         distance = atlas.load_data('[PH]y')
 
         if len(self.hex_apron_bounding_box):

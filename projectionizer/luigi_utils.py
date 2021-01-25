@@ -7,6 +7,7 @@ import pkg_resources
 from luigi import (Config, FloatParameter, IntParameter, Parameter, Task,
                    ListParameter,
                    )
+from luigi.parameter import ParameterException
 from luigi.contrib.simulate import RunAnywayTarget
 from luigi.local_target import LocalTarget
 
@@ -44,23 +45,27 @@ class CommonParams(Config):
     # path to CSV with six columns; x,y,z,u,v,w: location and direction of fibers
     fiber_locations_path = Parameter(default='rat_fibers.csv')
 
-    # S1HL/S1 region parameters
-    voxel_path = Parameter(default='')
-
     # hex parameters
     # bounding box for apron around the hexagon, so that there aren't edge effects when assigning
     # synapses to fibers
     # ListParameter can not default to None without further problems with luigi
     hex_apron_bounding_box = ListParameter(default=[])
+
+    # Deprecated Parameters
     hex_fiber_locations = Parameter(default='')
+    voxel_path = Parameter(default='')
 
     extension = None
 
     def __init__(self, *args, **kwargs):
         Config.__init__(self, *args, **kwargs)
 
-        assert self.hex_fiber_locations == '', \
-               '"hex_fiber_locations" is deprecated, use "fiber_locations_path" instead'
+        if self.hex_fiber_locations != '':
+            message = '"hex_fiber_locations" is deprecated, use "fiber_locations_path" instead'
+            raise ParameterException(message)
+        if self.voxel_path != '':
+            message = '"voxel_path" is deprecated, providing "circuit_config" is sufficient'
+            raise ParameterException(message)
 
     def output(self):
         name = camel2spinal_case(self.__class__.__name__)

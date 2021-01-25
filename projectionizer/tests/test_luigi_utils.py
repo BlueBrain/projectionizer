@@ -1,8 +1,10 @@
 import os
 import tempfile
 from nose.tools import eq_, ok_
+from numpy.testing import assert_raises
 
 from luigi import Task, build, Parameter
+from luigi.parameter import ParameterException
 from luigi.local_target import LocalTarget
 from projectionizer import luigi_utils as lu
 from utils import setup_tempdir
@@ -31,7 +33,6 @@ def test_common_params():
               'n_total_chunks': 'n_chunks',
               'sgid_offset': 0,
               'oversampling': 0,
-              'voxel_path': '',
               'layers': [(6, 700.37845971),
                          (5, 525.05585701),
                          (4, 189.57183895),
@@ -53,6 +54,17 @@ def test_common_params():
     eq_(chunked_task.output().path, '/none/existant/path/test-common-params-chunk-42.out')
 
     ok_(isinstance(task.requires(), lu.FolderTask))
+
+    # Test deprecation
+    deprecated = params.copy()
+    deprecated['voxel_path'] = '/fake/path'
+    with assert_raises(ParameterException):
+        TestCommonParams(**deprecated)
+
+    deprecated = params.copy()
+    deprecated['hex_fiber_locations'] = '/fake/path'
+    with assert_raises(ParameterException):
+        TestCommonParams(**deprecated)
 
 
 def test_RunAnywayTargetTempDir():

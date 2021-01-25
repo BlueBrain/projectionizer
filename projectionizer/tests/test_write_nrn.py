@@ -60,7 +60,7 @@ def test_write_synapses():
                            1.07378887e+02, 1.00000000e+00, 0.00000000e+00, 0.00000000e+00,
                            0.00000000e+00, 1.94671889e+02, 0.00000000e+00, ]]
 
-        with h5py.File(path) as h5:
+        with h5py.File(path, 'r') as h5:
             ok_('a1' in h5.keys())
             assert_allclose(h5['a1'][:], correct_result)
 
@@ -73,7 +73,7 @@ def test_write_synapses():
                            1.07378887e+02, 1.00000000e+00, 0.00000000e+00, 0.00000000e+00,
                            0.00000000e+00, 1.94671889e+02, 0.00000000e+00, ]]
 
-        with h5py.File(efferent_path) as h5:
+        with h5py.File(efferent_path, 'r') as h5:
             ok_('a2' in h5.keys())
             assert_allclose(h5['a2'][:], correct_result)
 
