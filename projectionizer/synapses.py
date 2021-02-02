@@ -78,7 +78,7 @@ def _sample_with_flat_index(index_path, min_xyz, max_xyz):
     except Exception:  # pylint: disable=broad-except
         return None
 
-    return segs_df
+    return segs_df.sort_values(segs_df.columns.tolist())
 
 
 def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup):
