@@ -1,0 +1,103 @@
+Projectionizer
+==============
+
+The `projectionizer` aims at sampling synapses with pre-synaptic axons (refered in the code as virtual fibers) coming from outer regions.
+It produces 3 files (nrn.h5, nrn_efferent.h5, nrn_summary.h5) which are 3 different views from the same data: a list of connection between a virtual fiber and a segment belonging to the circuit.
+
+Morphological constraints
+-------------------------
+
+The sampling must be done with respect to the following constraints:
+ - the synaptical density along the column
+ - the number of synapse per connection (neuron/virtual fiber) density distribution
+ - the efferent neuron count distribution (number of neurons a virtual fiber is connected to)
+
+Installation
+------------
+
+Since it depends on FLATIndex, it cannot be installed through `spack` currently, and should create a virtual environment with Python 3.7, and run:
+
+.. code-block:: console
+
+    pip install pip --upgrade`
+    pip install projectionizer --index https://bbpteam.epfl.ch/repository/devpi/simple/
+
+
+Usage
+-----
+
+Starting a new job
+~~~~~~~~~~~~~~~~~~
+
+.. code-block:: console
+
+    projectionizer start -o output_folder -c config_file.yaml
+
+will generate projections using the passed config file, the content which is described in :ref:`configuration`
+
+.. note::
+    The job won't start automatically if a `config.yaml` file is already present in the output directory. It will prompt if you wish to overwrite the directory contents instead. This is to prevent overriding jobs by mistake.
+
+Resuming a job
+~~~~~~~~~~~~~~
+
+.. code-block:: console
+
+    projectionizer resume -o output_folder
+
+will resume the job using parameters in the `config.yaml` present in the folder.
+
+..  Dichotomy pipeline
+    ------------------
+
+    The projection validity is constrained by comparing the L4PC connectivity (mean value of the number of synapses per connection in Layer 4 Pyramidal Cells (L4PC)) with the experitmental data of `~7.0`. This value is directly influenced by the oversampling value: a lower oversampling will lead to a lower connectivity and vice-versa.
+
+    The `dichotomy` sub command automates the trial-and-error process of finding the correct oversampling value. It will generate projections with different oversampling values until the experimental L4PC connectivity value is matched.
+
+    .. code-block:: console
+
+        projectionizer dichotomy -o . -c config_file.yaml --connectivity-target 7.0 --min-param 2.1 --max-param 15.0 --target-margin 0.2
+
+    can be used to launch the dichotomy.
+
+    - connectivity-target is the L4PC connectivity to reach
+    - target-margin is the accepted tolerance for the L4PC connectivity
+    - min-param is the minimum oversampling values
+    - max-param is the maximum oversampling values
+
+Creating fibers
+---------------
+
+.. code-block:: console
+
+    projectionizer generate-fibers -o output_file.csv -c CircuitConfig -r '["Region1", "Region2]' -n 5000
+
+will generate a maximum of 5000 fibers for regions "Region1" and "Region2". Fibers are positioned in the bottom layer (farthest from Pia Mater). They are acquired by tracing back direction vectors from upper layers.
+
+.. code-block:: console
+
+    projectionizer generate-fibers-hex -o output_file.csv -c CircuitConfig -r '["mc2_Column"]' -n 300 -v 1.0 -y 0
+
+command for columns that will generate exactly 300 fibers in region "mc2_Column" starting from the y-position 0 towards positive y direction (-v 1.0) using K means clustering.
+
+.. code-block:: console
+
+    projectionizer generate-fibers-hex -o output_file.csv -c CircuitConfig -b '[[xmin, zmin], [xmax, zmax]]' -n 300 -v -1.0 -y 0
+
+command for columns that will generate exactly 300 fiber inside the bounding rectangle limited by xmin, zmin, xmax and zmax. Fibers start from the y-position 0 towards negative y direction (-v -1.0) using K means clustering.
+
+
+.. _tutorial-spykfunc:
+Spykfunc parameterisation (upcoming)
+------------------------------------
+.. note::
+    This command is only run **after** the main projectionizer run is finished.
+
+    This command also requires that the parameter **output_type** (in task **WriteAll**) is set to 'sonata' in the YAML config file.
+
+
+.. code-block:: console
+
+    projectionizer spykfunc -o output_folder
+
+command that parameterises the projections using the recipe file and and morphology release provided in the YAML config file (**SpykfuncParametrization** task).
