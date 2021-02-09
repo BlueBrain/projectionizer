@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import scipy.ndimage as nd
 from scipy.cluster.vq import kmeans
+from scipy.spatial import cKDTree
 
 from bluepy import Circuit, Cell
 import voxcell
@@ -13,6 +14,10 @@ from projectionizer.utils import mask_by_region, read_regions_from_manifest, XYZ
 
 L = logging.getLogger(__name__)
 XZ = list('xz')
+XYZ = list('xyz')
+UVW = list('uvw')
+# Failback distance (in microns) in case the average distance can't be calculated
+FAILBACK_AVG_DISTANCE = 10
 
 
 class GenerateFibers(Config):  # pragma: no cover
@@ -42,7 +47,7 @@ class GenerateFibers(Config):  # pragma: no cover
                 regions = read_regions_from_manifest(self.circuit_config)
                 assert regions, 'No regions defined'
 
-            fibers = generate_raycast(circuit.atlas, regions)
+            fibers = generate_raycast(circuit.atlas, regions, self.n_fibers)
 
         L.info('Saving fibers to %s', self.out_file)
         fibers.to_csv(self.out_file, index=False, sep=",")
@@ -84,7 +89,7 @@ def _generate_kmeans_fibers(cells, n_fibers, v_dir, y_level):
 
 # -- Ray casting --
 
-def generate_raycast(atlas, regions):
+def generate_raycast(atlas, regions, n_fibers):
     '''Generate fibers using the ray casting.
 
     Tracing back from L5/L43 boundary along the orientations to bottom of L6 and picking
@@ -102,13 +107,19 @@ def generate_raycast(atlas, regions):
     fiber_pos = distance.indices_to_positions(get_l5_l34_border_voxel_indices(atlas, regions))
     fiber_pos += distance.voxel_dimensions / 2.
 
-    count = None  # should be a parameter
-    if count is not None:
-        fiber_pos = fiber_pos[np.random.choice(np.arange(len(fiber_pos)), count, replace=False)]
-
     fiber_dir = get_fiber_directions(fiber_pos, atlas)
+    fibers = ray_tracing(atlas, mask, fiber_pos, fiber_dir)
 
-    return ray_tracing(atlas, mask, fiber_pos, fiber_dir)
+    if np.isfinite(n_fibers):
+        if n_fibers > len(fibers):
+            fibers = increase_fibers(fibers, n_fibers)
+        if n_fibers < len(fibers):
+            picked = np.random.choice(np.arange(len(fibers)), n_fibers, replace=False)
+            fibers = fibers.iloc[picked].reset_index(drop=True)
+
+        assert n_fibers == len(fibers)
+
+    return fibers
 
 
 def ray_tracing(atlas, target_mask, fiber_positions, fiber_directions):
@@ -193,3 +204,73 @@ def get_region_ids(atlas, layers, regions):
     id_wanted_layers = set.intersection(id_regions_children, id_layers_all_regions)
 
     return list(id_wanted_layers)
+
+
+def average_distance_to_nearest_neighbor(xyzs):
+    '''Average distance to nearest neighbor for all samples.'''
+    tree = cKDTree(xyzs)
+    distances, _ = tree.query(xyzs, 2)
+    return distances[:, 1].mean()
+
+
+def get_orthonormal_basis_plane(vector):
+    '''Get orthonormal basis vectors for a plane orthogonal to the given vector.
+
+    Function assumes the vector is normalized.
+    '''
+    # plane passing through origin given its normal vector [a, b, c]: aX + bY + cZ = 0,
+    # NOTE: Origin assumed for simplicity. We are only interested in the base vectors.
+    a, b, c = vector
+
+    # Computing basis vectors for the plane. Solving the plane equation for Z
+    # Z = -(aX + bY) / c
+    # [X, Y, Z] = [X, Y, -(aX+bY)/c] = X[1, 0, -a/c] + Y[0, 1, -b/c]
+    # constructing two lin. independent vectors by letting
+    #   [X, Y] = [1, 0] => [X, Y, Z] = 1[1, 0 -a/c] + 0[0, 1, -b/c] = [1, 0, -a/c]
+    #   [X, Y] = [0, 1] => [X, Y, Z] = 0[1, 0 -a/c] + 1[0, 1, -b/c] = [0, 1, -b/c]
+    if np.abs(c) > 0.05:
+        u = [1, 0, -a / c]
+        v = [0, 1, -b / c]
+    elif np.abs(b) > 0.05:
+        # if c close to zero, just solve for Y and do the same
+        u = [1, -a / b, 0]
+        v = [0, -c / b, 1]
+    else:
+        # if both b,c close to zero solve for X
+        u = [-b / a, 1, 0]
+        v = [-c / a, 0, 1]
+
+    basis_vectors = np.array([u, v]).T
+
+    # columns of Q of the QR decomposition are the orthonormalized basis vectors that span the plane
+    return np.linalg.qr(basis_vectors)[0]
+
+
+def vectors_on_plane(basis_vectors, avg_distance, n_fibers):
+    '''Return position vectors on a plane spanned by basis vectors.
+
+    Length of each vector is 1.0 * distance in direction of either basis vector at maximum.'''
+    vectors_2d = np.random.uniform(-1, 1, [n_fibers, 2]) * avg_distance
+    return np.matmul(vectors_2d, basis_vectors.T)
+
+
+def increase_fibers(fibers, n_fibers):
+    '''Increase the fiber count so that it is at least n_fibers.
+
+    Returns a DataFrame of bunches of vectors around the original fiber (not included).
+    '''
+    ratio = np.ceil(n_fibers / len(fibers)).astype(int)
+    distance = average_distance_to_nearest_neighbor(fibers[XYZ].to_numpy())
+
+    if not np.isfinite(distance):  # Happens e.g., when len(fibers)==1
+        distance = FAILBACK_AVG_DISTANCE
+
+    new_fibers = []
+    for _, fiber in fibers.iterrows():
+        start_xyz = fiber[XYZ].to_numpy()
+        dir_v = fiber[UVW].to_numpy()
+        basis = get_orthonormal_basis_plane(dir_v)
+        new_xyz = start_xyz + vectors_on_plane(basis, distance, ratio)
+        new_fibers.append(np.hstack((new_xyz, np.tile(dir_v, (ratio, 1)))))
+
+    return pd.DataFrame(np.vstack(new_fibers), columns=XYZUVW)

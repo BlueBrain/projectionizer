@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from numpy.testing import (assert_equal,
+                           assert_almost_equal,
                            assert_array_equal,
                            assert_allclose,)
 
@@ -10,6 +11,8 @@ from projectionizer import fiber_simulation
 from utils import TEST_DATA_DIR
 
 XZ = list('xz')
+XYZ = list('xyz')
+UVW = list('uvw')
 
 
 def test_generate_kmeans_fibers():
@@ -131,3 +134,55 @@ def test_ray_tracing():
 
     assert_equal(len(ind_fibers), len(ind_zero))
     assert_array_equal(ind_fibers, ind_zero)
+
+
+def test_average_distance_to_nearest_neighbor():
+    base = [1, 2, 3]
+    pos = np.vstack([np.tile(base, (1, 9)),
+                     np.tile(np.repeat(base, 3), 3),
+                     np.repeat(base, 9)]).T
+
+    res = fiber_simulation.average_distance_to_nearest_neighbor(pos)
+
+    assert_equal(res, 1)
+
+
+def test_get_orthonormal_basis_plane():
+    fiber = [1, 2, 3, 4, 5, 6]
+    basis_vectors = fiber_simulation.get_orthonormal_basis_plane(fiber[-3:])
+    x, y = basis_vectors.T
+
+    assert_allclose(np.linalg.norm(basis_vectors, axis=0), 1)
+    assert_almost_equal(0, np.dot(x,y))
+
+
+def test_get_vectors_on_plane():
+    fiber = [1, 2, 3, 4, 5, 6]
+    distance = 10
+    n_fibers = 20
+    basis_vectors = fiber_simulation.get_orthonormal_basis_plane(fiber[-3:])
+    vectors_3d = fiber_simulation.vectors_on_plane(basis_vectors, distance, n_fibers)
+    assert_equal(len(vectors_3d), n_fibers)
+
+    # The theoretical maximum distance (in case the plane was parallel to one of the axes
+    # and the basis vectors were in 45 degree angle compared to that axe.
+    max_distance = np.sqrt(2) * distance
+    assert_equal(np.all(np.abs(vectors_3d) < max_distance), True)
+
+    # To check that all of the vectors are on a same plane (orthogonal to direction vector)
+    assert_allclose(np.dot(vectors_3d, fiber[-3:]), np.zeros(n_fibers), atol=1e-13)
+
+
+def test_increase_fibers():
+    fiber = pd.DataFrame([[1, 2, 3, 4, 5, 6]], columns=list('xyzuvw'))
+    dir_v = fiber[UVW].to_numpy()[0]
+    n_fibers = 10
+
+    new_fibers = fiber_simulation.increase_fibers(fiber, n_fibers)
+
+    assert_equal(len(new_fibers), n_fibers)
+    assert_array_equal(new_fibers[UVW].to_numpy(), np.tile(dir_v, (n_fibers, 1)))
+
+    # to verify the fiber positions are on the same plane
+    xyzs = new_fibers[XYZ].to_numpy()
+    assert_allclose(np.matmul(xyzs, dir_v) - np.dot(fiber[XYZ], dir_v), 0, atol=1e-13)
