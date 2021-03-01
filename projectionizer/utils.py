@@ -160,7 +160,7 @@ def mask_by_region(regions, atlas):
     '''
     brain_regions = atlas.load_data('brain_regions')
     region_map = atlas.load_region_map()
-    if all([isinstance(reg, int) for reg in regions]):
+    if all(isinstance(reg, int) for reg in regions):
         region_ids = list(chain.from_iterable(region_map.find(id_, 'id', with_descendants=True)
                                               for id_ in regions))
         mask = mask_by_region_ids(brain_regions.raw, region_ids)
