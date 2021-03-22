@@ -29,6 +29,8 @@ L = logging.getLogger(__name__)
 L.setLevel(logging.DEBUG)
 
 SYNS_CONN_MAX_BINS = 50
+FIBER_THRESHOLD = 0.8
+DENSITY_THRESHOLD = 0.1
 
 
 def draw_layer_boundaries(ax, layers):
@@ -514,8 +516,9 @@ def _height_histogram(atlas, height, pruned, regions, layers):
     voxel_height = _voxel_relative_height(height, layers)
     atlas_ids = _atlas_ids(atlas, regions, layers)
 
-    # Compute height histogram per region
-    n_bins = 100
+    # Take number of bins as the number of voxel-layers (along y-axis) that have synapses.
+    # This is done to ensure there are no histograms "between" the voxels (ending up in nan values).
+    n_bins = np.isfinite(height.raw).any(axis=2).any(axis=0).sum()
     bins = np.linspace(np.nanmin(voxel_height), np.nanmax(voxel_height), n_bins + 1)
     bin_centers = np.array([np.mean(bins[i:i + 2]) for i in range(n_bins)])
 
@@ -523,6 +526,7 @@ def _height_histogram(atlas, height, pruned, regions, layers):
     density_values = vox_syn_density[~np.isnan(voxel_height)]
     regid_values = atlas_regions.raw[~np.isnan(voxel_height)]
 
+    # Compute height histogram per region
     density_hist = np.zeros((n_bins, len(regions)))
     for ridx in range(len(regions)):
         for didx in range(n_bins):
@@ -558,6 +562,7 @@ def synapse_density_profiles_region(atlas, height, pruned, density_params, regio
     # Rel. height profiles (voxel-based densities & height estimates)
     histogram, bins, bin_centers, height_range = _height_histogram(atlas, height, pruned, regions,
                                                                    layers)
+    areas = []
 
     # Plot rel. synapse density profiles (voxel-based)
     lcolors = plt.cm.jet(np.linspace(0, 1, len(layers)))  # pylint: disable=no-member
@@ -579,12 +584,18 @@ def synapse_density_profiles_region(atlas, height, pruned, density_params, regio
 
         plt.tight_layout()
 
+        area_expected = 0
+
         # Plot intended densities in the recipe
         for ditem in density_params:
             dprof_steps_x, dprof_steps_y = intended_densities(ditem, ridx,
                                                               height_range, len(layers))
+            area_expected += np.sum((dprof_steps_y[1:] - dprof_steps_y[:-1]) * dprof_steps_x[:-1])
             h_step = plt.step(dprof_steps_x, 100.0 * dprof_steps_y, 'm',
                               where='pre', linewidth=1.5, alpha=0.5)
+
+        area = np.sum(histogram[:, ridx] * (bin_centers[1] - bin_centers[0]))
+        areas.append([reg, area, area_expected])
 
         # Plot (overlapping) layer boundaries
         xlim = plt.xlim()
@@ -607,6 +618,8 @@ def synapse_density_profiles_region(atlas, height, pruned, density_params, regio
     plt.tight_layout()
     plt.savefig(os.path.join(folder, 'synapse_density_profiles_voxel.png'), dpi=150)
 
+    return pd.DataFrame(areas, columns=['region', 'area', 'expected'])
+
 
 def intended_densities(ditem, ridx, layer_height_range, n_layers):
     '''Get the intended density for a density profile.'''
@@ -626,6 +639,58 @@ def intended_densities(ditem, ridx, layer_height_range, n_layers):
     steps = ranges[:, 0] + diffs * fractions
 
     return densities, steps
+
+
+def fiber_coverage(pruned, fibers, folder):
+    '''Plots fiber usage as a scatter plot'''
+    selected = np.in1d(fibers.index.to_numpy(), pruned.sgid.unique())
+    fsel = fibers.loc[selected]
+    fnon = fibers.loc[np.invert(selected)]
+    _, ax = _get_ax()
+    plt.scatter(fsel['x'], fsel['z'], c='g', s=1)
+    plt.scatter(fnon['x'], fnon['z'], c='r', s=1)
+    ax.axis('equal')
+
+    plt.savefig(os.path.join(folder, 'fiber_coverage.png'), dpi=150)
+
+    return sum(selected) / len(selected)
+
+
+def create_report(coverage, density, folder):
+    '''Create a summary.txt of the projections.'''
+
+    result = 'SUCCESS'
+    messages = []
+    density_overall = density.area.sum() / density.expected.sum()
+    report = 'Projetionizer Report\n'
+    report += '--------------------\n'
+    report += f'Fiber coverage: {coverage}\n'
+    report += f'Overall density: {density_overall}\n'
+    report += 'Density per region:\n'
+
+    for _, r in density.iterrows():
+        report += f'- {r.region}: {r.area/r.expected}\n'
+
+    report += '--------------------\n'
+
+    if np.abs(density_overall - 1) > DENSITY_THRESHOLD:
+        msg = f'Overall synapse density deviates from the profile by more than {DENSITY_THRESHOLD}.'
+        L.warning(msg)
+        messages.append(msg)
+        result = 'FAIL'
+
+    if coverage < FIBER_THRESHOLD:
+        msg = f'Fiber coverage is less than {DENSITY_THRESHOLD}'
+        L.warning(msg)
+        messages.append(msg)
+        result = 'FAIL'
+
+    report += f'Result: {result}\n'
+    for m in messages:
+        report += f'- {m}\n'
+
+    with open(os.path.join(folder, 'report.txt'), 'w') as fd:
+        fd.write(report)
 
 
 class LayerThickness(JsonTask):
@@ -690,8 +755,8 @@ class Analyse(CommonParams):
                                   self.oversampling,
                                   'pruned')
         synapse_density(pruned_no_edge, distmap, layers, folder=self.folder)
-        synapse_density_profiles_region(atlas, height, pruned, distmap, regions, layers,
-                                        self.folder)
+        density_areas = synapse_density_profiles_region(atlas, height, pruned, distmap, regions,
+                                                        layers, self.folder)
         synapse_heights(pruned_no_edge, atlas, folder=self.folder)
 
         thalamo_cortical_cells_per_fiber(pruned, self.folder)
@@ -701,6 +766,10 @@ class Analyse(CommonParams):
         syns_per_connection(connections, cutoffs, self.folder, self.target_mtypes)
 
         efferent_neuron_per_fiber(pruned, fibers, self.folder)
+
+        coverage = fiber_coverage(pruned, fibers, self.folder)
+
+        create_report(coverage, density_areas, self.folder)
 
         self.output().done()
 
