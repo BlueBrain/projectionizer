@@ -10,7 +10,10 @@ from numpy import matlib
 import pandas as pd
 from scipy.stats import norm  # pylint: disable=no-name-in-module
 
-from projectionizer.utils import choice, map_parallelize, XYZUVW, IJK, XYZ
+from projectionizer.utils import (choice,
+                                  convert_to_smallest_allowed_int_type,
+                                  map_parallelize,
+                                  IJK, XYZ, XYZUVW)
 
 
 L = logging.getLogger(__name__)
@@ -63,7 +66,12 @@ def _closest_fibers_per_voxel(pos, virtual_fibers, closest_count):
     distances = calc_distances(pos, virtual_fibers[XYZUVW].values)
     closest_count = min(closest_count, distances.shape[1] - 1)
     fiber_idx = np.argpartition(distances, closest_count, axis=1)[:, :closest_count]
-    return pd.DataFrame(virtual_fibers.index.to_numpy()[fiber_idx])
+    df = pd.DataFrame(fiber_idx)
+
+    for name in df.columns:
+        df[name] = convert_to_smallest_allowed_int_type(df[name])
+
+    return df
 
 
 def closest_fibers_per_voxel(synapse_counts, virtual_fibers, closest_count):
@@ -85,7 +93,12 @@ def closest_fibers_per_voxel(synapse_counts, virtual_fibers, closest_count):
                              np.array_split(pos, split_count))
     fibers = pd.concat(fibers, sort=False, ignore_index=True)
 
-    return pd.concat([fibers, pd.DataFrame(ijks, columns=IJK)], axis=1)
+    df_ijks = pd.DataFrame(ijks, columns=IJK)
+
+    for name in IJK:
+        df_ijks[name] = convert_to_smallest_allowed_int_type(df_ijks[name])
+
+    return pd.concat([fibers, df_ijks], axis=1)
 
 
 def calc_distances_vectorized(candidates, virtual_fibers):

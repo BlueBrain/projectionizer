@@ -205,3 +205,16 @@ def read_regions_from_manifest(circuit_config):
             return _regex_to_regions(manifest['common']['region'])
 
     return []
+
+
+def convert_to_smallest_allowed_int_type(data):
+    '''cast data to a smallest allowed int type'''
+    dmin = np.min(data)
+    dmax = np.max(data)
+
+    # Spykfunc does not allow data entries to be an unsigned int nor int8
+    for int_type in [np.int16, np.int32]:
+        if np.can_cast(dmin, int_type) and np.can_cast(dmax, int_type):
+            return int_type(data)
+
+    return data

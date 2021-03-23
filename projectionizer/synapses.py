@@ -13,6 +13,7 @@ from tqdm import tqdm
 from projectionizer.utils import (ErrorCloseToZero,
                                   in_bounding_box,
                                   map_parallelize,
+                                  convert_to_smallest_allowed_int_type,
                                   normalize_probability)
 
 L = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ WANTED_COLS = ['gid', Section.ID, Segment.ID, 'segment_length', 'synapse_offset'
 XYZ = list('xyz')
 SOURCE_XYZ = ['source_x', 'source_y', 'source_z']
 VOLUME_TRANSMISSION_COLS = ['sgid'] + WANTED_COLS + SOURCE_XYZ + ['distance_volume_transmission']
+INT_COLS = ['gid', Section.ID, Segment.ID]
 
 
 def segment_pref_length(df):
@@ -208,6 +210,7 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
         return None
 
     segs_df['segment_length'] = np.linalg.norm(ends[in_bb] - starts[in_bb], axis=1)
+    segs_df['segment_length'] = segs_df['segment_length'].astype(np.float32)
 
     prob_density = segment_pref(segs_df)
     try:
@@ -226,8 +229,10 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
         pd.DataFrame(alpha[:, None] * segs_df[SEGMENT_START_COLS].to_numpy().astype(np.float) +
                      (1. - alpha[:, None]) * segs_df[SEGMENT_END_COLS].to_numpy().astype(np.float),
                      columns=list('xyz'),
+                     dtype=np.float32,
                      index=segs_df.index))
 
+    segs_df['synapse_offset'] = alpha * segs_df['segment_length']
     segs_df = segs_df[WANTED_COLS]
 
     if dataframe_cleanup is not None:
@@ -236,8 +241,14 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
     return segs_df
 
 
+def downcast_int_columns(df):
+    '''Downcast int columns'''
+    for name in INT_COLS:
+        df[name] = convert_to_smallest_allowed_int_type(df[name])
+
+
 def pick_synapses(index_path, synapse_counts,
-                  segment_pref=segment_pref_length, dataframe_cleanup=None):
+                  segment_pref=segment_pref_length, dataframe_cleanup=downcast_int_columns):
     '''Sample segments from circuit
     Args:
         index_path: absolute path to circuit path, where a SEGMENT exists
@@ -253,7 +264,6 @@ def pick_synapses(index_path, synapse_counts,
 
     min_xyzs = synapse_counts.indices_to_positions(np.transpose(idx))
     max_xyzs = min_xyzs + synapse_counts.voxel_dimensions
-
     xyz_counts = zip(min_xyzs, max_xyzs, synapse_counts.raw[idx])
 
     func = partial(pick_synapses_voxel,

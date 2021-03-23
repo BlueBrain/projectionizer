@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from nose.tools import eq_, ok_, raises
 from numpy.testing import assert_allclose, assert_equal
+from pandas.testing import assert_frame_equal
 
 from projectionizer import straight_fibers
 
@@ -14,7 +15,7 @@ from mocks import (
 )
 
 
-def test_calc_distances():
+def test_calc_distances_vectorized():
     np.random.seed(37)
     candidates = create_candidates()
     virtual_fibers = create_virtual_fibers()
@@ -70,7 +71,8 @@ def test_closest_fibers_per_voxel():
     synapses = create_synapse_counts()
     virtual_fibers = create_virtual_fibers()
 
-    ok_(straight_fibers.closest_fibers_per_voxel(synapses, virtual_fibers, 3).equals(
-        pd.DataFrame([[0,  1,  2,  2,  2],
-                      [2,  1,  2,  2,  3]],
-                     columns=[0, 1, 'i', 'j', 'k'])))
+    assert_frame_equal(straight_fibers.closest_fibers_per_voxel(synapses, virtual_fibers, 3),
+                       pd.DataFrame([[0, 1, 2, 2, 2],
+                                     [2, 1, 2, 2, 3]],
+                                    columns=[0, 1, 'i', 'j', 'k']),
+                       check_dtype=False)

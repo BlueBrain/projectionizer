@@ -172,3 +172,16 @@ def test_regex_to_regions():
     res = test_module._regex_to_regions(reg_str)
 
     assert_array_equal(res, ['region_1', 'region_2'])
+
+
+def test_convert_to_smallest_allowed_int_type():
+
+    res = test_module.convert_to_smallest_allowed_int_type(np.array([0, 1]))
+    assert_array_equal(res, [0, 1])
+    assert_equal(res.dtype, np.int16)
+
+    res = test_module.convert_to_smallest_allowed_int_type(np.array([0, int(2**17)]))
+    assert_equal(res.dtype, np.int32)
+
+    res = test_module.convert_to_smallest_allowed_int_type(np.array([0, int(2**33)]))
+    assert_equal(res.dtype, np.int64)
