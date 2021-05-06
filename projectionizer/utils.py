@@ -93,12 +93,8 @@ def map_parallelize(func, it, jobs=36, chunksize=100):
     # FLATIndex is not threadsafe, and it leaks memory; to work around that
     # a the process pool forks a new process, and only runs 100 (b/c chunksize=100)
     # iterations before forking a new process (b/c maxtasksperchild=1)
-    pool = multiprocessing.Pool(jobs, maxtasksperchild=1)
-    ret = pool.map(func, it, chunksize)  # pylint: disable=no-value-for-parameter
-    pool.close()
-    pool.join()
-    del pool
-    return ret
+    with multiprocessing.Pool(jobs, maxtasksperchild=1) as pool:
+        return pool.map(func, it, chunksize)  # pylint: disable=no-value-for-parameter
 
 
 def normalize_probability(p):
