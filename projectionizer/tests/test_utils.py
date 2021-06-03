@@ -4,7 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 from nose.tools import eq_, ok_, raises, assert_raises
-from numpy.testing import assert_equal, assert_array_equal
+from numpy.testing import assert_equal, assert_array_equal, assert_array_almost_equal
 from voxcell import VoxelData
 from voxcell.nexus.voxelbrain import Atlas
 
@@ -132,6 +132,25 @@ def test_in_bounding_box():
                               True, True, True, True,
                               False, False, False, False, False,  # y/z > 9
                               ])
+
+
+def test_calculate_synapse_conductance():
+
+    radius = 5
+    interval = np.array((1, .1))
+    distance = np.array((0, radius / 2, radius, radius + 1))
+    conductance = np.ones(len(distance))
+
+    res = test_module.calculate_synapse_conductance(
+        conductance, distance, max_radius=radius, interval=interval)
+    expected = np.array([interval[0], interval.mean(), interval[1], 0])
+
+    assert_array_almost_equal(res, expected)
+
+    conductance = np.random.random(len(distance))
+    res = test_module.calculate_synapse_conductance(
+        conductance, distance, max_radius=radius, interval=interval)
+    assert_array_almost_equal(res, conductance * expected)
 
 
 def test_mask_by_region():

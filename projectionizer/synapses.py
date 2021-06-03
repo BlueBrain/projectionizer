@@ -22,6 +22,9 @@ SEGMENT_END_COLS = [Segment.X2, Segment.Y2, Segment.Z2, ]
 
 WANTED_COLS = ['gid', Section.ID, Segment.ID, 'segment_length', 'synapse_offset',
                'x', 'y', 'z', ]
+XYZ = list('xyz')
+SOURCE_XYZ = ['source_x', 'source_y', 'source_z']
+VOLUME_TRANSMISSION_COLS = ['sgid'] + WANTED_COLS + SOURCE_XYZ + ['distance_volume_transmission']
 
 
 def segment_pref_length(df):
@@ -79,6 +82,97 @@ def _sample_with_flat_index(index_path, min_xyz, max_xyz):
         return None
 
     return segs_df.sort_values(segs_df.columns.tolist())
+
+
+def get_segment_limits_within_sphere(starts, ends, pos, radius):
+    '''Computes segments' start and end points within a sphere
+
+    Args:
+        starts(np.array): Mx3 array giving the segment start points (X,Y,Z)
+        ends(np.array): Mx3 array giving the segment end points (X,Y,Z)
+        pos(np.array): center point of the sphere (X,Y,Z)
+        radius(float): radius of the sphere
+
+    Returns:
+        start_point(np.array): start points of the segments within the sphere
+        end_point(np.array): end points of the segments within the sphere
+    '''
+    # pylint: disable=too-many-locals
+    starts = starts.copy()
+    ends = ends.copy()
+
+    segment = ends - starts
+    direction = segment / np.linalg.norm(segment, axis=1)[:, None]
+    start_to_pos = pos - starts
+    end_to_pos = pos - ends
+    magnitude_start_to_pos = np.sum(start_to_pos * direction, axis=1)
+    magnitude_end_to_pos = np.sum(end_to_pos * direction, axis=1)
+
+    # Segments for which the closest point is within radius but the segment is out.
+    # I.e., both the start and end points are in the same direction from the closest point.
+    start_mask = np.sum(start_to_pos**2, axis=1) > radius**2
+    end_mask = np.sum(end_to_pos**2, axis=1) > radius**2
+    segment_mask = np.logical_and(np.logical_and(start_mask, end_mask),
+                                  np.sign(magnitude_start_to_pos) == np.sign(magnitude_end_to_pos))
+    starts[segment_mask] = np.nan
+    ends[segment_mask] = np.nan
+
+    # the radius is the hypothenuse of a triangle defined by three points:
+    # center of the sphere, point where the line (on which the segment lies) is closest to the
+    # center and the point where the line intersects with the surface
+    closest_point = magnitude_start_to_pos[:, None] * direction + starts
+    shortest_distance_squared = np.sum((closest_point - pos)**2, axis=1)
+    with np.errstate(invalid='ignore'):  # ignore warning of negative values (will result in nan)
+        distance_to_surface = np.sqrt(radius**2 - shortest_distance_squared)
+
+    # If start/end point is outside radius but segment is in, replace with the surface point
+    start_mask &= ~segment_mask
+    end_mask &= ~segment_mask
+    point_to_surface = distance_to_surface[:, None] * direction
+    starts[start_mask] = closest_point[start_mask] - point_to_surface[start_mask]
+    ends[end_mask] = closest_point[end_mask] + point_to_surface[end_mask]
+
+    return starts, ends
+
+
+def spherical_sampling(pos_sgid, index_path, radius):
+    '''Get segments within a sphere with a given position and radius
+
+    Args:
+        pos_sgid(tuple): a tuple with XYZ-position of a synapse and its sgid
+        index_path(str): path to the circuit directory
+        radius(float): maximum radius of the volume_transmission
+    '''
+    position, sgid = pos_sgid
+    min_xyz = position - radius
+    max_xyz = position + radius
+
+    segs_df = _sample_with_flat_index(index_path, min_xyz, max_xyz)
+    starts = segs_df[SEGMENT_START_COLS].to_numpy().astype(np.float)
+    ends = segs_df[SEGMENT_END_COLS].to_numpy().astype(np.float)
+
+    mask_nonzero_length = np.any(starts != ends, axis=1)
+    segs_df = segs_df[mask_nonzero_length]
+    starts = starts[mask_nonzero_length]
+    ends = ends[mask_nonzero_length]
+
+    # Assuming the segment is a line (no R1, R2)
+    # https://bbpteam.epfl.ch/project/issues/browse/NSETM-1482#comment-153675
+    segment_start, segment_end = get_segment_limits_within_sphere(starts, ends, position, radius)
+
+    # NOTE by herttuai on 09/06/2021:
+    # Storing WANTED_COLS, source position, sgid and distance
+    # Probably better to store the index in the reduce-prune.feather than the original position.
+    alpha = np.random.random(segment_start.shape[0])
+    synapse = alpha[:, None] * (segment_end - segment_start) + segment_start
+    segs_df[XYZ] = synapse
+    segs_df[SOURCE_XYZ] = position
+    segs_df['sgid'] = sgid
+    segs_df['synapse_offset'] = np.linalg.norm(synapse - starts, axis=1)
+    segs_df['segment_length'] = np.linalg.norm(ends - starts, axis=1)
+    segs_df['distance_volume_transmission'] = np.linalg.norm(synapse - position, axis=1)
+
+    return segs_df[VOLUME_TRANSMISSION_COLS].dropna()
 
 
 def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup):

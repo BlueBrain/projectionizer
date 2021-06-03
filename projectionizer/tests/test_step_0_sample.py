@@ -17,6 +17,8 @@ def test_SampleChunk():
         mock_path = os.path.join(tmp_folder, 'full-sample.feather')
         write_feather(mock_path, pd.DataFrame(np.arange(100), columns=['foo', ]))
         params = {'circuit_config': 'circuit',
+                  'recipe_path': 'fake_string',
+                  'morphology_path': 'fake_string',
                   'folder': tmp_folder,
                   'sgid_offset': 0,
                   'oversampling': 0,

@@ -171,6 +171,22 @@ def mask_by_region(regions, atlas):
     return mask
 
 
+def calculate_synapse_conductance(conductance, distance, max_radius, interval):
+    '''Calculate new synapse conductance (inversely proportional to distance)
+
+    Args:
+        conductance(np.array): array of floats containing the current conductance values
+        distance(np.array): array of floats containing distances to the synapses
+            (i.e, 'distance_volume_transmission')
+        max_radius(float): maximum radius of volume_transmission
+        interval(list): list with conductance factors for min (=0) and max (=radius) distance
+    '''
+    interval_diff = interval[1] - interval[0]
+    factor = interval[0] + interval_diff * distance / max_radius
+    factor[distance > max_radius] = 0
+    return factor * conductance
+
+
 def _regex_to_regions(region_str):
     '''Convert the region regex string in manifest to list of regions'''
     # Replace @, ^, $, (, ), \ with and empty string and split on |

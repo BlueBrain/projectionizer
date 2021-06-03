@@ -37,7 +37,7 @@ def test_write_summary():
 
         class TestWriteSummary(step_3_write.WriteSummary):
             n_total_chunks = sgid_offset = oversampling = None
-            circuit_config = extension = 'fake_string'
+            recipe_path = morphology_path = circuit_config = 'fake_string'
             folder = tmp_folder
             layers = ''
 
@@ -73,7 +73,7 @@ def test_WriteNrnH5():
         class TestWriteNrnH5(step_3_write.WriteNrnH5):
             efferent = False
             folder = tmp_folder
-            circuit_config = 'fake_string'
+            recipe_path = morphology_path = circuit_config = 'fake_string'
             geometry = n_total_chunks = sgid_offset = oversampling = None
             extension = None
             synapse_type = gsyn_mean = gsyn_sigma = use_mean = use_sigma = D_mean = 1
@@ -122,7 +122,7 @@ def test_WriteUserTargetTxt():
         class TestWriteUserTargetTxt(step_3_write.WriteUserTargetTxt):
             efferent = False
             folder = tmp_folder
-            circuit_config = 'fake_string'
+            recipe_path = morphology_path = circuit_config = 'fake_string'
             geometry = n_total_chunks = sgid_offset = oversampling = None
             extension = None
             layers = ''
@@ -148,7 +148,7 @@ def test_VirtualFibers():
         class TestVirtualFibers(step_3_write.VirtualFibers):
             folder = tmp_folder
             sgid_offset = 10
-            circuit_config = 'fake_string'
+            recipe_path = morphology_path = circuit_config = 'fake_string'
             geometry = n_total_chunks = oversampling = None
             layers = ''
 

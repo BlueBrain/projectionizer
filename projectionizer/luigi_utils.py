@@ -34,6 +34,8 @@ class FolderTask(Task):
 class CommonParams(Config):
     """Paramaters that must be passed to all Task"""
     circuit_config = Parameter()
+    morphology_path = Parameter()
+    recipe_path = Parameter()
     folder = Parameter()
     n_total_chunks = IntParameter()
     sgid_offset = IntParameter()

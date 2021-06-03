@@ -7,6 +7,8 @@ Parameters
 
 **CommonParams** lists params than are common to all tasks.
  - **circuit_config**: the CircuitConfig absolute path.
+ - **recipe_path**: The path to the XML recipe that is used by Spykfunc
+ - **morphology_path**: The path to the morphology release
  - **sgid_offset**: the offset used for indexing the virtual fibers
  - **n_total_chunks**: in order to prevent RAM from exploding, the computation is splitted into chunks. This is the number of chunks.
  - **oversampling**: the ratio between the number of sampled synapses during the first step and the number of desired synapses. Oversampling is necessary as it allows to remove unwanted synapses with bad connectivity properties while keeping the final number of synapses stable.
@@ -44,12 +46,13 @@ Parameters
 **ChooseConnectionsToKeep** is the task responsible for getting rid of 'unbiological' connections; pairs connected by a too small numbers of synapses.
   - **cutoff_var**: Connections are filtered based on there number of synapses. The filter function is a sigmoid function centered at the cutoff value. `cutoff_var` is the width of the sigmoid.
 
+**PruneChunk** prunes out the connections that are not kept
+  - **additive_path_distance**: distance to add to the path distance (to make sure sure delay > .1 in simulations)
+
 **WriteAll** writes the projections in a given format
   - **output_type**: The format to use. Accepts: 'nrn', 'syn2', 'sonata'
 
 **WriteSonata** parameterizes the SONATA files (assumes 'sonata' format was used in WriteAll)
-  - **recipe_path**: The path to the XML recipe that is used by spykfunc
-  - **morphology_path**: The path to the morphology release
   - **target_population**: The name of the target node population (default: All)
   - **mtype**: mtype of the nodes (default: projections)
   - **node_population**: The name of the created node population (default: projections)
@@ -57,3 +60,10 @@ Parameters
   - **node_file_name**: file name for the sonata node file (default: projections_nodes.h5)
   - **edge_file_name**: file name for the sonata edge file (default: projections_edges.h5)
   - **module_archive**: which archive to load spykfunc and parquet-converters from (default: archive/2021-07)
+
+**VolumeSample** does the spherical sampling for volume transmission projections
+  - **radius**: radius (around synapses) to consider for volume transmission (Default: 5um)
+  - **additive_path_distance**: distance to add to the path distance (to make sure sure delay > .1 in simulations) (Default: 300um)
+
+**ScaleConductance** scale the conductance of volume transmission projections according to the distance from the synapse
+  - **interval**: A tuple giving the linear scale for conductance scaling (Default: [1.0, 0.1])

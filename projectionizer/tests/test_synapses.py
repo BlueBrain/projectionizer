@@ -2,7 +2,8 @@ from bluepy import Section, Segment
 from mock import Mock, patch
 from neurom import NeuriteType
 from nose.tools import ok_, eq_
-from numpy.testing import assert_equal, assert_allclose, assert_approx_equal
+from numpy.testing import (assert_equal, assert_allclose, assert_approx_equal,
+                           assert_array_equal, assert_array_almost_equal)
 from projectionizer import synapses
 import numpy as np
 import pandas as pd
@@ -42,6 +43,85 @@ def _fake_segments(min_xyz, max_xyz, count):
     df[Section.NEURITE_TYPE] = NeuriteType.apical_dendrite
 
     return df
+
+
+def test_get_segment_limits_within_sphere():
+    a = np.array([[0, 10, -10],
+                  [0, 6, 6],
+                  [0, 1, 1],
+                  [0, -10, -10],
+                  [-2, -2, -2]], dtype=float)
+    b = np.array([[0, 10, 10],
+                  [0, 10, 10],
+                  [0, 10, 10],
+                  [0, 10, 10],
+                  [2, 2, 2]], dtype=float)
+    point = np.array((0, 0, 0))
+
+    res_start, res_end = synapses.get_segment_limits_within_sphere(a, b, point, radius=5)
+
+    expected_start = np.array([[np.nan, np.nan, np.nan],
+                               [np.nan, np.nan, np.nan],
+                               [0, 1, 1],
+                               [0, -np.sqrt(25 / 2), -np.sqrt(25 / 2)],
+                               [-2, -2, -2]])
+
+    expected_end = np.array([[np.nan, np.nan, np.nan],
+                             [np.nan, np.nan, np.nan],
+                             [0, np.sqrt(25 / 2), np.sqrt(25 / 2)],
+                             [0, np.sqrt(25 / 2), np.sqrt(25 / 2)],
+                             [2, 2, 2]])
+
+    assert_array_almost_equal(res_start, expected_start)
+    assert_array_almost_equal(res_end, expected_end)
+
+    for _ in range(5):
+        addition = np.random.random((1, 3)) * np.random.randint(10, 100, (1, 3))
+        non_zero_start, non_zero_end = synapses.get_segment_limits_within_sphere(a + addition,
+                                                                                 b + addition,
+                                                                                 point + addition,
+                                                                                 radius=5)
+        assert_array_almost_equal(non_zero_start, expected_start + addition)
+        assert_array_almost_equal(non_zero_end, expected_end + addition)
+
+    # Test that results are same if ends and starts are reversed
+    rev_start, rev_end = synapses.get_segment_limits_within_sphere(b, a, point, radius=5)
+    assert_array_almost_equal(rev_start, expected_end)
+    assert_array_almost_equal(rev_end, expected_start)
+
+
+def test_spherical_sampling():
+
+    min_xyz = np.array([10, 10, 10])
+    max_xyz = min_xyz + 1
+
+    segments = _fake_segments(min_xyz, max_xyz, 5)
+
+    with patch('projectionizer.synapses._sample_with_flat_index') as mock_sample:
+        mock_sample.return_value = segments
+
+        with patch('projectionizer.synapses.get_segment_limits_within_sphere') as mock_points:
+            return_value = np.full((2, 5, 3), np.nan)
+            return_value[0, :2, :] = 1
+            return_value[1, :2, :] = 2
+            mock_points.return_value = return_value
+            res = synapses.spherical_sampling((np.array([0, 0, 0]), 1), 'fake_path', radius=5)
+
+            assert_equal(len(res), 2)
+            assert_array_equal(res.gid, segments.iloc[:2].gid)
+
+    # Test pruning of zero length segments
+    start_pos = [Segment.X1, Segment.Y1, Segment.Z1]
+    end_pos = [Segment.X2, Segment.Y2, Segment.Z2]
+    segments[end_pos] = np.full((np.shape(segments)[0], 3), 1)
+    segments[start_pos] = segments[end_pos]
+    segments.loc[segments.index[1], Segment.X1] += 1
+    segments.loc[segments.index[1], 'gid'] = 666
+
+    with patch('projectionizer.synapses._sample_with_flat_index') as mock_sample:
+        mock_sample.return_value = segments
+        res = synapses.spherical_sampling((np.array([0, 0, 0]), 1), 'fake_path', radius=5)
+        assert_array_equal(res.gid, segments.iloc[1].gid)
 
 
 def test_pick_synapses_voxel():

@@ -33,14 +33,24 @@ Usage
 Starting a new job
 ~~~~~~~~~~~~~~~~~~
 
+**Normal projections**
+
 .. code-block:: console
 
     projectionizer start -o output_folder -c config_file.yaml
 
 will generate projections using the passed config file, the content which is described in :ref:`configuration`
 
+**Volume transmission projections**
+
+.. code-block:: console
+
+    projectionizer volume-transmission -o output_folder -c config_file.yaml
+
+will generate volume transmission projections using the passed config file. Will also run the projections workflow. Implies output in SONATA format.
+
 .. note::
-    The job won't start automatically if a `config.yaml` file is already present in the output directory. It will prompt if you wish to overwrite the directory contents instead. This is to prevent overriding jobs by mistake.
+    The job won't start automatically if a `config.yaml` file is already present in the output directory. It give an error and hinting that you should use `--resume` or `--overwrite` flag.
 
 Resuming a job
 ~~~~~~~~~~~~~~
@@ -49,7 +59,22 @@ Resuming a job
 
     projectionizer resume -o output_folder
 
+and
+
+.. code-block:: console
+
+    projectionizer [start|volume-transmission] -o output_folder --resume
+
 will resume the job using parameters in the `config.yaml` present in the folder.
+
+Overwriting a job
+~~~~~~~~~~~~~~~~~
+
+.. code-block:: console
+
+    projectionizer [start|volume-transmission] -o output_folder -c config_file.yaml --overwrite
+
+will overwrite (removes the folder and its contents) the job using parameters in the passed `config_file.yaml`.
 
 ..  Dichotomy pipeline
     ------------------

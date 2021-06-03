@@ -53,6 +53,8 @@ class MismatchLinearTask(Task):
 
 DEFAULT_PARAMS = {
     'circuit_config': 'a/fake/path',
+    'morphology_path': 'a/fake/path',
+    'recipe_path': 'a/fake/path',
     'n_total_chunks': 1,
     'sgid_offset': 1,
     'oversampling': 1,

@@ -21,6 +21,7 @@ import luigi
 import yaml
 
 L = logging.getLogger(__name__)
+L.setLevel(logging.INFO)
 
 CONFIG_FILENAME = 'config.yaml'
 LUIGI_TARGET = 'projectionizer.analysis'
@@ -34,7 +35,7 @@ def common_parser():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='Location of "templates/" path: %s' % TEMPLATES_PATH)
-    subparsers = parser.add_subparsers(help='sub-command help')
+    subparsers = parser.add_subparsers(help='sub-command help', dest='sub-command', required=True)
 
     def set_scheduler_arg(_parser):
         _parser.add_argument('-l', '--no-local-scheduler', action='store_true',
@@ -55,6 +56,13 @@ def common_parser():
                                    'Must be passed when running the analysis for '
                                    'the first time. See templates/ path for '
                                    'some examples'))
+        _parser.add_argument('--resume', action="store_true",
+                             help=(f'Resume the execution of the workflow '
+                                   f'(if output directory exists). Requires a {CONFIG_FILENAME} '
+                                   f'to be present in the output diretory'))
+        _parser.add_argument('--overwrite', action="store_true",
+                             help=('Remove existing data and restart the workflow '
+                                   '(if output directory exists)'))
 
     def set_fiber_args(_parser):
         set_scheduler_arg(_parser)
@@ -117,6 +125,12 @@ def common_parser():
                                    help=('Rectangle on a y-plane bounding the generated fibers '
                                          '"[[xmin, zmin], [xmax, zmax]]"'))
 
+    parser_volume_transmission = subparsers.add_parser(
+        'volume-transmission',
+        help=("Run a volume transmission projections job. This will also run the main workflow."))
+    parser_volume_transmission.set_defaults(which='volume-transmission')
+    set_config_args(parser_volume_transmission)
+
     return parser
 
 
@@ -173,14 +187,24 @@ def _copy_config(args):
     return config_path
 
 
-def _cmd_start(args):
-    '''Luigi argument list for the "start" command'''
+def _check_outdir(args):
+    '''Check for existance of ouput directory and ask what to do'''
     if os.path.exists(args.output):
-        if input("Output folder already exists. Overwrite (yes/no): ").lower() in ('y', 'yes'):
+        if ARGS.resume:
+            return
+        elif ARGS.overwrite:
             shutil.rmtree(args.output)
         else:
+            L.critical(('\nerror: Output folder already exists.\n\n'
+                       'Tip: use --overwrite or --resume (for more info, see -h/--help)'))
             sys.exit(0)
+
     _copy_config(args)
+
+
+def _cmd_start(args):
+    '''Luigi argument list for the "start" command'''
+    _check_outdir(args)
     return ['DoAll', '--folder', args.output, '--module',
             LUIGI_TARGET, '--workers', WORKERS, ] + luigi_params(args)
 
@@ -235,30 +259,42 @@ def _cmd_generate_fibers_hex(args):
     return cmd
 
 
+def _cmd_volume_transmission(args):
+    '''Luigi argument list for the "volume-transmission" command.'''
+    _check_outdir(args)
+    return ['VolumeWriteAll', '--folder', args.output, '--module',
+            'projectionizer.volume_transmission', '--workers', WORKERS, ] + luigi_params(args)
+
+
 if __name__ == '__main__':
     parser = common_parser()
     ARGS = parser.parse_args()
-    if ARGS.which not in ('resume', 'generate-fibers') and not ARGS.config:
-        L.critical('\nerror: argument -c/--config is required\n\nTip: example'
-                   'templates configuration files can be found in: %s', TEMPLATES_PATH)
-        sys.exit(-1)
+    if ARGS.which not in ('resume', 'generate-fibers', 'generate-fibers-hex'):
+        if not (ARGS.config or ARGS.resume):
+            L.critical('\nerror: argument -c/--config is required\n\nTip: example '
+                       'templates configuration files can be found in:\n\t%s', TEMPLATES_PATH)
+            sys.exit(-1)
+        if hasattr(ARGS, 'config') and ARGS.resume and ARGS.overwrite:
+            L.critical('\nerror: arguments --overwrite and --resume are mutually exclusive')
+            sys.exit(-1)
 
     cmd = {'start': _cmd_start,
            'resume': _cmd_resume,
            'dichotomy': _cmd_dichotomy,
            'generate-fibers': _cmd_generate_fibers,
-           'generate-fibers-hex': _cmd_generate_fibers_hex}[ARGS.which](ARGS)
+           'generate-fibers-hex': _cmd_generate_fibers_hex,
+           'volume-transmission': _cmd_volume_transmission,
+           }[ARGS.which](ARGS)
 
-    print('You can also start the job with the following command:')
-    print('luigi ', end='')
+    msg = 'You can also start the job with the following command:\nluigi '
     for line in cmd:
         line = line.strip()
         if line.startswith('--'):
-            print(' \\\n    ', end='')
+            msg += ' \\\n    '
         else:
             line = '"{}"'.format(str(line))
-        print('    ' + line, end='')
-    print()
+        msg += '    ' + line
+    L.info(f'{msg}\n')
 
     np.random.seed(0)
     luigi.run(cmd)

@@ -206,8 +206,6 @@ class WriteSyn2(CommonParams):
 
 class WriteSonata(CommonParams):
     """Write projections in SONATA format."""
-    morphology_path = Parameter()
-    recipe_path = Parameter()
     target_population = Parameter('All')
     mtype = Parameter('projections')
     node_population = Parameter('projections')
@@ -346,6 +344,7 @@ class RunSpykfunc(WriteSonata):
                                 'nodes.h5')
         cluster_dir = self._get_full_path_output('_sm_cluster')
         command = (f"module purge; module load {self.module_archive} spykfunc; "
+                   f"unset SLURM_MEM_PER_NODE; unset SLURM_MEM_PER_GPU; unset SLURM_MEM_PER_CPU; "
                    f"sm_run -m 0 -w {cluster_dir} spykfunc --output-dir={spykfunc_dir} "
                    f"-p spark.master=spark://$(hostname):7077 "
                    f"--from {from_nodes} {self.node_population} "
