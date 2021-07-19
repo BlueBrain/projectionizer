@@ -10,7 +10,7 @@ matplotlib.use('Agg')
 # deal w/ using Agg backend
 # pylint: disable=wrong-import-position
 
-import matplotlib.colors as colors
+from matplotlib import colors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -385,7 +385,8 @@ def _synapses_per_connection_stats(pruned, cells, reg, sclass, lay):
     else:
         reg = [reg]
     tids_tmp = cells[np.logical_and(cells.region.isin(reg),
-                     np.logical_and(cells.synapse_class == sclass, cells.layer == lay))].index
+                                    np.logical_and(cells.synapse_class == sclass,
+                                                   cells.layer == lay))].index
     syn_prop_sel = pruned[np.in1d(pruned.tgid, tids_tmp)]
     if syn_prop_sel.size > 0:
         conns_tmp = syn_prop_sel.groupby(['tgid', 'sgid']).size().values

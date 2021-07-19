@@ -71,12 +71,12 @@ def rewrite_synapses_efferent(source_path, output_path):
         assert h5['info'].attrs['numberOfFiles'] == 1, 'Only can handle single file NRN files'
         version = h5['info'].attrs['version']
         dfs = []
-        for k in h5.keys():
-            if not k.startswith('a'):
+        for key, data in h5.items():
+            if not key.startswith('a'):
                 continue
-            df = pd.DataFrame(h5[k][:], columns=(['sgid'] + list(range(1, 19))))
+            df = pd.DataFrame(data[:], columns=(['sgid'] + list(range(1, 19))))
             df['sgid'] = df['sgid'].astype(int)
-            df['tgid'] = int(k[1:])
+            df['tgid'] = int(key[1:])
             df['afferent_indices'] = df.index.values
             dfs.append(df)
 

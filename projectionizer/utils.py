@@ -62,6 +62,12 @@ def read_yaml(path):
         return yaml.load(fd, Loader=yaml.Loader)
 
 
+def read_json(path):
+    '''Read a json file from given path'''
+    with open(path, 'r') as fd:
+        return json.load(fd)
+
+
 def load(filename):
     """Load a Pandas/Nrrd file based on the extension"""
     extension = os.path.splitext(filename)[1]
@@ -70,7 +76,7 @@ def load(filename):
             '.feather': lambda: read_feather(filename),
             '.nrrd': lambda: VoxelData.load_nrrd(filename),
             '.csv': lambda: pd.read_csv(filename, index_col=0),
-            '.json': lambda: json.load(open(filename)),
+            '.json': lambda: read_json(filename),
             '.yaml': lambda: read_yaml(filename),
         }[extension]()
     except KeyError as key_error:
@@ -88,7 +94,7 @@ def map_parallelize(func, it, jobs=36, chunksize=100):
         from multiprocessing import util  # pylint:disable=import-outside-toplevel
         util.log_to_stderr(logging.DEBUG)
 
-    jobs = os.environ.get('PARALLEL_COUNT', jobs)
+    jobs = int(os.environ.get('PARALLEL_COUNT', jobs))
 
     # FLATIndex is not threadsafe, and it leaks memory; to work around that
     # a the process pool forks a new process, and only runs 100 (b/c chunksize=100)
