@@ -202,7 +202,7 @@ def synapse_density(keep_syn, distmap, layers, bin_width=25, oversampling=1, fol
 def fraction_pruned_vs_height(folder, n_chunks):
     '''Plot how many synapses are pruned vs height'''
     kept = read_feather('{}/choose-connections-to-keep.feather'.format(folder))
-    chunks = list()
+    chunks = []
     for i in range(n_chunks):
         df = read_feather('{}/sample-chunk-{}.feather'.format(folder, i))
         sgid = read_feather('{}/fiber-assignment-{}.feather'.format(folder, i))
@@ -690,7 +690,7 @@ def create_report(coverage, density, folder):
     for m in messages:
         report += f'- {m}\n'
 
-    with open(os.path.join(folder, 'report.txt'), 'w') as fd:
+    with open(os.path.join(folder, 'report.txt'), 'w', encoding='utf-8') as fd:
         fd.write(report)
 
 

@@ -184,7 +184,7 @@ def write_user_target(output, synapses, name):
         synapses(dataframe): synapses
         name(str): name of target
     '''
-    with open(output, 'w') as fd:
+    with open(output, 'w', encoding='utf-8') as fd:
         fd.write('Target Cell %s {\n' % name)
         for tgid in sorted(synapses.sgid.unique()):
             fd.write('    a{}\n'.format(tgid))

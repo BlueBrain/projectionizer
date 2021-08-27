@@ -58,13 +58,13 @@ def read_feather(path, columns=None):
 
 def read_yaml(path):
     '''Read a yaml file from given path'''
-    with open(path, 'r') as fd:
+    with open(path, 'r', encoding='utf-8') as fd:
         return yaml.load(fd, Loader=yaml.Loader)
 
 
 def read_json(path):
     '''Read a json file from given path'''
-    with open(path, 'r') as fd:
+    with open(path, 'r', encoding='utf-8') as fd:
         return json.load(fd)
 
 
@@ -179,7 +179,7 @@ def _regex_to_regions(region_str):
 
 def read_regions_from_manifest(circuit_config):
     '''Read the regions from the MANIFEST.yaml'''
-    with open(circuit_config, 'r') as fd:
+    with open(circuit_config, 'r', encoding='utf-8') as fd:
         bc = BlueConfig(fd)
 
     if hasattr(bc.Run, 'BioName'):
