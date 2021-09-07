@@ -1,16 +1,15 @@
 from bluepy import Section, Segment
 from mock import Mock, patch
 from neurom import NeuriteType
-from nose.tools import ok_, eq_
-from numpy.testing import (assert_equal, assert_allclose, assert_approx_equal,
-                           assert_array_equal, assert_array_almost_equal)
+from numpy.testing import (assert_allclose, assert_approx_equal,
+                           assert_array_almost_equal)
 from projectionizer import synapses
 import numpy as np
 import pandas as pd
 from voxcell import VoxelData
 
 
-def test_segment_pref():
+def test_segment_pref_length():
     df = pd.DataFrame({Section.NEURITE_TYPE: [NeuriteType.axon,
                                               NeuriteType.axon,
                                               NeuriteType.basal_dendrite,
@@ -18,8 +17,8 @@ def test_segment_pref():
                                               ],
                        'segment_length': 1})
     ret = synapses.segment_pref_length(df)
-    ok_(isinstance(ret, pd.Series))
-    assert_equal(ret.values, np.array([0., 0., 1., 1.]))
+    assert isinstance(ret, pd.Series)
+    assert np.all(ret.values == [0, 0, 1, 1])
 
 
 def _fake_segments(min_xyz, max_xyz, count):
@@ -107,8 +106,8 @@ def test_spherical_sampling():
             mock_points.return_value = return_value
             res = synapses.spherical_sampling((np.array([0, 0, 0]), 1), 'fake_path', radius=5)
 
-            assert_equal(len(res), 2)
-            assert_array_equal(res.gid, segments.iloc[:2].gid)
+            assert len(res) == 2
+            assert np.all(res.gid == segments.iloc[:2].gid)
 
     # Test pruning of zero length segments
     start_pos = [Segment.X1, Segment.Y1, Segment.Z1]
@@ -121,7 +120,7 @@ def test_spherical_sampling():
     with patch('projectionizer.synapses._sample_with_flat_index') as mock_sample:
         mock_sample.return_value = segments
         res = synapses.spherical_sampling((np.array([0, 0, 0]), 1), 'fake_path', radius=5)
-        assert_array_equal(res.gid, segments.iloc[1].gid)
+        assert np.all(res.gid == segments.iloc[1].gid)
 
 
 def test_pick_synapses_voxel():
@@ -146,12 +145,12 @@ def test_pick_synapses_voxel():
                                                mock_segment_pref,
                                                dataframe_cleanup=None
                                                )
-        eq_(count, len(segs_df))
-        ok_('x' in segs_df.columns)
-        ok_('segment_length' in segs_df.columns)
+        assert count == len(segs_df)
+        assert 'x' in segs_df.columns
+        assert 'segment_length' in segs_df.columns
 
         # make sure locations are different
-        eq_(len(segs_df), len(segs_df.drop_duplicates()))
+        assert len(segs_df) == len(segs_df.drop_duplicates())
 
         # no segments with their midpoint in the voxel
         xyz_count = np.array([10, 10, 10]), np.array([11, 11, 11]), count
@@ -160,7 +159,7 @@ def test_pick_synapses_voxel():
                                                mock_segment_pref,
                                                dataframe_cleanup=None
                                                )
-        ok_(segs_df is None)
+        assert segs_df is None
 
         # single segment with its midpoint in the voxel
         segments = _fake_segments(min_xyz, max_xyz, 2 * count)
@@ -175,20 +174,20 @@ def test_pick_synapses_voxel():
                                                mock_segment_pref,
                                                dataframe_cleanup=None
                                                )
-        eq_(count, len(segs_df))
-        ok_('x' in segs_df.columns)
-        ok_('segment_length' in segs_df.columns)
-        eq_(len(segs_df), len(segs_df.drop_duplicates()))
+        assert count == len(segs_df)
+        assert 'x' in segs_df.columns
+        assert 'segment_length' in segs_df.columns
+        assert len(segs_df) == len(segs_df.drop_duplicates())
 
         # all get the same section/segment/gid, since only a single segment lies in the voxel
-        eq_(1, len(segs_df[[Section.ID, Segment.ID, 'gid']].drop_duplicates()))
+        assert len(segs_df[[Section.ID, Segment.ID, 'gid']].drop_duplicates()) == 1
 
         # segment_pref picks no synapses
         segs_df = synapses.pick_synapses_voxel(xyz_count,
                                                circuit_path,
                                                lambda x: 0,
                                                dataframe_cleanup=None)
-        ok_(segs_df is None)
+        assert segs_df is None
 
 
 def test__min_max_axis():
@@ -212,7 +211,7 @@ def test_pick_synapses():
     circuit_path = 'foo/bar/baz'
 
     def _fake_voxel_synapse_count(shape, voxel_size=10):
-        raw = np.zeros(shape=shape, dtype=np.int)
+        raw = np.zeros(shape=shape, dtype=int)
         raw[3:7, 3:7, 3:7] = 5
         return VoxelData(raw, [voxel_size] * 3, (0, 0, 0))
 
@@ -223,9 +222,9 @@ def test_pick_synapses():
         voxel_synapse_count = _fake_voxel_synapse_count(shape=(10, 10, 10), voxel_size=0.1)
         segs_df = synapses.pick_synapses(circuit_path, voxel_synapse_count)
 
-        eq_(np.sum(voxel_synapse_count.raw), len(segs_df))
-        ok_('x' in segs_df.columns)
-        ok_('segment_length' in segs_df.columns)
+        assert np.sum(voxel_synapse_count.raw) == len(segs_df)
+        assert 'x' in segs_df.columns
+        assert 'segment_length' in segs_df.columns
 
 
 def test_build_synapses_default():
@@ -233,7 +232,7 @@ def test_build_synapses_default():
     synapse_density = [[[0, 7], [2, 8], [3, 67], [7, 42]]]
     oversampling = 3
     syns = synapses.build_synapses_default(height, synapse_density, oversampling)
-    assert_equal(syns.raw, [[[21, 21], [24, 201]], [[201, 201], [201, 0]]])
+    assert np.all(syns.raw == [[[21, 21], [24, 201]], [[201, 201], [201, 0]]])
 
     # Test low density
     height = VoxelData(np.full((1000, 1, 1000), 1), (1, 1, 1))
@@ -252,5 +251,5 @@ def test_organize_indices():
                          ],
                         columns=['tgid', 'sgid'])
     ret = synapses.organize_indices(syns.copy())
-    eq_(len(syns), len(ret))
-    ok_(np.all(0 <= np.diff(ret.tgid.values)))
+    assert len(syns) == len(ret)
+    assert np.all(np.diff(ret.tgid.values) >= 0)

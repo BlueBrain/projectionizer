@@ -3,8 +3,8 @@ import os
 
 import numpy as np
 import pandas as pd
-from nose.tools import eq_, ok_, raises, assert_raises
-from numpy.testing import assert_equal, assert_array_equal, assert_array_almost_equal
+import pytest
+from numpy.testing import assert_array_almost_equal
 from voxcell import VoxelData
 from voxcell.nexus.voxelbrain import Atlas
 
@@ -19,8 +19,7 @@ def test_choice():
     indices = test_module.choice(np.array([[1., 2, 3, 4],
                                            [0, 0, 1, 0],
                                            [6, 5, 4, 0]]))
-    assert_equal(indices,
-                 [2, 2, 1])
+    assert np.all(indices == [2, 2, 1])
 
 
 def test_ignore_exception():
@@ -31,7 +30,7 @@ def test_ignore_exception():
         with test_module.ignore_exception(OSError):
             raise KeyError('This should be propagated')
 
-    assert_raises(KeyError, foo)
+    pytest.raises(KeyError, foo)
 
 
 def test_write_feather():
@@ -46,13 +45,12 @@ def test_write_feather():
 def test_normalize_probability():
     p = np.array([1, 0])
     ret = test_module.normalize_probability(p)
-    assert_equal(p, ret)
+    assert np.all(p == ret)
 
 
-@raises(test_module.ErrorCloseToZero)
 def test_normalize_probability_raises():
     p = np.array([1e-10, -2e-12])
-    test_module.normalize_probability(p)
+    pytest.raises(test_module.ErrorCloseToZero, test_module.normalize_probability, p)
 
 
 def test_load():
@@ -71,7 +69,7 @@ def test_load():
             json.dump(json_obj, outputf)
 
         for ext, result in zip(extensions, [VoxelData, dict, pd.DataFrame, pd.DataFrame]):
-            ok_(isinstance(test_module.load(files[ext]), result))
+            assert isinstance(test_module.load(files[ext]), result)
 
         class Task(object):
             def __init__(self, _path):
@@ -79,15 +77,14 @@ def test_load():
 
         nrrd, _json, feather, csv = test_module.load_all([Task(files[ext]) for ext in extensions])
 
-        ok_(dataframe.equals(feather))
-        ok_(dataframe.equals(csv))
-        assert_equal(voxcell_obj.raw, nrrd.raw)
-        eq_(json_obj, _json)
+        assert dataframe.equals(feather)
+        assert dataframe.equals(csv)
+        assert np.all(voxcell_obj.raw == nrrd.raw)
+        assert json_obj == _json
 
 
-@raises(NotImplementedError)
 def test_load_raise():
-    test_module.load('file.blabla')
+    pytest.raises(NotImplementedError, test_module.load, 'file.blabla')
 
 
 def times_two(x):
@@ -96,8 +93,7 @@ def times_two(x):
 
 def test_map_parallelize():
     a = np.arange(10)
-    assert_equal(test_module.map_parallelize(times_two, a),
-                 a * 2)
+    assert np.all(test_module.map_parallelize(times_two, a) == a * 2)
 
 
 def test_in_bounding_box():
@@ -110,28 +106,28 @@ def test_in_bounding_box():
                            'y': np.arange(1, 2),
                            'z': np.arange(1, 2)})
         ret = in_bounding_box(min_xyz, max_xyz, df)
-        assert_equal(ret.values, [True, ])
+        assert np.all(ret.values == [True, ])
 
         # check for violation of min_xyz
         df[axis].iloc[0] = 0
         ret = in_bounding_box(min_xyz, max_xyz, df)
-        assert_equal(ret.values, [False, ])
+        assert np.all(ret.values == [False, ])
         df[axis].iloc[0] = 1
 
         # check for violation of max_xyz
         df[axis].iloc[0] = 10
         ret = in_bounding_box(min_xyz, max_xyz, df)
-        assert_equal(ret.values, [False, ])
+        assert np.all(ret.values == [False, ])
         df[axis].iloc[0] = 1
 
     df = pd.DataFrame({'x': np.arange(0, 10),
                        'y': np.arange(5, 15),
                        'z': np.arange(5, 15)})
     ret = in_bounding_box(min_xyz, max_xyz, df)
-    assert_equal(ret.values, [False,  # x == 0, fails
-                              True, True, True, True,
-                              False, False, False, False, False,  # y/z > 9
-                              ])
+    assert np.all(ret.values == [False,  # x == 0, fails
+                                 True, True, True, True,
+                                 False, False, False, False, False,  # y/z > 9
+                                 ])
 
 
 def test_calculate_synapse_conductance():
@@ -156,32 +152,32 @@ def test_calculate_synapse_conductance():
 def test_mask_by_region():
     atlas = Atlas.open(TEST_DATA_DIR)
     mask = test_module.mask_by_region(['S1HL'], atlas)
-    assert_equal(mask.sum(), 101857)
+    assert mask.sum() == 101857
 
     mask = test_module.mask_by_region([726], atlas)
-    assert_equal(mask.sum(), 101857)
+    assert mask.sum() == 101857
 
 
 def test_regex_to_regions():
     reg_str = '@^region_1$'
     res = test_module._regex_to_regions(reg_str)
 
-    assert_array_equal(res, ['region_1'])
+    assert np.all(res == ['region_1'])
 
-    reg_str = '@^(region_1\|region_2)$'
+    reg_str = r'@^(region_1\|region_2)$'
     res = test_module._regex_to_regions(reg_str)
 
-    assert_array_equal(res, ['region_1', 'region_2'])
+    assert np.all(res == ['region_1', 'region_2'])
 
 
 def test_convert_to_smallest_allowed_int_type():
 
     res = test_module.convert_to_smallest_allowed_int_type(np.array([0, 1]))
-    assert_array_equal(res, [0, 1])
-    assert_equal(res.dtype, np.int16)
+    assert np.all(res == [0, 1])
+    assert res.dtype == np.int16
 
     res = test_module.convert_to_smallest_allowed_int_type(np.array([0, int(2**17)]))
-    assert_equal(res.dtype, np.int32)
+    assert res.dtype == np.int32
 
     res = test_module.convert_to_smallest_allowed_int_type(np.array([0, int(2**33)]))
-    assert_equal(res.dtype, np.int64)
+    assert res.dtype == np.int64

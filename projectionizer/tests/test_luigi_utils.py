@@ -1,7 +1,6 @@
 import os
 import tempfile
-from nose.tools import eq_, ok_
-from numpy.testing import assert_raises
+import pytest
 
 from luigi import Task, build, Parameter
 from luigi.parameter import ParameterException
@@ -11,20 +10,20 @@ from utils import setup_tempdir
 
 
 def test_camel2spinal_case():
-    eq_(lu.camel2spinal_case('CamelCase'),
+    assert (lu.camel2spinal_case('CamelCase') ==
         'camel-case')
 
 
 def test_FolderTask():
     with setup_tempdir('test_luigi') as tmp_dir:
         temp_name = os.path.join(tmp_dir, next(tempfile._RandomNameSequence()))
-        ok_(not os.path.exists(temp_name))
+        assert not os.path.exists(temp_name)
 
         task = lu.FolderTask(folder=temp_name)
         task.run()
-        ok_(os.path.exists(temp_name))
-        ok_(os.path.isdir(temp_name))
-        ok_(isinstance(task.output(), LocalTarget))
+        assert os.path.exists(temp_name)
+        assert os.path.isdir(temp_name)
+        assert isinstance(task.output(), LocalTarget)
 
 
 def test_common_params():
@@ -47,32 +46,30 @@ def test_common_params():
         extension = 'out'
 
     task = TestCommonParams(**params)
-    eq_(task.output().path, '/none/existant/path/test-common-params.out')
+    assert task.output().path == '/none/existant/path/test-common-params.out'
 
     class TestCommonParamsChunk(TestCommonParams):
         chunk_num = 42
 
     chunked_task = TestCommonParamsChunk(**params)
-    eq_(chunked_task.output().path, '/none/existant/path/test-common-params-chunk-42.out')
+    assert chunked_task.output().path == '/none/existant/path/test-common-params-chunk-42.out'
 
-    ok_(isinstance(task.requires(), lu.FolderTask))
+    assert isinstance(task.requires(), lu.FolderTask)
 
     # Test deprecation
     deprecated = params.copy()
     deprecated['voxel_path'] = '/fake/path'
-    with assert_raises(ParameterException):
-        TestCommonParams(**deprecated)
+    pytest.raises(ParameterException, TestCommonParams, **deprecated)
 
     deprecated = params.copy()
     deprecated['hex_fiber_locations'] = '/fake/path'
-    with assert_raises(ParameterException):
-        TestCommonParams(**deprecated)
+    pytest.raises(ParameterException, TestCommonParams, **deprecated)
 
 
 def test_RunAnywayTargetTempDir():
     with setup_tempdir('test_luigi') as tmp_dir:
         path = os.path.join(tmp_dir, 'luigi-tmp')  # directory created by RunAnywayTargetTempDir
-        ok_(not os.path.exists(path))
+        assert not os.path.exists(path)
 
         class Test(Task):
             def run(self):
@@ -92,4 +89,4 @@ def test_RunAnywayTargetTempDir():
                 return lu.RunAnywayTargetTempDir(self, base_dir=self.folder)
 
         build([DoAll(folder=tmp_dir)], local_scheduler=True)
-        ok_(os.path.exists(path))
+        assert os.path.exists(path)

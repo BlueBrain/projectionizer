@@ -1,9 +1,6 @@
 import numpy as np
 import pandas as pd
-from nose.tools import ok_, eq_
-from numpy.testing import (assert_equal,
-                           assert_array_equal,
-                           assert_allclose,)
+from numpy.testing import assert_allclose
 
 from voxcell import VoxelData
 from voxcell.nexus.voxelbrain import Atlas
@@ -33,13 +30,13 @@ def test_assign_synapse_fiber():
     candidates = create_candidates()
     virtual_fibers = create_virtual_fibers()
     ret = assign_synapse_fiber(candidates, virtual_fibers, sigma=1)
-    ok_(ret.equals(pd.DataFrame({'sgid': [0, 2, 1]})))
+    assert ret.equals(pd.DataFrame({'sgid': [0, 2, 1]}))
 
 
 def test_column_layers():
     layer_starts, layer_thickness = sscx.column_layers(RAT_LAYERS)
-    eq_(layer_starts, {'L6': 0, 'L4': 1225, 'L5': 700, 'L2': 1766, 'L3': 1414, 'L1': 1914})
-    eq_(layer_thickness, {'L6': 700, 'L4': 189, 'L5': 525, 'L2': 148, 'L3': 352, 'L1': 164})
+    assert layer_starts == {'L6': 0, 'L4': 1225, 'L5': 700, 'L2': 1766, 'L3': 1414, 'L1': 1914}
+    assert layer_thickness == {'L6': 700, 'L4': 189, 'L5': 525, 'L2': 148, 'L3': 352, 'L1': 164}
 
 
 def test_recipe_to_height_and_density():
@@ -72,7 +69,6 @@ def test_relative_recipe_to_height_and_density():
               [2, 0],
               [1, 0]]
 
-
     layer4 = 4
     layer3 = 3
     res = sscx.recipe_to_relative_height_and_density(layers, layer4, 0, layer3, 0.5, profile)
@@ -94,13 +90,12 @@ def test_relative_recipe_to_height_and_density():
 def test_relative_distance_layer():
     layer_ph = np.array([[[[100, 200], [110, 200]],
                           [[110, 210], [120, 230]]]], dtype=float)
-    distance = VoxelData(np.array([[[150, 146], [np.nan, 164]]], dtype=float), (1,1,1))
+    distance = VoxelData(np.array([[[150, 146], [np.nan, 164]]], dtype=float), (1, 1, 1))
 
     res = sscx.relative_distance_layer(distance, layer_ph)
 
-    assert_allclose(res.raw,
-                     [[[0.5, 0.4],
-                      [np.nan, 0.4]]])
+    assert_allclose(res.raw, [[[0.5, 0.4],
+                              [np.nan, 0.4]]])
 
 
 def test_recipe_to_relative_heights_per_layer():
@@ -112,6 +107,6 @@ def test_recipe_to_relative_heights_per_layer():
 
     ret = sscx.recipe_to_relative_heights_per_layer(distance, atlas, layers)
 
-    assert_array_equal(np.isfinite(ret.raw), atlas.get_region_mask('L6', attr='acronym').raw)
-    assert_equal(True, np.all(ret.raw[np.isfinite(ret.raw)] >= 0.0))
-    assert_equal(True, np.all(ret.raw[np.isfinite(ret.raw)] <= 1.0))
+    assert np.all(np.isfinite(ret.raw) == atlas.get_region_mask('L6', attr='acronym').raw)
+    assert np.all(ret.raw[np.isfinite(ret.raw)] >= 0.0)
+    assert np.all(ret.raw[np.isfinite(ret.raw)] <= 1.0)

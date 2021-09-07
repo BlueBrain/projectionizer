@@ -2,8 +2,7 @@ import math
 
 import numpy as np
 import pandas as pd
-from nose.tools import eq_, ok_, raises
-from numpy.testing import assert_allclose, assert_equal
+from numpy.testing import assert_allclose
 from pandas.testing import assert_frame_equal
 
 from projectionizer import straight_fibers
@@ -29,12 +28,12 @@ def test_calc_distances():
     locations = np.array([[0,  0,  0],
                           [10,  0,  0],
                           [10, 10, 10],
-                          [10, 10,  0]], dtype=np.float)
+                          [10, 10,  0]], dtype=float)
     virtual_fibers = np.array([[0.,  0.,  0.,  1.,  0.,  0.],
                                [0.,  0.,  0.,  0.,  1.,  0.],
                                [0.,  0.,  0.,  0.,  0.,  1.]])
     ret = straight_fibers.calc_distances(locations, virtual_fibers)
-    eq_(ret.shape, (4, 3))
+    assert ret.shape == (4, 3)
     sqrt2 = math.sqrt(2)
     expected = np.array([[0., 0., 0.],  # line passes through origin
                          [0., 10., 10.],  # x line passes through x=10, so 0 distance there, 10 for y & z lines

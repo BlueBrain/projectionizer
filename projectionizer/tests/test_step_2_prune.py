@@ -1,16 +1,14 @@
 import numpy as np
 import pandas as pd
-from numpy.testing import assert_equal
-from nose.tools import ok_
 
 from projectionizer import step_2_prune
 
 
 def test_find_cutoff_mean_per_mtype():
     value_count = pd.Series(np.arange(10))
-    assert_equal(step_2_prune.find_cutoff_mean_per_mtype(value_count, 0.4), 6.469387755102041)
-    assert_equal(step_2_prune.find_cutoff_mean_per_mtype(value_count, 0.5), 7.0390625)
-    assert_equal(step_2_prune.find_cutoff_mean_per_mtype(value_count, 0.6), 7.484375)
+    assert step_2_prune.find_cutoff_mean_per_mtype(value_count, 0.4) == 6.469387755102041
+    assert step_2_prune.find_cutoff_mean_per_mtype(value_count, 0.5) == 7.0390625
+    assert step_2_prune.find_cutoff_mean_per_mtype(value_count, 0.6) == 7.484375
 
 
 def test_calculate_cutoff_means():

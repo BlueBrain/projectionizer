@@ -1,8 +1,6 @@
 import os
 from voxcell import VoxelData
 import numpy as np
-from nose.tools import eq_, ok_, raises
-from numpy.testing import assert_array_equal
 from projectionizer import sscx_hex, utils
 
 
@@ -15,11 +13,11 @@ LOCATIONS_PATH = os.path.join(TEMPLATES, 'rat_fibers.csv')
 def test_get_virtual_fiber_locations():
     vf = sscx_hex.get_virtual_fiber_locations(bounding_box=BOUNDING_BOX,
                                               locations_path=LOCATIONS_PATH)
-    eq_(len(vf), 414)
+    assert len(vf) == 414
 
     vf = sscx_hex.get_virtual_fiber_locations(bounding_box=BOUNDING_BOX_APRON,
                                               locations_path=LOCATIONS_PATH)
-    ok_(len(vf) > 414)
+    assert len(vf) > 414
 
 
 def test_get_minicol_virtual_fibers():
@@ -36,8 +34,8 @@ def test_get_minicol_virtual_fibers():
                                              height=height,
                                              region_mask=mask,
                                              locations_path=LOCATIONS_PATH)
-    eq_(len(df), 414)
-    ok_(len(df[df.apron]) == 0)
+    assert len(df) == 414
+    assert len(df[df.apron]) == 0
 
     # Create voxel data that resembles BOUNDING_BOX_APRON
     height = height.raw
@@ -48,12 +46,12 @@ def test_get_minicol_virtual_fibers():
                                              height=height,
                                              region_mask=mask,
                                              locations_path=LOCATIONS_PATH)
-    ok_(len(df) > 414)
-    ok_(len(df[df.apron]) > 0)
+    assert len(df) > 414
+    assert len(df[df.apron]) > 0
 
-    eq_(df.apron.dtype, bool)
+    assert df.apron.dtype == bool
     for c in utils.XYZUVW:
-        eq_(df[c].dtype, float)
+        assert df[c].dtype == float
 
 
 def test_get_mask_bounding_box():
@@ -65,4 +63,4 @@ def test_get_mask_bounding_box():
 
     mask = sscx_hex.get_mask_bounding_box(height, mask, BOUNDING_BOX)
 
-    assert_array_equal(np.isfinite(height.raw), mask)
+    assert np.all(np.isfinite(height.raw) == mask)

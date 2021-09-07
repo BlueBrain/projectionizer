@@ -5,10 +5,9 @@ import subprocess
 import h5py
 from luigi import Task
 from mock import Mock, patch
-from nose.tools import eq_, ok_, assert_raises
 import numpy as np
-from numpy.testing import assert_equal
 import pandas as pd
+import pytest
 
 from projectionizer import step_3_write
 from projectionizer.utils import write_feather
@@ -46,11 +45,11 @@ def test_WriteUserTargetTxt():
                 return mock
 
         test = TestWriteUserTargetTxt()
-        ok_(isinstance(test.requires(), Task))
+        assert isinstance(test.requires(), Task)
 
         test.run()
         output_path = os.path.join(tmp_folder, 'user.target')
-        ok_(os.path.exists(output_path))
+        assert os.path.exists(output_path)
 
 
 def test_VirtualFibers():
@@ -71,13 +70,13 @@ def test_VirtualFibers():
                 return mock
 
         test = TestVirtualFibers()
-        ok_(isinstance(test.requires(), Task))
+        assert isinstance(test.requires(), Task)
 
         test.run()
         output_path = os.path.join(tmp_folder, 'test-virtual-fibers.csv')
-        ok_(os.path.exists(output_path))
+        assert os.path.exists(output_path)
         df = pd.read_csv(output_path)
-        eq_(TestVirtualFibers.sgid_offset, df.sgid.min())
+        assert TestVirtualFibers.sgid_offset == df.sgid.min()
 
 
 def test_WriteSonata():
@@ -132,7 +131,7 @@ def test_WriteSonata():
         test = TestWriteSonata()
         assert len(test.requires()) == 5
         assert all(isinstance(t, Task) for t in test.requires())
-        assert_equal(test.requires()[0].output().path, test.output().path)
+        assert test.requires()[0].output().path == test.output().path
 
         sonata_path = test.input()[0].path
         node_path = test.input()[2].path
@@ -146,28 +145,28 @@ def test_WriteSonata():
         with h5py.File(sonata_path, 'r+') as h5:
             del h5[f'edges/{EDGE_POPULATION}/source_node_id']
             h5[f'edges/{EDGE_POPULATION}/source_node_id'] = [0] * (len(df.sgid) + 1)
-        assert_raises(AssertionError, test.run)
+        pytest.raises(AssertionError, test.run)
 
         # Wrong node count
         create_h5_files(sonata_path, node_path, edge_path)
         with h5py.File(node_path, 'r+') as h5:
             del h5[f'nodes/{NODE_POPULATION}/node_type_id']
             h5[f'nodes/{NODE_POPULATION}/node_type_id'] = np.full(df.sgid.max() + 1, -1)
-        assert_raises(AssertionError, test.run)
+        pytest.raises(AssertionError, test.run)
 
         # SGIDs are off
         create_h5_files(sonata_path, node_path, edge_path)
         with h5py.File(edge_path, 'r+') as h5:
             del h5[f'edges/{EDGE_POPULATION}/source_node_id']
             h5[f'edges/{EDGE_POPULATION}/source_node_id'] = df.sgid.to_numpy()
-        assert_raises(AssertionError, test.run)
+        pytest.raises(AssertionError, test.run)
 
         # TGIDs are off
         create_h5_files(sonata_path, node_path, edge_path)
         with h5py.File(edge_path, 'r+') as h5:
             del h5[f'edges/{EDGE_POPULATION}/target_node_id']
             h5[f'edges/{EDGE_POPULATION}/target_node_id'] = df.tgid.to_numpy()
-        assert_raises(AssertionError, test.run)
+        pytest.raises(AssertionError, test.run)
 
 
 def test_WriteSonataNodes():
@@ -205,7 +204,7 @@ def test_WriteSonataNodes():
         assert os.path.isfile(test.output().path)
 
         with h5py.File(test.output().path, 'r') as h5:
-            assert_equal(len(h5[f'nodes/{NODE_POPULATION}/node_type_id']), data['sgid'][0])
+            len(h5[f'nodes/{NODE_POPULATION}/node_type_id']) == data['sgid'][0]
 
 
 def test_WriteSonataEdges():
@@ -243,26 +242,15 @@ def test_WriteSonataEdges():
         assert os.path.isfile(test.output().path)
 
         with h5py.File(test.output().path, 'r') as h5:
-            assert_equal(h5[f'edges/{EDGE_POPULATION}/source_node_id'][0], data['sgid'][0] - 1)
-            assert_equal(h5[f'edges/{EDGE_POPULATION}/target_node_id'][0], data['tgid'][0] - 1)
+            h5[f'edges/{EDGE_POPULATION}/source_node_id'][0] == data['sgid'][0] - 1
+            h5[f'edges/{EDGE_POPULATION}/target_node_id'][0] == data['tgid'][0] - 1
 
 
 def test_check_if_old_syntax():
-    archive = 'fake_archive'
-    res = step_3_write._check_if_old_syntax(archive)
-    assert_equal(res, False)
-
-    archive = 'archive/2021-07'
-    res = step_3_write._check_if_old_syntax(archive)
-    assert_equal(res, False)
-
-    archive = 'archive/2021-06'
-    res = step_3_write._check_if_old_syntax(archive)
-    assert_equal(res, True)
-
-    archive = 'archive/2020-12'
-    res = step_3_write._check_if_old_syntax(archive)
-    assert_equal(res, True)
+    assert not step_3_write._check_if_old_syntax('fake_archive')
+    assert not step_3_write._check_if_old_syntax('archive/2021-07')
+    assert step_3_write._check_if_old_syntax('archive/2021-06')
+    assert step_3_write._check_if_old_syntax('archive/2020-12')
 
 
 def test_RunSpykfunc():
@@ -288,7 +276,7 @@ def test_RunSpykfunc():
 
             # Test that the spykfunc dir is removed on error
             patched.side_effect = subprocess.CalledProcessError(1, 'fake')
-            assert_raises(subprocess.CalledProcessError, test.run)
+            pytest.raises(subprocess.CalledProcessError, test.run)
             assert not os.path.isdir(os.path.join(tmp_folder, 'spykfunc'))
 
         with patch('projectionizer.step_3_write.subprocess.run'):

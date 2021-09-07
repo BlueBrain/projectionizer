@@ -1,8 +1,5 @@
 import json
-
 from luigi import FloatParameter, LocalTarget, Parameter, Task, build
-from nose.tools import ok_
-from numpy.testing import assert_equal
 
 from projectionizer.dichotomy import Dichotomy
 
@@ -30,7 +27,7 @@ def test_simple():
         task = LinearTask(param=-5, folder=tmp_folder)
         task.run()
         with task.output().open() as inputf:
-            assert_equal(json.load(inputf)['result'], 15)
+            assert json.load(inputf)['result'] == 15
 
 
 class MismatchLinearTask(Task):
@@ -73,7 +70,7 @@ def test_dichotomy():
                        'folder': tmp_folder,
                        })
         res = build([Dichotomy(**params)], local_scheduler=True)
-        ok_(res)
+        assert res
 
 
 def test_dichotomy_failed():
@@ -91,4 +88,4 @@ def test_dichotomy_failed():
                        })
 
         res = build([Dichotomy(**params)], local_scheduler=True)
-        ok_(not res)
+        assert not res

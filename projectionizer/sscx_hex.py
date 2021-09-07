@@ -41,7 +41,7 @@ def get_minicol_virtual_fibers(apron_bounding_box, height, region_mask, location
 
     def to_dataframe(points, is_apron):
         '''return fibers in a dataframe'''
-        df = pd.DataFrame(columns=XYZUVW, dtype=np.float)
+        df = pd.DataFrame(columns=XYZUVW, dtype=float)
         if not points:
             return df
         df.x, df.z = zip(*points)

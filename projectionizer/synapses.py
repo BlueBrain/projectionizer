@@ -150,8 +150,8 @@ def spherical_sampling(pos_sgid, index_path, radius):
     max_xyz = position + radius
 
     segs_df = _sample_with_flat_index(index_path, min_xyz, max_xyz)
-    starts = segs_df[SEGMENT_START_COLS].to_numpy().astype(np.float)
-    ends = segs_df[SEGMENT_END_COLS].to_numpy().astype(np.float)
+    starts = segs_df[SEGMENT_START_COLS].to_numpy().astype(float)
+    ends = segs_df[SEGMENT_END_COLS].to_numpy().astype(float)
 
     mask_nonzero_length = np.any(starts != ends, axis=1)
     segs_df = segs_df[mask_nonzero_length]
@@ -169,10 +169,10 @@ def spherical_sampling(pos_sgid, index_path, radius):
     synapse = alpha[:, None] * (segment_end - segment_start) + segment_start
     segs_df[XYZ] = synapse
     segs_df[SOURCE_XYZ] = position
-    segs_df['sgid'] = sgid
-    segs_df['synapse_offset'] = np.linalg.norm(synapse - starts, axis=1)
-    segs_df['segment_length'] = np.linalg.norm(ends - starts, axis=1)
-    segs_df['distance_volume_transmission'] = np.linalg.norm(synapse - position, axis=1)
+    segs_df.loc[:, 'sgid'] = sgid
+    segs_df.loc[:, 'synapse_offset'] = np.linalg.norm(synapse - starts, axis=1)
+    segs_df.loc[:, 'segment_length'] = np.linalg.norm(ends - starts, axis=1)
+    segs_df.loc[:, 'distance_volume_transmission'] = np.linalg.norm(synapse - position, axis=1)
 
     return segs_df[VOLUME_TRANSMISSION_COLS].dropna()
 
@@ -198,8 +198,8 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
         return None
 
     # pylint: disable=unsubscriptable-object
-    starts = segs_df[SEGMENT_START_COLS].to_numpy().astype(np.float)
-    ends = segs_df[SEGMENT_END_COLS].to_numpy().astype(np.float)
+    starts = segs_df[SEGMENT_START_COLS].to_numpy().astype(float)
+    ends = segs_df[SEGMENT_END_COLS].to_numpy().astype(float)
     # pylint: enable=unsubscriptable-object
 
     # keep only the segments whose midpoints are in the current voxel
@@ -228,8 +228,8 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
     segs_df['synapse_offset'] = alpha * segs_df['segment_length']
 
     segs_df = segs_df.join(
-        pd.DataFrame(alpha[:, None] * segs_df[SEGMENT_START_COLS].to_numpy().astype(np.float) +
-                     (1. - alpha[:, None]) * segs_df[SEGMENT_END_COLS].to_numpy().astype(np.float),
+        pd.DataFrame(alpha[:, None] * segs_df[SEGMENT_START_COLS].to_numpy().astype(float) +
+                     (1. - alpha[:, None]) * segs_df[SEGMENT_END_COLS].to_numpy().astype(float),
                      columns=list('xyz'),
                      dtype=np.float32,
                      index=segs_df.index))

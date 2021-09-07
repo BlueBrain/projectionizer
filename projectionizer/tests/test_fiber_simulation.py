@@ -1,8 +1,6 @@
 import pandas as pd
 import numpy as np
-from numpy.testing import (assert_equal,
-                           assert_almost_equal,
-                           assert_array_equal,
+from numpy.testing import (assert_almost_equal,
                            assert_allclose,)
 
 from voxcell.nexus.voxelbrain import Atlas
@@ -39,14 +37,14 @@ def test_generate_kmeans_fibers():
 
     fibers = fiber_simulation._generate_kmeans_fibers(cells, n_fibers, v_dir, y_level)
 
-    assert_equal(True, np.all(fibers['v'] == v_dir))
-    assert_equal(True, np.all(fibers['y'] == y_level))
-    assert_equal(len(fibers), n_fibers)
+    assert np.all(fibers['v'] == v_dir)
+    assert np.all(fibers['y'] == y_level)
+    assert len(fibers) == n_fibers
 
-    assert_array_equal(fibers.sort_values(XZ)[XZ].values, [[1, 1],
-                                                           [1, 11],
-                                                           [11, 1],
-                                                           [11, 11]])
+    assert np.all(fibers.sort_values(XZ)[XZ].values == [[1, 1],
+                                                        [1, 11],
+                                                        [11, 1],
+                                                        [11, 11]])
 
 
 def test_get_fiber_directions():
@@ -71,7 +69,7 @@ def test_get_l5_l34_border_voxel_indices():
     ret = fiber_simulation.get_l5_l34_border_voxel_indices(atlas, ['S1FL'])
 
     region_ids = brain_regions.raw[tuple(np.transpose(ret))]
-    assert_array_equal([1123], np.unique(region_ids))
+    assert np.all([1123] == np.unique(region_ids))
 
     neighbors = np.array([[-1, 0, 0],
                           [0, -1, 0],
@@ -85,7 +83,7 @@ def test_get_l5_l34_border_voxel_indices():
         idx = tuple(np.transpose(ind + neighbors))
         return np.any(np.in1d(brain_regions.raw[idx], layer_ids))
 
-    assert_equal(True, np.all([check_neighbors(i, [1121, 1122]) for i in ret]))
+    assert np.all([check_neighbors(i, [1121, 1122]) for i in ret])
 
 
 def test_mask_layers_in_regions():
@@ -94,14 +92,14 @@ def test_mask_layers_in_regions():
 
     mask = brain_regions.raw == 1121
     ret = fiber_simulation.mask_layers_in_regions(atlas, ['L3'], ['S1FL'])
-    assert_array_equal(ret, mask)
+    assert np.all(ret == mask)
 
     mask = brain_regions.raw == 1121
     mask |= brain_regions.raw == 1122
     mask |= brain_regions.raw == 1127
     mask |= brain_regions.raw == 1128
     ret = fiber_simulation.mask_layers_in_regions(atlas, ['L3', 'L4'], ['S1FL', 'S1HL'])
-    assert_array_equal(ret, mask)
+    assert np.all(ret == mask)
 
 
 def test_mask_layer_6_bottom():
@@ -115,7 +113,7 @@ def test_mask_layer_6_bottom():
     mask &= distance.raw == 0
 
     ret = fiber_simulation.mask_layer_6_bottom(atlas, ['S1J'])
-    assert_array_equal(ret, mask)
+    assert np.all(ret == mask)
 
 
 def test_ray_tracing():
@@ -132,8 +130,8 @@ def test_ray_tracing():
     ret = fiber_simulation.ray_tracing(atlas, mask, fiber_pos, fiber_dir)
     ind_fibers = distance.positions_to_indices(ret[list('xyz')].values)
 
-    assert_equal(len(ind_fibers), len(ind_zero))
-    assert_array_equal(ind_fibers, ind_zero)
+    assert len(ind_fibers) == len(ind_zero)
+    assert np.all(ind_fibers == ind_zero)
 
 
 def test_average_distance_to_nearest_neighbor():
@@ -144,7 +142,7 @@ def test_average_distance_to_nearest_neighbor():
 
     res = fiber_simulation.average_distance_to_nearest_neighbor(pos)
 
-    assert_equal(res, 1)
+    assert res == 1
 
 
 def test_get_orthonormal_basis_plane():
@@ -162,12 +160,12 @@ def test_get_vectors_on_plane():
     n_fibers = 20
     basis_vectors = fiber_simulation.get_orthonormal_basis_plane(fiber[-3:])
     vectors_3d = fiber_simulation.vectors_on_plane(basis_vectors, distance, n_fibers)
-    assert_equal(len(vectors_3d), n_fibers)
+    assert len(vectors_3d) == n_fibers
 
     # The theoretical maximum distance (in case the plane was parallel to one of the axes
     # and the basis vectors were in 45 degree angle compared to that axe.
     max_distance = np.sqrt(2) * distance
-    assert_equal(np.all(np.abs(vectors_3d) < max_distance), True)
+    assert np.all(np.abs(vectors_3d) < max_distance)
 
     # To check that all of the vectors are on a same plane (orthogonal to direction vector)
     assert_allclose(np.dot(vectors_3d, fiber[-3:]), np.zeros(n_fibers), atol=1e-13)
@@ -180,8 +178,8 @@ def test_increase_fibers():
 
     new_fibers = fiber_simulation.increase_fibers(fiber, n_fibers)
 
-    assert_equal(len(new_fibers), n_fibers)
-    assert_array_equal(new_fibers[UVW].to_numpy(), np.tile(dir_v, (n_fibers, 1)))
+    assert len(new_fibers) == n_fibers
+    assert np.all(new_fibers[UVW].to_numpy() == np.tile(dir_v, (n_fibers, 1)))
 
     # to verify the fiber positions are on the same plane
     xyzs = new_fibers[XYZ].to_numpy()

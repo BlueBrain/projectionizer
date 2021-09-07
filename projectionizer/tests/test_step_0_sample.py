@@ -1,10 +1,7 @@
 import os
 import numpy as np
-import numpy.testing as npt
 import pandas as pd
 from mock import Mock
-
-from nose.tools import ok_, eq_
 
 from projectionizer import step_0_sample
 from projectionizer.luigi_utils import CommonParams
@@ -35,17 +32,17 @@ def test_SampleChunk():
         #load first one
         output = os.path.join(tmp_folder, 'test-sample-chunk-0.feather')
         chunked = load(output)
-        eq_(len(chunked), 21)
-        eq_(chunked.foo.iloc[0], 0)
-        eq_(chunked.foo.iloc[-1], 20)
+        assert len(chunked) == 21
+        assert chunked.foo.iloc[0] == 0
+        assert chunked.foo.iloc[-1] == 20
 
         #load last one
         task = TestSampleChunk(n_total_chunks=5, chunk_num=4, **params)
         task.run()
         output = os.path.join(tmp_folder, 'test-sample-chunk-4.feather')
         chunked = load(output)
-        eq_(len(chunked), 16)
-        eq_(chunked.foo.iloc[0], 84)
-        eq_(chunked.foo.iloc[-1], 99)
+        assert len(chunked) == 16
+        assert chunked.foo.iloc[0] == 84
+        assert chunked.foo.iloc[-1] == 99
 
-        ok_(isinstance(task.requires(), CommonParams))
+        assert isinstance(task.requires(), CommonParams)

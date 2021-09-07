@@ -6,7 +6,6 @@ from functools import partial
 import logging
 
 import numpy as np
-from numpy import matlib
 import pandas as pd
 from scipy.stats import norm  # pylint: disable=no-name-in-module
 
@@ -38,7 +37,7 @@ def calc_distances(locations, virtual_fibers):
 
     starts = np.repeat(starts, len(locations), axis=0)
     directions = np.repeat(directions, len(locations), axis=0)
-    locations = matlib.repmat(locations, virtual_fiber_count, 1)
+    locations = np.tile(locations, (virtual_fiber_count, 1))
 
     distances = np.linalg.norm(np.cross((locations - starts), directions), axis=1)
 
