@@ -11,8 +11,8 @@ from projectionizer.step_1_assign import (VirtualFibersNoOffset, ClosestFibersPe
                                           FiberAssignment)
 from projectionizer.step_2_prune import (GroupByConnection, ReduceGroupByConnection, CutoffMeans,
                                          ChooseConnectionsToKeep, PruneChunk, ReducePrune)
-from projectionizer.step_3_write import (WriteSummary, WriteNrnH5, WriteUserTargetTxt,
-                                         VirtualFibers, SynapseCountPerConnectionTarget, WriteAll)
+from projectionizer.step_3_write import (WriteUserTargetTxt, VirtualFibers,
+                                         SynapseCountPerConnectionTarget, WriteAll)
 
 # Configure the root logger without touching the LogLevel of it
 # Set logging level only for projectionizer. Luigi and matplotlib DEBUG logging is too noisy.

@@ -21,91 +21,6 @@ import logging
 logging.basicConfig()
 L = logging.getLogger(__name__)
 
-def test_write_summary():
-    with setup_tempdir('test_step3') as tmp_folder:
-        mock_path = os.path.join(tmp_folder, 'mock_synapses.feather')
-        data = {'tgid': [1],
-                'sgid': [2],
-                'y': [0.33],
-                'section_id': [1033],
-                'synapse_offset': [128.],
-                'afferent_indices': [12],
-                'segment_id': [1033],
-                }
-        write_feather(mock_path, pd.DataFrame(data))
-        mock = Mock(path=mock_path)
-
-        class TestWriteSummary(step_3_write.WriteSummary):
-            n_total_chunks = sgid_offset = oversampling = None
-            recipe_path = morphology_path = circuit_config = 'fake_string'
-            folder = tmp_folder
-            layers = ''
-
-            def input(self):
-                return mock
-
-        test = TestWriteSummary()
-        ok_(isinstance(test.requires(), Task))
-
-        test.run()
-        output_path = os.path.join(tmp_folder, 'proj_nrn_summary.h5')
-        ok_(os.path.exists(output_path))
-
-        with patch('projectionizer.step_3_write.write_nrn') as write_nrn:
-            write_nrn.write_synapses_summary = Mock(side_effect=OSError)
-            test = TestWriteSummary()
-            assert_raises(OSError, test.run)
-
-
-def test_WriteNrnH5():
-    with setup_tempdir('test_step3') as tmp_folder:
-        mock_path = os.path.join(tmp_folder, 'mock_synapses.feather')
-        data = {'tgid': [1],
-                'sgid': [2],
-                'section_id': [1033],
-                'segment_id': [1033],
-                'synapse_offset': [128.],
-                'sgid_path_distance': [0.5],
-                }
-        write_feather(mock_path, pd.DataFrame(data))
-        mock = Mock(path=mock_path)
-
-        class TestWriteNrnH5(step_3_write.WriteNrnH5):
-            efferent = False
-            folder = tmp_folder
-            recipe_path = morphology_path = circuit_config = 'fake_string'
-            geometry = n_total_chunks = sgid_offset = oversampling = None
-            extension = None
-            synapse_type = gsyn_mean = gsyn_sigma = use_mean = use_sigma = D_mean = 1
-            D_sigma = F_mean = F_sigma = DTC_mean = DTC_sigma = ASE_mean = ASE_sigma = 1
-            layers = ''
-
-            def input(self):
-                return mock
-
-        assert_equal(TestWriteNrnH5().get_synapse_parameters(),
-                     {'Use': (1, 1),
-                      'D': (1, 1),
-                      'F': (1, 1),
-                      'DTC': (1, 1),
-                      'gsyn': (1, 1),
-                      'ASE': (1, 1),
-                      'id': 1,
-                      })
-
-        test = TestWriteNrnH5()
-        ok_(isinstance(test.requires(), Task))
-
-        test.run()
-        output_path = os.path.join(tmp_folder, 'proj_nrn.h5')
-        ok_(os.path.exists(output_path))
-
-        with patch('projectionizer.step_3_write.write_nrn') as write_nrn:
-            write_nrn.write_synapses = Mock(side_effect=OSError)
-            test = TestWriteNrnH5()
-            assert_raises(OSError, test.run)
-
-
 def test_WriteUserTargetTxt():
     with setup_tempdir('test_step3') as tmp_folder:
         mock_path = os.path.join(tmp_folder, 'mock_synapses.feather')
@@ -217,7 +132,6 @@ def test_WriteSonata():
         test = TestWriteSonata()
         assert len(test.requires()) == 5
         assert all(isinstance(t, Task) for t in test.requires())
-        assert test.requires()[4].target_name == test.mtype
         assert_equal(test.requires()[0].output().path, test.output().path)
 
         sonata_path = test.input()[0].path

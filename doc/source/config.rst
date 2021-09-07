@@ -49,12 +49,9 @@ Parameters
 **PruneChunk** prunes out the connections that are not kept
   - **additive_path_distance**: distance to add to the path distance (to make sure sure delay > .1 in simulations)
 
-**WriteAll** writes the projections in a given format
-  - **output_type**: The format to use. Accepts: 'nrn', 'syn2', 'sonata'
-
 **WriteSonata** parameterizes the SONATA files (assumes 'sonata' format was used in WriteAll)
   - **target_population**: The name of the target node population (default: All)
-  - **mtype**: mtype of the nodes (default: projections)
+  - **mtype**: mtype of the nodes, also used as the target name in the user.target file (default: projections)
   - **node_population**: The name of the created node population (default: projections)
   - **edge_population**: The name of the created edge population (default: projections)
   - **node_file_name**: file name for the sonata node file (default: projections_nodes.h5)

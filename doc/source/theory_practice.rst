@@ -69,17 +69,8 @@ Tasks related to pruning (in order of appearence in `step_2_prune.py`):
 
 Write
 -----
-Projectionizer supports nrn, syn2 and SONATA formats. In the future, SONATA will be the only supported format.
+Projectionizer writes edges and nodes in SONATA format. For now, it also outputs the user.target file until node set files are fully supported.
 
-**nrn** produces several files
- * **proj_nrn.h5**: projections are grouped by the the neuron ID (tgid)
- * **proj_nrn_efferent.h5**: projections are grouped by the fiber ID (sgid)
- * **proj_nrn_summary.h5**: summary of the projections
+ * **projections_nodes.h5**: projection node file in a SONATA format
+ * **projections_edges.h5**: projection edge file in a SONATA format
  * **user.target**: target file containing the fiber IDs (sgid)
-
-**syn2** produces just one file, **proj_nrn.syn2** that has the projections
-
-**sonata** outputs two files:
- * **projections.sonata**: projections in a SONATA format functionalized with spykfunc
- * **user.target**: target file containing the fiber IDs (sgid)
-

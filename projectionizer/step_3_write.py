@@ -1,4 +1,4 @@
-'''Step 3: write nrn files
+'''Step 3: write sonata files
 '''
 import json
 import logging
@@ -6,120 +6,33 @@ import os
 import re
 import shutil
 import subprocess
-import traceback
-from functools import partial
-
 import h5py
 import numpy as np
 
-from luigi import FloatParameter, IntParameter, Parameter, DictParameter
+from luigi import Parameter
 from luigi.local_target import LocalTarget
 from projectionizer.luigi_utils import CommonParams, CsvTask, JsonTask, RunAnywayTargetTempDir
 from projectionizer.step_1_assign import VirtualFibersNoOffset
 from projectionizer.step_2_prune import ChooseConnectionsToKeep, ReducePrune
-from projectionizer.utils import load, ignore_exception
-from projectionizer import write_nrn, write_syn2, write_sonata
+from projectionizer import write_sonata
+from projectionizer.utils import load
 
 L = logging.getLogger(__name__)
 
 
-class WriteSummary(CommonParams):
-    '''write proj_nrn_summary.h5'''
+def write_user_target(output, synapses, name):
+    '''write target file
 
-    def requires(self):
-        return self.clone(ReducePrune)
-
-    def run(self):
-        # pylint thinks load() isn't returning a DataFrame
-        # pylint: disable=maybe-no-member
-        synapses = load(self.input().path)
-        try:
-            write_nrn.write_synapses_summary(path=self.output().path, synapses=synapses)
-        except OSError as e:
-            traceback.print_exc()
-            with ignore_exception(OSError):
-                os.remove(self.output().path)
-            raise e
-
-    def output(self):
-        return LocalTarget('{}/proj_nrn_summary.h5'.format(self.folder))
-
-
-class WriteNrnH5(CommonParams):
-    '''write proj_nrn.h5'''
-    synapse_type = IntParameter()
-    gsyn_mean = FloatParameter()
-    gsyn_sigma = FloatParameter()
-
-    use_mean = FloatParameter()
-    use_sigma = FloatParameter()
-
-    D_mean = FloatParameter()
-    D_sigma = FloatParameter()
-
-    F_mean = FloatParameter()
-    F_sigma = FloatParameter()
-
-    DTC_mean = FloatParameter()
-    DTC_sigma = FloatParameter()
-
-    ASE_mean = FloatParameter()
-    ASE_sigma = FloatParameter()
-
-    def get_synapse_parameters(self):
-        '''get the synapses paramaters based on config'''
-        def get_gamma_parameters(mn, sd):
-            '''transform mean/sigma parameters as per original projectionizer code'''
-            return ((mn / sd) ** 2, (sd ** 2) / mn)  # k, theta or shape, scale
-
-        return {
-            'id': self.synapse_type,
-            'gsyn': get_gamma_parameters(self.gsyn_mean, self.gsyn_sigma),
-            'Use': get_gamma_parameters(self.use_mean, self.use_sigma),
-            'D': get_gamma_parameters(self.D_mean, self.D_sigma),
-            'F': get_gamma_parameters(self.F_mean, self.F_sigma),
-            'DTC': get_gamma_parameters(self.DTC_mean, self.DTC_sigma),
-            'ASE': get_gamma_parameters(self.ASE_mean, self.ASE_sigma),
-        }
-
-    def requires(self):
-        return self.clone(ReducePrune)
-
-    def run(self):
-        try:
-            # pylint thinks load() isn't returning a DataFrame
-            # pylint: disable=maybe-no-member
-            itr = load(self.input().path).groupby('tgid')
-            params = self.get_synapse_parameters()
-            write_nrn.write_synapses(self.output().path, itr, params)
-        except Exception as e:
-            traceback.print_exc()
-            with ignore_exception(OSError):
-                os.remove(self.output().path)
-            raise e
-
-    def output(self):
-        name = 'proj_nrn.h5'
-        return LocalTarget('{}/{}'.format(self.folder, name))
-
-
-class WriteUserTargetTxt(CommonParams):
-    '''write user.target'''
-    target_name = Parameter('proj_Thalamocortical_VPM_Source')  # name of the target
-
-    def requires(self):
-        return self.clone(ReducePrune)
-
-    def run(self):
-        # pylint thinks load() isn't returning a DataFrame
-        # pylint: disable=maybe-no-member
-        synapses = load(self.input().path)
-        write_nrn.write_user_target(self.output().path,
-                                    synapses,
-                                    name=self.target_name)
-
-    def output(self):
-        return LocalTarget('{}/user.target'.format(self.folder))
+    Args:
+        output(path): path of file to create
+        synapses(dataframe): synapses
+        name(str): name of target
+    '''
+    with open(output, 'w', encoding='utf-8') as fd:
+        fd.write('Target Cell %s {\n' % name)
+        for tgid in sorted(synapses.sgid.unique()):
+            fd.write('    a{}\n'.format(tgid))
+        fd.write('}\n')
 
 
 class VirtualFibers(CsvTask):
@@ -152,58 +65,6 @@ class SynapseCountPerConnectionTarget(JsonTask):  # pragma: no cover
             json.dump({'result': mean}, outputf)
 
 
-class WriteNrnH5Efferent(CommonParams):  # pragma: no cover
-    '''write proj_nrn_efferent.h5'''
-
-    def requires(self):
-        return self.clone(WriteNrnH5)
-
-    def run(self):
-        write_nrn.rewrite_synapses_efferent(self.input().path,
-                                            self.output().path)
-
-    def output(self):
-        name = 'proj_nrn_efferent.h5'
-        return LocalTarget('{}/{}'.format(self.folder, name))
-
-
-class WriteSyn2(CommonParams):
-    '''write proj_nrn.syn2'''
-    synapse_parameters = DictParameter()
-    # micron/ms, from original Projectionizer: InputMappers.py
-    conduction_velocity = FloatParameter(default=300.)
-
-    def requires(self):
-        return self.clone(ReducePrune)
-
-    def run(self):
-        try:
-            # pylint thinks load() isn't returning a DataFrame
-            # pylint: disable=maybe-no-member
-            syns = load(self.input().path)
-            syns['offset'] = syns['synapse_offset']
-
-            # currently only support a single synapse type
-            syns['synapse_type_name'] = 0
-
-            syns['delay'] = (syns['sgid_path_distance'].values / self.conduction_velocity)
-
-            synapse_data_creator = partial(write_syn2.create_synapse_data,
-                                           synapse_data=self.synapse_parameters)
-            write_syn2.write_synapses(syns,
-                                      self.output().path,
-                                      synapse_data_creator)
-        except Exception as e:
-            traceback.print_exc()
-            with ignore_exception(OSError):
-                os.remove(self.output().path)
-            raise e
-
-    def output(self):
-        name = 'proj_nrn.syn2'
-        return LocalTarget('{}/{}'.format(self.folder, name))
-
-
 class WriteSonata(CommonParams):
     """Write projections in SONATA format."""
     target_population = Parameter('All')
@@ -215,16 +76,11 @@ class WriteSonata(CommonParams):
     module_archive = Parameter('archive/2021-07')
 
     def requires(self):
-        # NOTE by herttuai on 02/09/2021:
-        # temporary hack that we can get rid of when we get rid of WriteNrn and WriteSyn2
-        write_user_target = self.clone(WriteUserTargetTxt)
-        write_user_target.target_name = self.mtype
-
         return (self.clone(RunParquetConverter),
                 self.clone(ReducePrune),
                 self.clone(WriteSonataNodes),
                 self.clone(WriteSonataEdges),
-                write_user_target)
+                self.clone(WriteUserTargetTxt))
 
     def _get_full_path_output(self, filename):
         """Get full path (required by spykfunc) for output files."""
@@ -260,26 +116,29 @@ class WriteSonata(CommonParams):
         return LocalTarget(self.input()[0].path)
 
 
-class WriteAll(CommonParams):  # pragma: no cover
-    """Run all write tasks"""
-    output_type = Parameter(default='sonata')
+class WriteUserTargetTxt(WriteSonata):
+    '''write user.target'''
 
     def requires(self):
-        output_type = str(self.output_type).lower()
-        if output_type == 'nrn':
-            return [self.clone(WriteNrnH5Efferent),
-                    self.clone(WriteSummary),
-                    self.clone(WriteUserTargetTxt),
-                    self.clone(SynapseCountPerConnectionTarget),
-                    ]
-        elif output_type == 'syn2':
-            return [self.clone(WriteSyn2),
-                    ]
-        elif output_type == 'sonata':
-            return [self.clone(WriteSonata),
-                    ]
+        return self.clone(ReducePrune)
 
-        raise Exception('unknown synapse output type: %s' % self.output_type)
+    def run(self):
+        # pylint thinks load() isn't returning a DataFrame
+        # pylint: disable=maybe-no-member
+        synapses = load(self.input().path)
+        write_user_target(self.output().path,
+                          synapses,
+                          name=self.mtype)
+
+    def output(self):
+        return LocalTarget('{}/user.target'.format(self.folder))
+
+
+class WriteAll(CommonParams):  # pragma: no cover
+    """Run all write tasks"""
+
+    def requires(self):
+        return self.clone(WriteSonata)
 
     def run(self):
         self.output().done()

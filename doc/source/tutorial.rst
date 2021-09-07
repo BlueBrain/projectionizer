@@ -2,7 +2,7 @@ Projectionizer
 ==============
 
 The `projectionizer` aims at sampling synapses with pre-synaptic axons (refered in the code as virtual fibers) coming from outer regions.
-It produces 3 files (nrn.h5, nrn_efferent.h5, nrn_summary.h5) which are 3 different views from the same data: a list of connection between a virtual fiber and a segment belonging to the circuit.
+It provides the fibers in a sonata format.
 
 Morphological constraints
 -------------------------
