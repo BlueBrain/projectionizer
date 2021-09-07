@@ -2,10 +2,16 @@
 import json
 import os
 
-from luigi import Parameter, FloatParameter, IntParameter, TaskParameter
+from luigi import FloatParameter, IntParameter, Parameter, TaskParameter
 from luigi.local_target import LocalTarget
+
 from projectionizer.analysis import DoAll
-from projectionizer.luigi_utils import CommonParams, JsonTask, camel2spinal_case, FolderTask
+from projectionizer.luigi_utils import (
+    CommonParams,
+    FolderTask,
+    JsonTask,
+    camel2spinal_case,
+)
 from projectionizer.step_0_sample import FullSample, SampleChunk
 from projectionizer.step_3_write import SynapseCountPerConnectionTarget
 

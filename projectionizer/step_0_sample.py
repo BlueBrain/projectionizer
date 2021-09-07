@@ -6,18 +6,16 @@ import os
 import numpy as np
 import pandas as pd
 from bluepy import Circuit
-
 from luigi import BoolParameter, FloatParameter, IntParameter, ListParameter
+
 from projectionizer.luigi_utils import FeatherTask, JsonTask, NrrdTask
-from projectionizer.sscx import (recipe_to_relative_heights_per_layer,
-                                 recipe_to_relative_height_and_density)
+from projectionizer.sscx import (
+    recipe_to_relative_height_and_density,
+    recipe_to_relative_heights_per_layer,
+)
 from projectionizer.sscx_hex import get_mask_bounding_box
-from projectionizer.synapses import (build_synapses_default,
-                                     pick_synapses)
-from projectionizer.utils import (load,
-                                  load_all,
-                                  mask_by_region,
-                                  write_feather)
+from projectionizer.synapses import build_synapses_default, pick_synapses
+from projectionizer.utils import load, load_all, mask_by_region, write_feather
 
 
 class VoxelSynapseCount(NrrdTask):  # pragma: no cover

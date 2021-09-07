@@ -1,16 +1,18 @@
 '''sampling utils'''
-from functools import partial
 import logging
 import os
+from functools import partial
 
 import numpy as np
 import pandas as pd
-
 from neurom import NeuriteType
-from projectionizer import synapses, utils
-from projectionizer.utils import (convert_to_smallest_allowed_int_type,
-                                  write_feather, in_bounding_box)
 
+from projectionizer import synapses, utils
+from projectionizer.utils import (
+    convert_to_smallest_allowed_int_type,
+    in_bounding_box,
+    write_feather,
+)
 
 L = logging.getLogger(__name__)
 

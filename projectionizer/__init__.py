@@ -1,18 +1,36 @@
 '''docstring'''
 import logging
 
-from projectionizer.version import VERSION as __version__  # pylint: disable=W0611
-
 #  Luigi needs this to be able to call all the commands from the CLI
-from projectionizer.step_0_sample import (VoxelSynapseCount, Height, FullSample,
-                                          SampleChunk, SynapseDensity)
-from projectionizer.step_1_assign import (VirtualFibersNoOffset, ClosestFibersPerVoxel,
-                                          SynapseIndices, CandidateFibersPerSynapse,
-                                          FiberAssignment)
-from projectionizer.step_2_prune import (GroupByConnection, ReduceGroupByConnection, CutoffMeans,
-                                         ChooseConnectionsToKeep, PruneChunk, ReducePrune)
-from projectionizer.step_3_write import (WriteUserTargetTxt, VirtualFibers,
-                                         SynapseCountPerConnectionTarget, WriteAll)
+from projectionizer.step_0_sample import (
+    FullSample,
+    Height,
+    SampleChunk,
+    SynapseDensity,
+    VoxelSynapseCount,
+)
+from projectionizer.step_1_assign import (
+    CandidateFibersPerSynapse,
+    ClosestFibersPerVoxel,
+    FiberAssignment,
+    SynapseIndices,
+    VirtualFibersNoOffset,
+)
+from projectionizer.step_2_prune import (
+    ChooseConnectionsToKeep,
+    CutoffMeans,
+    GroupByConnection,
+    PruneChunk,
+    ReduceGroupByConnection,
+    ReducePrune,
+)
+from projectionizer.step_3_write import (
+    SynapseCountPerConnectionTarget,
+    VirtualFibers,
+    WriteAll,
+    WriteUserTargetTxt,
+)
+from projectionizer.version import VERSION as __version__  # pylint: disable=W0611
 
 # Configure the root logger without touching the LogLevel of it
 # Set logging level only for projectionizer. Luigi and matplotlib DEBUG logging is too noisy.

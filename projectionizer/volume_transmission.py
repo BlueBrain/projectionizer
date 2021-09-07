@@ -1,25 +1,27 @@
 """Volume Transmission luigi tasks"""
-from functools import partial
 import logging
 import os
 import shutil
+from functools import partial
 
-from bluepy import Section, Segment
 import h5py
-from luigi import FloatParameter, ListParameter, LocalTarget
 import pandas as pd
+from bluepy import Section, Segment
+from luigi import FloatParameter, ListParameter, LocalTarget
 from tqdm import tqdm
 
-from projectionizer.luigi_utils import CommonParams, FeatherTask
 from projectionizer import analysis, step_2_prune, step_3_write
+from projectionizer.luigi_utils import CommonParams, FeatherTask
 from projectionizer.straight_fibers import calc_pathlength_to_fiber_start
 from projectionizer.synapses import spherical_sampling
-from projectionizer.utils import (calculate_synapse_conductance,
-                                  load,
-                                  map_parallelize,
-                                  write_feather,
-                                  XYZ,
-                                  XYZUVW)
+from projectionizer.utils import (
+    XYZ,
+    XYZUVW,
+    calculate_synapse_conductance,
+    load,
+    map_parallelize,
+    write_feather,
+)
 
 L = logging.getLogger(__name__)
 

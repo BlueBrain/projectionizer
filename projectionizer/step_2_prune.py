@@ -11,8 +11,8 @@ import pandas as pd
 from bluepy import Circuit
 from scipy.stats import norm  # pylint: disable=no-name-in-module
 
-from projectionizer import (straight_fibers, synapses as syns, luigi_utils,
-                            step_0_sample, step_1_assign, )
+from projectionizer import luigi_utils, step_0_sample, step_1_assign, straight_fibers
+from projectionizer import synapses as syns
 from projectionizer.utils import load, load_all, write_feather
 
 L = logging.getLogger(__name__)

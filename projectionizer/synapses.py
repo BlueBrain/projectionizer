@@ -10,11 +10,13 @@ from bluepy.index import SegmentIndex
 from neurom import NeuriteType
 from tqdm import tqdm
 
-from projectionizer.utils import (ErrorCloseToZero,
-                                  in_bounding_box,
-                                  map_parallelize,
-                                  convert_to_smallest_allowed_int_type,
-                                  normalize_probability)
+from projectionizer.utils import (
+    ErrorCloseToZero,
+    convert_to_smallest_allowed_int_type,
+    in_bounding_box,
+    map_parallelize,
+    normalize_probability,
+)
 
 L = logging.getLogger(__name__)
 

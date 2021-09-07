@@ -2,6 +2,7 @@
 ''' projectionizer setup '''
 
 import imp
+
 from setuptools import setup
 
 VERSION = imp.load_source('projectionizer', "projectionizer/version.py").VERSION

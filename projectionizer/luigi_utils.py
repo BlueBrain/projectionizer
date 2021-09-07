@@ -3,13 +3,10 @@ import os
 import re
 
 import pkg_resources
-
-from luigi import (Config, FloatParameter, IntParameter, Parameter, Task,
-                   ListParameter,
-                   )
-from luigi.parameter import ParameterException
+from luigi import Config, FloatParameter, IntParameter, ListParameter, Parameter, Task
 from luigi.contrib.simulate import RunAnywayTarget
 from luigi.local_target import LocalTarget
+from luigi.parameter import ParameterException
 
 from projectionizer.utils import read_regions_from_manifest
 

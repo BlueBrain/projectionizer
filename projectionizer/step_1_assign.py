@@ -1,18 +1,19 @@
 '''Luigi tasks that given segments, assign them to the fibers'''
 import logging
 
-import pandas as pd
 import numpy as np
-from luigi import FloatParameter, IntParameter
+import pandas as pd
 from bluepy import Circuit
+from luigi import FloatParameter, IntParameter
 
-from projectionizer.straight_fibers import (assign_synapse_fiber,
-                                            closest_fibers_per_voxel,
-                                            candidate_fibers_per_synapse
-                                            )
 from projectionizer.luigi_utils import CsvTask, FeatherTask
-from projectionizer.step_0_sample import SampleChunk, VoxelSynapseCount, Height
-from projectionizer.utils import load_all, load, write_feather, IJK, XYZ, mask_by_region
+from projectionizer.step_0_sample import Height, SampleChunk, VoxelSynapseCount
+from projectionizer.straight_fibers import (
+    assign_synapse_fiber,
+    candidate_fibers_per_synapse,
+    closest_fibers_per_voxel,
+)
+from projectionizer.utils import IJK, XYZ, load, load_all, mask_by_region, write_feather
 
 L = logging.getLogger(__name__)
 

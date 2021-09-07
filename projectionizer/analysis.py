@@ -1,29 +1,32 @@
 '''Plotting module'''
+import json
 import logging
 import os
 import re
-import json
 from itertools import chain, repeat
 
 import matplotlib
+
 matplotlib.use('Agg')
 # deal w/ using Agg backend
 # pylint: disable=wrong-import-position
 
-from matplotlib import colors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from bluepy import Circuit, Cell
+from bluepy import Cell, Circuit
+from matplotlib import colors
 
 from projectionizer.fiber_simulation import get_region_ids
-from projectionizer.luigi_utils import CommonParams, RunAnywayTargetTempDir, JsonTask
-from projectionizer.step_0_sample import FullSample, SynapseDensity, Height
-from projectionizer.step_2_prune import (ChooseConnectionsToKeep, CutoffMeans,
-                                         ReducePrune)
+from projectionizer.luigi_utils import CommonParams, JsonTask, RunAnywayTargetTempDir
+from projectionizer.step_0_sample import FullSample, Height, SynapseDensity
+from projectionizer.step_2_prune import (
+    ChooseConnectionsToKeep,
+    CutoffMeans,
+    ReducePrune,
+)
 from projectionizer.step_3_write import VirtualFibers, WriteAll
 from projectionizer.utils import load, load_all, read_feather
-
 
 L = logging.getLogger(__name__)
 L.setLevel(logging.DEBUG)

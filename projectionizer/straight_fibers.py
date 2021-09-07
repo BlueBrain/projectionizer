@@ -2,18 +2,21 @@
 Functions related to calculating distances to straight fibers, like the ones used in the SSCX
 hex and S1
 '''
-from functools import partial
 import logging
+from functools import partial
 
 import numpy as np
 import pandas as pd
 from scipy.stats import norm  # pylint: disable=no-name-in-module
 
-from projectionizer.utils import (choice,
-                                  convert_to_smallest_allowed_int_type,
-                                  map_parallelize,
-                                  IJK, XYZ, XYZUVW)
-
+from projectionizer.utils import (
+    IJK,
+    XYZ,
+    XYZUVW,
+    choice,
+    convert_to_smallest_allowed_int_type,
+    map_parallelize,
+)
 
 L = logging.getLogger(__name__)
 

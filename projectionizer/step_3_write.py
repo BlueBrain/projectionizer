@@ -6,15 +6,21 @@ import os
 import re
 import shutil
 import subprocess
+
 import h5py
 import numpy as np
-
 from luigi import Parameter
 from luigi.local_target import LocalTarget
-from projectionizer.luigi_utils import CommonParams, CsvTask, JsonTask, RunAnywayTargetTempDir
+
+from projectionizer import write_sonata
+from projectionizer.luigi_utils import (
+    CommonParams,
+    CsvTask,
+    JsonTask,
+    RunAnywayTargetTempDir,
+)
 from projectionizer.step_1_assign import VirtualFibersNoOffset
 from projectionizer.step_2_prune import ChooseConnectionsToKeep, ReducePrune
-from projectionizer import write_sonata
 from projectionizer.utils import load
 
 L = logging.getLogger(__name__)

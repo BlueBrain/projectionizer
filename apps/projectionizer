@@ -1,23 +1,23 @@
 #!/usr/bin/env python
 from __future__ import print_function
+
 """
 You can run this example like this:
     .. code:: console
             $ luigi --module examples.hello_world examples.HelloWorldTask --local-scheduler
 If that does not work, see :ref:`CommandLine`.
 """
-from builtins import input
-
 import argparse
 import json
 import logging
-import numpy as np
 import os
-import pkg_resources
 import shutil
 import sys
+from builtins import input
 
 import luigi
+import numpy as np
+import pkg_resources
 import yaml
 
 L = logging.getLogger(__name__)

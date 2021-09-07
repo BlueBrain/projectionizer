@@ -1,21 +1,19 @@
 '''Utils for projectionizer'''
-from contextlib import contextmanager
 import json
 import logging
-import os
-from itertools import chain
 import multiprocessing
+import os
 import re
+from contextlib import contextmanager
+from itertools import chain
 
 import numpy as np
 import pandas as pd
-from voxcell import VoxelData
 import pyarrow
-from pyarrow import feather
 import yaml
-
 from bluepy_configfile.configfile import BlueConfig
-
+from pyarrow import feather
+from voxcell import VoxelData
 
 X, Y, Z = 0, 1, 2
 XYZUVW = list('xyzuvw')

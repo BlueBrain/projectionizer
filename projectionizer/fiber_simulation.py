@@ -1,16 +1,23 @@
 '''Luigi task and functions for generating the fibers to a file.'''
 import logging
-from luigi import Config, Parameter, FloatParameter, IntParameter, BoolParameter, ListParameter
+
 import numpy as np
 import pandas as pd
 import scipy.ndimage as nd
+import voxcell
+from bluepy import Cell, Circuit
+from luigi import (
+    BoolParameter,
+    Config,
+    FloatParameter,
+    IntParameter,
+    ListParameter,
+    Parameter,
+)
 from scipy.cluster.vq import kmeans
 from scipy.spatial import cKDTree
 
-from bluepy import Circuit, Cell
-import voxcell
-
-from projectionizer.utils import mask_by_region, read_regions_from_manifest, XYZUVW
+from projectionizer.utils import XYZUVW, mask_by_region, read_regions_from_manifest
 
 L = logging.getLogger(__name__)
 XZ = list('xz')
