@@ -16,6 +16,7 @@ Fiber locations can be generated using two different methods: K-means clustering
      * If the ray trace hits a voxel in the bottom of a bottom layer (e.g., L6 in SSCX), take its position as that of the fiber and the normal direction as that of the fiber.
      * Otherwise, continue to the next boundary voxel.
  #. If fiber count is less than desired, generate extra fibers
+
 The trace back from upper layers is done to ensure that the column and fiber directions are a better match.
 
 .. image:: images/ray_cast.png
@@ -58,19 +59,23 @@ To match the synapses count per connection (ie. the number of synapses belonging
 
 Tasks related to pruning (in order of appearence in `step_2_prune.py`):
  .. _GroupByConnection:
+
  * **GroupByConnection** computes how many synapses connect a neuron to a fiber for each chunk
  * **ReduceGroupByConnection** concatenates the chunks computed in :ref:`GroupByConnection <GroupByConnection>`
  * **CutoffMeans** computes the cut off value for each mtype to leave a desired fraction of the synapses (if oversampling was used)
+
  .. _ChooseConnectionsToKeep:
+
  * **ChooseConnectionsToKeep** probabilistically chooses the connections to keep
+
  .. _PruneChunk:
+
  * **PruneChunk** removes the synapses that are not in the connections chosen in :ref:`ChooseConnectionsToKeep <ChooseConnectionsToKeep>`
  * **ReducePrune** concates the chunks that were pruned in :ref:`PruneChunk<PruneChunk>`
 
 Write
 -----
 Projectionizer writes edges and nodes in SONATA format. For now, it also outputs the user.target file until node set files are fully supported.
-
  * **projections_nodes.h5**: projection node file in a SONATA format
  * **projections_edges.h5**: projection edge file in a SONATA format
  * **user.target**: target file containing the fiber IDs (sgid)

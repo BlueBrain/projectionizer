@@ -1,3 +1,5 @@
+.. _configuration:
+
 Configuration file
 ==================
 The configuration file is a yaml file. It can be seen as a dictionary where keys are Luigi tasks and values are parameters specific to each task.
@@ -19,20 +21,20 @@ Parameters
 
 **SynapseDensity** has a single parameter:
  - **density_params**: is a list where each item describes the synaptic density along a layer (or a portion of it). It is composed of multiple sub-items
-  - **density_profile**: a list of 2-tuple (relative position in the item (in %), density unit)
-  - **low_layer**: the starting layer name for the item
-  - **low_fraction**: the relative position with respect to the start of low_layer
-  - **high_layer**: the ending layer name for the item
-  - **high_fraction**: the relative position with respect to the start of high_layer
+ - **density_profile**: a list of 2-tuple (relative position in the item (in %), density unit)
+ - **low_layer**: the starting layer name for the item
+ - **low_fraction**: the relative position with respect to the start of low_layer
+ - **high_layer**: the ending layer name for the item
+ - **high_fraction**: the relative position with respect to the start of high_layer
 
-  Example:
-    | low_layer: 4
-    | low_fraction: 0
-    | high_layer: 3
-    | high_fraction: 0.5
-    | density_profile: [[0.25, 0.01], [0.50, 0.02], [0.75, 0.03]]
+ Example:
+   | low_layer: 4
+   | low_fraction: 0
+   | high_layer: 3
+   | high_fraction: 0.5
+   | density_profile: [[0.25, 0.01], [0.50, 0.02], [0.75, 0.03]]
 
-    This represents a density profile spanning from the bottom (low_fraction=0) of layer 4 to 50% of the height of layer 3. The first quarter of the span has a density of 0.01, the second as a density of 0.02 and the rest as a density of 0.03.
+   This represents a density profile spanning from the bottom (low_fraction=0) of layer 4 to 50% of the height of layer 3. The first quarter of the span has a density of 0.01, the second as a density of 0.02 and the rest as a density of 0.03.
 
 **FullSample** build the synapse dataframe:
   - **n_slices**: this is a convenience parameter to sample synapses only for a given number of voxels. -1 means all. Other value should **never** be used for scientific purposes.
