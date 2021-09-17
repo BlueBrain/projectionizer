@@ -39,7 +39,7 @@ Starting a new job
 
     projectionizer start -o output_folder -c config_file.yaml
 
-will generate projections using the passed config file, the content which is described in :ref:`configuration`.
+will generate projections using the passed config file, the content of which is described in :ref:`configuration`.
 
 **Volume transmission projections**
 
@@ -99,22 +99,24 @@ Creating fibers
 
 .. code-block:: bash
 
-    projectionizer generate-fibers -o output_file.csv -c CircuitConfig -r '["Region1", "Region2]' -n 5000
+    projectionizer generate-fibers \
+        -o output_file.csv \
+        -c config.yaml \
+        -n 5000
 
-will generate a maximum of 5000 fibers for regions "Region1" and "Region2". Fibers are positioned in the bottom layer (farthest from Pia Mater). They are acquired by tracing back direction vectors from upper layers.
-
-.. code-block:: bash
-
-    projectionizer generate-fibers-hex -o output_file.csv -c CircuitConfig -r '["mc2_Column"]' -n 300 -v 1.0 -y 0
-
-command for columns that will generate exactly 300 fibers in region "mc2_Column" starting from the y-position 0 towards positive y direction (-v 1.0) using K means clustering.
+will generate 5000 fibers in region(s) defined in `config.yaml`. Fibers are positioned in the bottom layer (farthest from Pia Mater).
+They are acquired by tracing back direction vectors from upper layers.
 
 .. code-block:: bash
 
-    projectionizer generate-fibers-hex -o output_file.csv -c CircuitConfig -b '[[xmin, zmin], [xmax, zmax]]' -n 300 -v -1.0 -y 0
+    projectionizer generate-fibers-hex \
+        -o output_file.csv \
+        -c config.yaml \
+        -n 300 -v 1.0 -y 0.0
 
-command for columns that will generate exactly 300 fiber inside the bounding rectangle limited by xmin, zmin, xmax and zmax. Fibers start from the y-position 0 towards negative y direction (-v -1.0) using K means clustering.
-
+command for columns that will generate 300 fibers in region(s) defined in `config.yaml` using K means clustering.
+Fibers start from the y-position 0 (`-y 0.0`) towards positive y direction (`-v 1.0`).
+In case an :ref:`apron bounding box<Config_CommonParams>` is defined in the config, the fibers are placed inside its boundaries.
 
 .. toctree::
    :hidden:

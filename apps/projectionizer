@@ -82,9 +82,8 @@ def common_parser():
 
     def set_fiber_args(_parser):
         set_scheduler_arg(_parser)
-        _parser.add_argument("-c", "--config", required=True, help="CircuitConfig file")
         _parser.add_argument(
-            "-r", "--region", default="", help="Acronyms of regions (\"['region_1', 'region_2']\")"
+            "-c", "--config", required=True, help="The projectionizer YAML config file"
         )
         _parser.add_argument("-n", "--n-fibers", help="Count of fibers to create")
         _parser.add_argument(
@@ -101,8 +100,9 @@ def common_parser():
     parser_resume = subparsers.add_parser(
         "resume",
         help=(
-            "Resume a projection job (requires a {} file to be present in the output directory)".format(
-                CONFIG_FILENAME
+            (
+                f"Resume a projection job (requires a {CONFIG_FILENAME} "
+                f"file to be present in the output directory)"
             )
         ),
     )
@@ -153,14 +153,6 @@ def common_parser():
     )
     parser_hex_fibers.add_argument(
         "-y", "--y_level", default="0.0", help="y plane in which to place fiber positions"
-    )
-    parser_hex_fibers.add_argument(
-        "-b",
-        "--bounding-rectangle",
-        default="[]",
-        help=(
-            "Rectangle on a y-plane bounding the generated fibers " '"[[xmin, zmin], [xmax, zmax]]"'
-        ),
     )
 
     parser_volume_transmission = subparsers.add_parser(
@@ -296,14 +288,15 @@ def _cmd_dichotomy(args):
 
 def _cmd_generate_fibers(args):
     """Luigi argument list for the "generate-fibers" command"""
+    config = load_config(args.config)
     cmd = [
         "GenerateFibers",
         "--out-file",
         args.out_file,
         "--circuit-config",
-        args.config,
+        config["CommonParams"]["circuit_config"],
         "--regions",
-        args.region,
+        json.dumps(config["CommonParams"]["regions"]),
         "--module",
         "projectionizer.fiber_simulation",
         "--workers",
@@ -321,12 +314,13 @@ def _cmd_generate_fibers(args):
 
 def _cmd_generate_fibers_hex(args):
     """Luigi argument list for the "generate-fibers-hex" command"""
+    config = load_config(args.config)
     cmd = _cmd_generate_fibers(args)
     cmd.extend(
         [
             "--use-kmeans",
             "--bounding-rectangle",
-            args.bounding_rectangle,
+            json.dumps(config["CommonParams"].get("bounding_rectangle", [])),
         ]
     )
 

@@ -7,6 +7,8 @@ The configuration file is a yaml file. It can be seen as a dictionary where keys
 Parameters
 ----------
 
+ .. _Config_CommonParams:
+
 **CommonParams** lists params than are common to all tasks.
  - **circuit_config**: the CircuitConfig absolute path.
  - **recipe_path**: The path to the XML recipe that is used by Spykfunc
@@ -17,7 +19,7 @@ Parameters
  - **layers**: list of tuples with layer names and thicknesses (in um). Thicknesses will be deprecated.
  - **fiber_locations_path**: path to a csv file containing fiber positions and directions (can be generated with `projectionizer generate-fibers[-hex]`)
  - **region**: list of region names to generate projections to
- - **hex_apron_bounding_box**: coordinates of the bounding box of the apron optionally used with columns to reduce edge effects
+ - **hex_apron_bounding_box**: coordinates of the bounding box of the apron optionally used with columns to reduce edge effects (see: :ref:`apron<FAQ_apron>`)
 
 **SynapseDensity** has a single parameter:
  - **density_params**: is a list where each item describes the synaptic density along a layer (or a portion of it). It is composed of multiple sub-items
