@@ -1,7 +1,7 @@
-'''
+"""
 Step 2: pruning:  Take the (tgid, sgid) connections, and remove groups to achieve desired
 distribution shape
-'''
+"""
 
 import logging
 
@@ -21,22 +21,25 @@ L = logging.getLogger(__name__)
 class GroupByConnection(luigi_utils.FeatherTask):
     """Returns a DataFrame containing the number of synapses per connection for each tuple mtype,
     neuron ID, fiber ID: (mtype, tgid, sgid)"""
+
     chunk_num = luigi.IntParameter()
 
     def requires(self):  # pragma: no cover
-        return (self.clone(step_0_sample.SampleChunk),
-                self.clone(step_1_assign.FiberAssignment),
-                )
+        return (
+            self.clone(step_0_sample.SampleChunk),
+            self.clone(step_1_assign.FiberAssignment),
+        )
 
     def run(self):  # pragma: no cover
         synapses, sgids = load_all(self.input())
 
-        synapses.rename(columns={'gid': 'tgid'}, inplace=True)
-        mtypes = Circuit(self.circuit_config).cells.get(properties='mtype')
-        assert len(synapses) == len(sgids), \
-            'len(synapses): {} != len(sgids): {}'.format(len(synapses), len(sgids))
-        tgid_sgid_mtype = synapses[['tgid']].join(sgids).join(mtypes, on='tgid')
-        res = tgid_sgid_mtype[['mtype', 'tgid', 'sgid']]
+        synapses.rename(columns={"gid": "tgid"}, inplace=True)
+        mtypes = Circuit(self.circuit_config).cells.get(properties="mtype")
+        assert len(synapses) == len(sgids), "len(synapses): {} != len(sgids): {}".format(
+            len(synapses), len(sgids)
+        )
+        tgid_sgid_mtype = synapses[["tgid"]].join(sgids).join(mtypes, on="tgid")
+        res = tgid_sgid_mtype[["mtype", "tgid", "sgid"]]
         write_feather(self.output().path, res)
 
 
@@ -48,16 +51,17 @@ class ReduceGroupByConnection(luigi_utils.FeatherTask):
 
     def run(self):  # pragma: no cover
         dfs = load_all(self.input())
-        res = (pd.concat(dfs, ignore_index=True)
-               .groupby(['mtype', 'sgid', 'tgid'], observed=True)
-               .size()
-               .reset_index(name='connection_size')
-               )
+        res = (
+            pd.concat(dfs, ignore_index=True)
+            .groupby(["mtype", "sgid", "tgid"], observed=True)
+            .size()
+            .reset_index(name="connection_size")
+        )
         write_feather(self.output().path, res)
 
 
 def find_cutoff_mean_per_mtype(value_count, synaptical_fraction):
-    '''the cutoff means should be proportional for all mytpes
+    """the cutoff means should be proportional for all mytpes
 
     Args:
         value_count(pd.Series): histogram: index is syns/connection,
@@ -65,20 +69,20 @@ def find_cutoff_mean_per_mtype(value_count, synaptical_fraction):
         synaptical_fraction(float): fraction to be removed
 
     The method comes from the original projectionizer
-    '''
+    """
     n_synapse_per_bin = value_count.index.values.astype(float) * value_count.values
     x = np.cumsum(n_synapse_per_bin) / np.sum(n_synapse_per_bin)
     return np.interp(synaptical_fraction, xp=x, fp=value_count.index)
 
 
 def calculate_cutoff_means(mtype_sgid_tgid, oversampling):
-    '''for all the mtypes, calculate the cutoff mean'''
-    not_empty_mtypes = [mtype_df
-                        for mtype_df in mtype_sgid_tgid.groupby('mtype')
-                        if not mtype_df[1].empty]
+    """for all the mtypes, calculate the cutoff mean"""
+    not_empty_mtypes = [
+        mtype_df for mtype_df in mtype_sgid_tgid.groupby("mtype") if not mtype_df[1].empty
+    ]
     mtypes, dfs = zip(*not_empty_mtypes)
 
-    fraction_to_remove = 1. - 1. / oversampling
+    fraction_to_remove = 1.0 - 1.0 / oversampling
 
     cutoffs = []
     for df in dfs:
@@ -86,13 +90,12 @@ def calculate_cutoff_means(mtype_sgid_tgid, oversampling):
         cutoff = find_cutoff_mean_per_mtype(value_count, fraction_to_remove)
         cutoffs.append(cutoff)
 
-    res = pd.DataFrame({'mtype': pd.Series(mtypes, dtype='category'),
-                        'cutoff': cutoffs})
+    res = pd.DataFrame({"mtype": pd.Series(mtypes, dtype="category"), "cutoff": cutoffs})
     return res
 
 
 class CutoffMeans(luigi_utils.FeatherTask):
-    '''For each mtype, find its unique cutoff_mean
+    """For each mtype, find its unique cutoff_mean
 
     Args:
         synapses(DataFrame): must have columns 'mtype', 'tgid', 'sgid'
@@ -107,7 +110,7 @@ class CutoffMeans(luigi_utils.FeatherTask):
         compute cutoff by inverse interpolation of target fraction on cumulative syncount
         distribution approximation: assumes hard cutoff, i.e. does not account for moments beyond
         mean.  Should be OK if dist is fairly symmetrical.
-    '''
+    """
 
     def requires(self):  # pragma: no cover
         return self.clone(ReduceGroupByConnection)
@@ -121,35 +124,36 @@ class CutoffMeans(luigi_utils.FeatherTask):
 
 
 class ChooseConnectionsToKeep(luigi_utils.FeatherTask):
-    '''
+    """
     Args:
         cutoff_var(float):
-    '''
+    """
+
     cutoff_var = luigi.FloatParameter()
 
     def requires(self):  # pragma: no cover
         return self.clone(CutoffMeans), self.clone(ReduceGroupByConnection)
 
     def run(self):  # pragma: no cover
-        '''Based on the frequency of mtypes, and the synapses/connection frequency,
+        """Based on the frequency of mtypes, and the synapses/connection frequency,
         probabilistically remove *connections* (ie: groups of synapses in a (sgid, tgid) pair
-        '''
+        """
         # pylint thinks load_all() isn't returning a DataFrame
         # pylint: disable=maybe-no-member
         cutoff_means, mtype_sgid_tgid = load_all(self.input())
 
-        df = mtype_sgid_tgid.merge(cutoff_means, how='left', on='mtype')
+        df = mtype_sgid_tgid.merge(cutoff_means, how="left", on="mtype")
         if self.oversampling > 1.0:
-            df['random'] = np.random.random(size=len(df))
-            df['proba'] = norm.cdf(df.connection_size, df['cutoff'], self.cutoff_var)
-            df['kept'] = df['random'] < df['proba']
+            df["random"] = np.random.random(size=len(df))
+            df["proba"] = norm.cdf(df.connection_size, df["cutoff"], self.cutoff_var)
+            df["kept"] = df["random"] < df["proba"]
         else:
-            df['kept'] = True
+            df["kept"] = True
         write_feather(self.output().path, df)
 
 
 class PruneChunk(luigi_utils.FeatherTask):
-    '''Write out connections to keep for a subset of the samples (ie: chunk)
+    """Write out connections to keep for a subset of the samples (ie: chunk)
 
     Args:
         chunk_num(int): which chunk
@@ -158,54 +162,64 @@ class PruneChunk(luigi_utils.FeatherTask):
         delay > dt
 
     Note: this also assigns the 'sgid_path_distance'
-    '''
+    """
+
     chunk_num = luigi.IntParameter()
-    additive_path_distance = luigi.FloatParameter(default=0.)
+    additive_path_distance = luigi.FloatParameter(default=0.0)
 
     def requires(self):  # pragma: no cover
-        return (self.clone(task) for task in [ChooseConnectionsToKeep,
-                                              step_0_sample.SampleChunk,
-                                              step_1_assign.FiberAssignment,
-                                              step_1_assign.VirtualFibersNoOffset])
+        return (
+            self.clone(task)
+            for task in [
+                ChooseConnectionsToKeep,
+                step_0_sample.SampleChunk,
+                step_1_assign.FiberAssignment,
+                step_1_assign.VirtualFibersNoOffset,
+            ]
+        )
 
     def run(self):  # pragma: no cover
         # pylint thinks load_all() isn't returning a DataFrame
         # pylint: disable=maybe-no-member
         connections, sample, sgids, fibers = load_all(self.input())
-        sample.rename(columns={'gid': 'tgid'}, inplace=True)
+        sample.rename(columns={"gid": "tgid"}, inplace=True)
 
-        is_kept = connections[['sgid', 'tgid', 'kept']]
+        is_kept = connections[["sgid", "tgid", "kept"]]
         assert len(sgids) == len(sample)
 
-        fat = sample.join(sgids).merge(is_kept, how='left', on=['tgid', 'sgid'])
-        pruned_no_apron = (pd.merge(fat[fat['kept']],
-                                    fibers[~fibers.apron][['apron']],
-                                    left_on='sgid', right_index=True)
-                           .drop(['kept', 'apron'], axis=1)
-                           .reset_index(drop=True))
+        fat = sample.join(sgids).merge(is_kept, how="left", on=["tgid", "sgid"])
+        pruned_no_apron = (
+            pd.merge(
+                fat[fat["kept"]], fibers[~fibers.apron][["apron"]], left_on="sgid", right_index=True
+            )
+            .drop(["kept", "apron"], axis=1)
+            .reset_index(drop=True)
+        )
 
         distance = straight_fibers.calc_pathlength_to_fiber_start(
-            pruned_no_apron[list('xyz')].values,
-            fibers[list('xyzuvw')].iloc[pruned_no_apron['sgid']].values)
-        pruned_no_apron['sgid_path_distance'] = distance + self.additive_path_distance
+            pruned_no_apron[list("xyz")].values,
+            fibers[list("xyzuvw")].iloc[pruned_no_apron["sgid"]].values,
+        )
+        pruned_no_apron["sgid_path_distance"] = distance + self.additive_path_distance
 
         write_feather(self.output().path, pruned_no_apron)
 
 
 class ReducePrune(luigi_utils.FeatherTask):
-    '''Load all pruned chunks, and concat them together '''
+    """Load all pruned chunks, and concat them together"""
 
     def requires(self):  # pragma: no cover
         return [self.clone(PruneChunk, chunk_num=i) for i in range(self.n_total_chunks)]
 
     def run(self):  # pragma: no cover
         synapses = pd.concat(load_all(self.input())).rename(
-            columns={'Segment.ID': 'segment_id', 'Section.ID': 'section_id'})
+            columns={"Segment.ID": "segment_id", "Section.ID": "section_id"}
+        )
 
         # TODO: Set real values for location and neurite_type
-        synapses['location'] = 1
-        synapses['neurite_type'] = 1
-        synapses['sgid'] += self.sgid_offset
+        synapses["location"] = 1
+        synapses["neurite_type"] = 1
+        synapses["sgid"] += self.sgid_offset
 
         syns.organize_indices(synapses)
         write_feather(self.output().path, synapses)

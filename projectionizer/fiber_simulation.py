@@ -1,4 +1,4 @@
-'''Luigi task and functions for generating the fibers to a file.'''
+"""Luigi task and functions for generating the fibers to a file."""
 import logging
 
 import numpy as np
@@ -20,59 +20,64 @@ from scipy.spatial import cKDTree
 from projectionizer.utils import XYZUVW, mask_by_region, read_regions_from_manifest
 
 L = logging.getLogger(__name__)
-XZ = list('xz')
-XYZ = list('xyz')
-UVW = list('uvw')
+XZ = list("xz")
+XYZ = list("xyz")
+UVW = list("uvw")
 # Failback distance (in microns) in case the average distance can't be calculated
 FAILBACK_AVG_DISTANCE = 10
 
 
 class GenerateFibers(Config):  # pragma: no cover
-    """Generate the fibers. """
+    """Generate the fibers."""
 
     circuit_config = Parameter()
     use_kmeans = BoolParameter()
     n_fibers = IntParameter(default=np.inf)
-    regions = ListParameter(default='')
+    regions = ListParameter(default="")
     bounding_rectangle = ListParameter(default=[])
     out_file = Parameter()
     v_direction = FloatParameter(default=1.0)
-    y_level = FloatParameter(default=0.)
+    y_level = FloatParameter(default=0.0)
 
     def run(self):
         circuit = Circuit(self.circuit_config)
         regions = self.regions
         if self.use_kmeans:
-            fibers = generate_kmeans(circuit,
-                                     self.n_fibers,
-                                     self.v_direction,
-                                     self.y_level,
-                                     regions=regions,
-                                     bounding_rectangle=self.bounding_rectangle)
+            fibers = generate_kmeans(
+                circuit,
+                self.n_fibers,
+                self.v_direction,
+                self.y_level,
+                regions=regions,
+                bounding_rectangle=self.bounding_rectangle,
+            )
         else:
             if not regions:
                 regions = read_regions_from_manifest(self.circuit_config)
-                assert regions, 'No regions defined'
+                assert regions, "No regions defined"
 
             fibers = generate_raycast(circuit.atlas, regions, self.n_fibers)
 
-        L.info('Saving fibers to %s', self.out_file)
+        L.info("Saving fibers to %s", self.out_file)
         fibers.to_csv(self.out_file, index=False, sep=",")
 
 
 # -- K means clustering --
 
-def generate_kmeans(circuit, n_fibers, v_dir, y_level, regions='', bounding_rectangle=''):
-    '''Generate fibers using k-means clustering.'''
-    assert np.isfinite(n_fibers), 'Number of fibers to generate not given'
+
+def generate_kmeans(circuit, n_fibers, v_dir, y_level, regions="", bounding_rectangle=""):
+    """Generate fibers using k-means clustering."""
+    assert np.isfinite(n_fibers), "Number of fibers to generate not given"
 
     if bounding_rectangle:
         min_xz, max_xz = bounding_rectangle
         cells = circuit.cells.get(properties=XZ)
-        cells = cells[(min_xz[0] < cells.x) &
-                      (cells.x < max_xz[1]) &
-                      (min_xz[1] < cells.z) &
-                      (cells.z < max_xz[1])].reset_index(drop=True)
+        cells = cells[
+            (min_xz[0] < cells.x)
+            & (cells.x < max_xz[1])
+            & (min_xz[1] < cells.z)
+            & (cells.z < max_xz[1])
+        ].reset_index(drop=True)
     elif regions:
         cells = circuit.cells.get({Cell.REGION: regions}, properties=XZ)
     else:
@@ -82,7 +87,7 @@ def generate_kmeans(circuit, n_fibers, v_dir, y_level, regions='', bounding_rect
 
 
 def _generate_kmeans_fibers(cells, n_fibers, v_dir, y_level):
-    '''Generate the fibers dataframe using k-means clustering.'''
+    """Generate the fibers dataframe using k-means clustering."""
     codebook, _ = kmeans(cells[XZ].values, n_fibers)
 
     fiber_pos = pd.DataFrame(codebook, columns=XZ)
@@ -96,8 +101,9 @@ def _generate_kmeans_fibers(cells, n_fibers, v_dir, y_level):
 
 # -- Ray casting --
 
+
 def generate_raycast(atlas, regions, n_fibers):
-    '''Generate fibers using the ray casting.
+    """Generate fibers using the ray casting.
 
     Tracing back from L5/L43 boundary along the orientations to bottom of L6 and picking
     those fibers that do hit the bottom of L6 voxels.
@@ -108,11 +114,11 @@ def generate_raycast(atlas, regions, n_fibers):
 
     Return:
         (pandas.DataFrame): virtual fibers found
-    '''
-    distance = atlas.load_data('[PH]y')
+    """
+    distance = atlas.load_data("[PH]y")
     mask = mask_layer_6_bottom(atlas, regions)
     fiber_pos = distance.indices_to_positions(get_l5_l34_border_voxel_indices(atlas, regions))
-    fiber_pos += distance.voxel_dimensions / 2.
+    fiber_pos += distance.voxel_dimensions / 2.0
 
     fiber_dir = get_fiber_directions(fiber_pos, atlas)
     fibers = ray_tracing(atlas, mask, fiber_pos, fiber_dir)
@@ -130,7 +136,7 @@ def generate_raycast(atlas, regions, n_fibers):
 
 
 def ray_tracing(atlas, target_mask, fiber_positions, fiber_directions):
-    '''Get virtual fiber start positions by ray_tracing.
+    """Get virtual fiber start positions by ray_tracing.
 
     Args:
         atlas (voxcell.Atlas): atlas instance for the circuit
@@ -141,9 +147,9 @@ def ray_tracing(atlas, target_mask, fiber_positions, fiber_directions):
 
     Return:
         (pandas.DataFrame): virtual fibers found
-    '''
+    """
     ret = []
-    distance = atlas.load_data('[PH]y')
+    distance = atlas.load_data("[PH]y")
 
     # TODO: more effective way of tracing the fibers to bottom of L6.
     for pos, dirs in zip(fiber_positions, fiber_directions):
@@ -162,9 +168,9 @@ def ray_tracing(atlas, target_mask, fiber_positions, fiber_directions):
 
 
 def mask_layer_6_bottom(atlas, regions):
-    '''Get the mask for the bottom of layer6.'''
-    distance = atlas.load_data('[PH]y')
-    mask6 = mask_layers_in_regions(atlas, ['L6'], regions)
+    """Get the mask for the bottom of layer6."""
+    distance = atlas.load_data("[PH]y")
+    mask6 = mask_layers_in_regions(atlas, ["L6"], regions)
     distance.raw[np.invert(mask6)] = np.nan
     min_dist = np.min(distance.raw[np.isfinite(distance.raw)])
 
@@ -172,20 +178,20 @@ def mask_layer_6_bottom(atlas, regions):
 
 
 def get_l5_l34_border_voxel_indices(atlas, regions):
-    '''Get the fiber indices.
+    """Get the fiber indices.
 
     i.e., the indices of the voxels that lie on the border of L5 and L3/L4.
-    '''
-    mask_l5 = mask_layers_in_regions(atlas, ['L5'], regions)
-    mask_l34 = mask_layers_in_regions(atlas, ['L3', 'L4'], regions)
+    """
+    mask_l5 = mask_layers_in_regions(atlas, ["L5"], regions)
+    mask_l34 = mask_layers_in_regions(atlas, ["L3", "L4"], regions)
     mask = mask_l5 & nd.binary_dilation(mask_l34)
 
     return np.transpose(np.where(mask))
 
 
 def get_fiber_directions(fiber_positions, atlas):
-    '''Get the fiber directions at positions defined in fiber_positions.'''
-    orientation = atlas.load_data('orientation', cls=voxcell.OrientationField)
+    """Get the fiber directions at positions defined in fiber_positions."""
+    orientation = atlas.load_data("orientation", cls=voxcell.OrientationField)
     orientation.raw = orientation.raw.astype(np.int8)
     y_vec = np.array([0, 1, 0])
     R = orientation.lookup(fiber_positions)
@@ -194,37 +200,37 @@ def get_fiber_directions(fiber_positions, atlas):
 
 
 def mask_layers_in_regions(atlas, layers, regions):
-    '''Get the mask for defined layers in all defined regions.'''
+    """Get the mask for defined layers in all defined regions."""
     ids = get_region_ids(atlas, layers, regions)
 
     return mask_by_region(ids, atlas)
 
 
 def get_region_ids(atlas, layers, regions):
-    '''Get region id's for the regions and layers.'''
+    """Get region id's for the regions and layers."""
     rmap = atlas.load_region_map()
-    regex_str_regions = '@^({})$'.format('|'.join(regions))
-    regex_str_layers = '@^.*({})$'.format('|'.join(layers))
+    regex_str_regions = "@^({})$".format("|".join(regions))
+    regex_str_layers = "@^.*({})$".format("|".join(layers))
 
-    id_regions_children = rmap.find(regex_str_regions, attr='acronym', with_descendants=True)
-    id_layers_all_regions = rmap.find(regex_str_layers, attr='acronym')
+    id_regions_children = rmap.find(regex_str_regions, attr="acronym", with_descendants=True)
+    id_layers_all_regions = rmap.find(regex_str_layers, attr="acronym")
     id_wanted_layers = set.intersection(id_regions_children, id_layers_all_regions)
 
     return list(id_wanted_layers)
 
 
 def average_distance_to_nearest_neighbor(xyzs):
-    '''Average distance to nearest neighbor for all samples.'''
+    """Average distance to nearest neighbor for all samples."""
     tree = cKDTree(xyzs)
     distances, _ = tree.query(xyzs, 2)
     return distances[:, 1].mean()
 
 
 def get_orthonormal_basis_plane(vector):
-    '''Get orthonormal basis vectors for a plane orthogonal to the given vector.
+    """Get orthonormal basis vectors for a plane orthogonal to the given vector.
 
     Function assumes the vector is normalized.
-    '''
+    """
     # plane passing through origin given its normal vector [a, b, c]: aX + bY + cZ = 0,
     # NOTE: Origin assumed for simplicity. We are only interested in the base vectors.
     a, b, c = vector
@@ -254,18 +260,18 @@ def get_orthonormal_basis_plane(vector):
 
 
 def vectors_on_plane(basis_vectors, avg_distance, n_fibers):
-    '''Return position vectors on a plane spanned by basis vectors.
+    """Return position vectors on a plane spanned by basis vectors.
 
-    Length of each vector is 1.0 * distance in direction of either basis vector at maximum.'''
+    Length of each vector is 1.0 * distance in direction of either basis vector at maximum."""
     vectors_2d = np.random.uniform(-1, 1, [n_fibers, 2]) * avg_distance
     return np.matmul(vectors_2d, basis_vectors.T)
 
 
 def increase_fibers(fibers, n_fibers):
-    '''Increase the fiber count so that it is at least n_fibers.
+    """Increase the fiber count so that it is at least n_fibers.
 
     Returns a DataFrame of bunches of vectors around the original fiber (not included).
-    '''
+    """
     ratio = np.ceil(n_fibers / len(fibers)).astype(int)
     distance = average_distance_to_nearest_neighbor(fibers[XYZ].to_numpy())
 

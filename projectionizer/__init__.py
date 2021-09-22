@@ -1,4 +1,4 @@
-'''docstring'''
+"""docstring"""
 import logging
 
 #  Luigi needs this to be able to call all the commands from the CLI

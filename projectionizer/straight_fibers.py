@@ -1,7 +1,7 @@
-'''
+"""
 Functions related to calculating distances to straight fibers, like the ones used in the SSCX
 hex and S1
-'''
+"""
 import logging
 from functools import partial
 
@@ -26,11 +26,11 @@ NOT_CANDIDATE_STARTS = -3  # Columns not storing candidates ids
 
 
 def calc_distances(locations, virtual_fibers):
-    '''find closest point from locations to fibers, calculate the distance to this point
+    """find closest point from locations to fibers, calculate the distance to this point
 
     virtual_fibers is a Nx6 matrix, w/ 0:3 being the start positions,
     and 3:6 being the direction vector
-    '''
+    """
     locations_count = len(locations)
     virtual_fiber_count = len(virtual_fibers)
 
@@ -49,22 +49,23 @@ def calc_distances(locations, virtual_fibers):
 
 
 def calc_pathlength_to_fiber_start(locations, sgid_fibers):
-    '''find distance to the closest point on the `sgid_fibers`, and the distance to the `start`
+    """find distance to the closest point on the `sgid_fibers`, and the distance to the `start`
 
     sgid_fibers is a Nx6 matrix, w/ 0:3 being the start positions, and 3:6 being the dir vector
     the direction vector is expected to be normalized
-    '''
+    """
     starts = sgid_fibers[:, VF_STARTS]
     directions = sgid_fibers[:, VF_DIRS]
     hypotenuse = locations - starts
-    distances = (np.linalg.norm(np.cross(hypotenuse, directions, axis=1), axis=1) +
-                 np.sum(hypotenuse * directions, axis=1))
+    distances = np.linalg.norm(np.cross(hypotenuse, directions, axis=1), axis=1) + np.sum(
+        hypotenuse * directions, axis=1
+    )
 
     return distances
 
 
 def _closest_fibers_per_voxel(pos, virtual_fibers, closest_count):
-    '''get closest_count closest virtual fibers for positions in pos'''
+    """get closest_count closest virtual fibers for positions in pos"""
     distances = calc_distances(pos, virtual_fibers[XYZUVW].values)
     closest_count = min(closest_count, distances.shape[1] - 1)
     fiber_idx = np.argpartition(distances, closest_count, axis=1)[:, :closest_count]
@@ -77,22 +78,24 @@ def _closest_fibers_per_voxel(pos, virtual_fibers, closest_count):
 
 
 def closest_fibers_per_voxel(synapse_counts, virtual_fibers, closest_count):
-    '''for each occupied voxel in `synapse_counts`, find the `closest_count` number
+    """for each occupied voxel in `synapse_counts`, find the `closest_count` number
     of virtual fibers to it
 
     Returns:
         dict(tuple(i, j, k) voxel -> idx into virtual_fibers
-    '''
-    L.debug('closest_fibers_per_voxel...')
+    """
+    L.debug("closest_fibers_per_voxel...")
     ijks = np.transpose(np.nonzero(synapse_counts.raw))
     pos = synapse_counts.indices_to_positions(ijks)
-    pos += synapse_counts.voxel_dimensions / 2.
+    pos += synapse_counts.voxel_dimensions / 2.0
 
     split_count = len(pos) // 1000 + 1
-    fibers = map_parallelize(partial(_closest_fibers_per_voxel,
-                                     virtual_fibers=virtual_fibers,
-                                     closest_count=closest_count),
-                             np.array_split(pos, split_count))
+    fibers = map_parallelize(
+        partial(
+            _closest_fibers_per_voxel, virtual_fibers=virtual_fibers, closest_count=closest_count
+        ),
+        np.array_split(pos, split_count),
+    )
     fibers = pd.concat(fibers, sort=False, ignore_index=True)
 
     df_ijks = pd.DataFrame(ijks, columns=IJK)
@@ -104,7 +107,7 @@ def closest_fibers_per_voxel(synapse_counts, virtual_fibers, closest_count):
 
 
 def calc_distances_vectorized(candidates, virtual_fibers):
-    '''For every synapse compute the distance to each candidate fiber'''
+    """For every synapse compute the distance to each candidate fiber"""
     cols = candidates.columns.difference(XYZ)
     idx = candidates.loc[:, cols].fillna(0).values.astype(int)
     fiber_coord = virtual_fibers[XYZUVW].values[idx]
@@ -116,16 +119,15 @@ def calc_distances_vectorized(candidates, virtual_fibers):
 
 
 def candidate_fibers_per_synapse(synapse_position_xyz, synapses_indices, closest_fibers_per_vox):
-    '''based on synapse location, find candidate fibers
+    """based on synapse location, find candidate fibers
 
     Args:
         synapse_position_xyz(dataframe): x/y/z positions of synapses
         synapses_indices(dataframe): i/j/k voxel positions of fibers
         closest_fibers_per_vox(dataframe): fibers close to voxels
-    '''
-    L.debug('Joining the synapses with their potential fibers')
-    candidates = pd.merge(synapses_indices, closest_fibers_per_vox,
-                          how='left', on=IJK).fillna(-1)
+    """
+    L.debug("Joining the synapses with their potential fibers")
+    candidates = pd.merge(synapses_indices, closest_fibers_per_vox, how="left", on=IJK).fillna(-1)
     # Pandas bug: merging change dtypes to float.
     # Should be solved soon:
     # http://pandas-docs.github.io/pandas-docs-travis/whatsnew.html#merging-changes
@@ -133,20 +135,19 @@ def candidate_fibers_per_synapse(synapse_position_xyz, synapses_indices, closest
     candidates.loc[:, cols] = candidates.loc[:, cols].astype(int)
     del synapses_indices
 
-    L.debug('Joining the synapse position')
+    L.debug("Joining the synapse position")
     assert len(candidates) == len(synapse_position_xyz)
 
-    candidates = (candidates
-                  .reset_index(drop=True)
-                  .join(synapse_position_xyz.reset_index(drop=True)))
+    candidates = candidates.reset_index(drop=True).join(synapse_position_xyz.reset_index(drop=True))
     candidates.drop(IJK, inplace=True, axis=1)
 
     return candidates
 
 
-def assign_synapse_fiber(candidates, virtual_fibers, sigma,
-                         distance_calculator=calc_distances_vectorized):
-    '''
+def assign_synapse_fiber(
+    candidates, virtual_fibers, sigma, distance_calculator=calc_distances_vectorized
+):
+    """
     Assign each synapse with a close by fiber.
     The probability of pairing follows a Normal law with the distance between
     the synapse and the fiber
@@ -155,7 +156,7 @@ def assign_synapse_fiber(candidates, virtual_fibers, sigma,
         candidates(np.arraya of Nx3): xyz positions of synapses
         virtual_fibers(np.array Nx6): point and direction vectors of virtual_fibers
         sigma(float): used for normal distribution
-    '''
+    """
 
     distances = distance_calculator(candidates, virtual_fibers)
     # want to choose the 'best' one based on a normal distribution based on distance
@@ -165,4 +166,4 @@ def assign_synapse_fiber(candidates, virtual_fibers, sigma,
     idx = choice(prob)
     cols = candidates.columns.difference(XYZ)
     sgids = candidates.loc[:, cols].values[np.arange(len(idx)), idx]
-    return pd.DataFrame({'sgid': sgids})
+    return pd.DataFrame({"sgid": sgids})

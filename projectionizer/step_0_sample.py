@@ -1,5 +1,5 @@
-'''Step 0; sample segments from circuit to be used as potential synapses
-'''
+"""Step 0; sample segments from circuit to be used as potential synapses
+"""
 import json
 import os
 
@@ -21,6 +21,7 @@ from projectionizer.utils import load, load_all, mask_by_region, write_feather
 class VoxelSynapseCount(NrrdTask):  # pragma: no cover
     """Generate the VoxelData containing the number
     of segment to be sampled in each voxel"""
+
     oversampling = FloatParameter()
 
     def requires(self):
@@ -28,13 +29,12 @@ class VoxelSynapseCount(NrrdTask):  # pragma: no cover
 
     def run(self):
         height, synapse_density = load_all(self.input())
-        res = build_synapses_default(
-            height, synapse_density, self.oversampling)
+        res = build_synapses_default(height, synapse_density, self.oversampling)
         res.save_nrrd(self.output().path)
 
 
 class Height(NrrdTask):  # pragma: no cover
-    '''return a VoxelData instance w/ all the layer-wise relative heights for given region_name
+    """return a VoxelData instance w/ all the layer-wise relative heights for given region_name
 
     distance is defined as from the voxel to the bottom of L6, voxels
     outside of region_name are set to nan
@@ -42,13 +42,13 @@ class Height(NrrdTask):  # pragma: no cover
     Args:
         region_name(str): name to look up in atlas
         path(str): path to where nrrd files are, must include 'brain_regions.nrrd'
-    '''
+    """
 
     def run(self):
         regions = self.get_regions()
         atlas = Circuit(self.circuit_config).atlas
         mask = mask_by_region(regions, atlas)
-        distance = atlas.load_data('[PH]y')
+        distance = atlas.load_data("[PH]y")
 
         if len(self.hex_apron_bounding_box):
             mask = get_mask_bounding_box(distance, mask, self.hex_apron_bounding_box)
@@ -61,6 +61,7 @@ class Height(NrrdTask):  # pragma: no cover
 
 class SampleChunk(FeatherTask):
     """Split the big sample into chunks"""
+
     chunk_num = IntParameter()
 
     def requires(self):
@@ -77,8 +78,8 @@ class SampleChunk(FeatherTask):
 
 
 class FullSample(FeatherTask):  # pragma: no cover
-    '''Sample segments from circuit
-    '''
+    """Sample segments from circuit"""
+
     n_slices = IntParameter()
     from_chunks = BoolParameter(default=False)
 
@@ -98,21 +99,26 @@ class FullSample(FeatherTask):  # pragma: no cover
             circuit_path = os.path.dirname(self.circuit_config)
             synapses = pick_synapses(circuit_path, voxels)
 
-            synapses.rename(columns={'gid': 'tgid'}, inplace=True)
+            synapses.rename(columns={"gid": "tgid"}, inplace=True)
             write_feather(self.output().path, synapses)
 
 
 class SynapseDensity(JsonTask):  # pragma: no cover
-    '''Return the synaptic density profile'''
+    """Return the synaptic density profile"""
+
     density_params = ListParameter()
 
     def run(self):
-        res = [recipe_to_relative_height_and_density(self.layers,
-                                                     data['low_layer'],
-                                                     data['low_fraction'],
-                                                     data['high_layer'],
-                                                     data['high_fraction'],
-                                                     data['density_profile'])
-               for data in self.density_params]  # pylint: disable=not-an-iterable
-        with self.output().open('w') as outfile:
+        res = [
+            recipe_to_relative_height_and_density(
+                self.layers,
+                data["low_layer"],
+                data["low_fraction"],
+                data["high_layer"],
+                data["high_fraction"],
+                data["density_profile"],
+            )
+            for data in self.density_params  # pylint: disable=not-an-iterable
+        ]
+        with self.output().open("w") as outfile:
             json.dump(res, outfile)

@@ -1,4 +1,4 @@
-'''Luigi tasks that given segments, assign them to the fibers'''
+"""Luigi tasks that given segments, assign them to the fibers"""
 import logging
 
 import numpy as np
@@ -19,11 +19,12 @@ L = logging.getLogger(__name__)
 
 
 class VirtualFibersNoOffset(CsvTask):
-    '''writes a DataFrame with columns ['sgid', 'x', 'y', 'z', 'u', 'v', 'w', 'apron']
+    """writes a DataFrame with columns ['sgid', 'x', 'y', 'z', 'u', 'v', 'w', 'apron']
     containing the starting position and direction of each fiber
 
     Note: apron is a bool indicating if the fiber is in the apron or not
-    '''
+    """
+
     def requires(self):  # pragma: no cover
         return self.clone(Height)
 
@@ -31,7 +32,7 @@ class VirtualFibersNoOffset(CsvTask):
         height = load(self.input().path)
 
         def is_fiber_outside_region(df, mask):
-            '''Check which fibers are not in region'''
+            """Check which fibers are not in region"""
             mask_xz = mask.any(axis=1)
             idx = height.positions_to_indices(df[XYZ].to_numpy())
             return np.invert(mask_xz[tuple(idx[:, [0, 2]].T)])
@@ -40,13 +41,14 @@ class VirtualFibersNoOffset(CsvTask):
         fibers = load(self.fiber_locations_path)
         fibers = fibers.reset_index()
         mask = mask_by_region(self.get_regions(), atlas)
-        fibers['apron'] = is_fiber_outside_region(fibers, mask)
+        fibers["apron"] = is_fiber_outside_region(fibers, mask)
 
-        fibers.to_csv(self.output().path, index_label='sgid')
+        fibers.to_csv(self.output().path, index_label="sgid")
 
 
 class ClosestFibersPerVoxel(FeatherTask):
     """Return a DataFrame with the ID of the `closest_count` fibers for each voxel"""
+
     closest_count = IntParameter()
 
     def requires(self):  # pragma: no cover
@@ -60,6 +62,7 @@ class ClosestFibersPerVoxel(FeatherTask):
 
 class SynapseIndices(FeatherTask):
     """Return a DataFrame with the voxels indices (i,j,k) into which each synapse is"""
+
     chunk_num = IntParameter()
 
     def requires(self):  # pragma: no cover
@@ -74,23 +77,27 @@ class SynapseIndices(FeatherTask):
 
 class CandidateFibersPerSynapse(FeatherTask):
     """Returns a DataFrame with the ID of the closest fibers for each synapse"""
+
     chunk_num = IntParameter()
 
     def requires(self):  # pragma: no cover
-        return (self.clone(ClosestFibersPerVoxel),
-                self.clone(SynapseIndices),
-                self.clone(SampleChunk),)
+        return (
+            self.clone(ClosestFibersPerVoxel),
+            self.clone(SynapseIndices),
+            self.clone(SampleChunk),
+        )
 
     def run(self):  # pragma: no cover
-        closest_fibers_per_vox, synapses_indices, synapse_position = load_all(
-            self.input())
+        closest_fibers_per_vox, synapses_indices, synapse_position = load_all(self.input())
         candidates = candidate_fibers_per_synapse(
-            synapse_position[XYZ], synapses_indices, closest_fibers_per_vox)
+            synapse_position[XYZ], synapses_indices, closest_fibers_per_vox
+        )
         write_feather(self.output().path, candidates)
 
 
 class FiberAssignment(FeatherTask):
     """Returns a DataFrame containing the ID of the fiber associated to each synapse"""
+
     chunk_num = IntParameter()
     sigma = FloatParameter()
 

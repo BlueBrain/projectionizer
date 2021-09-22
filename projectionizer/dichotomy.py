@@ -1,4 +1,4 @@
-'''Correct oversampling binary search module'''
+"""Correct oversampling binary search module"""
 import json
 import os
 
@@ -17,7 +17,8 @@ from projectionizer.step_3_write import SynapseCountPerConnectionTarget
 
 
 class Dichotomy(JsonTask):
-    '''Binary search to find the parameter that satisfies the target value'''
+    """Binary search to find the parameter that satisfies the target value"""
+
     folder = Parameter()
     target = FloatParameter()
     target_margin = FloatParameter(default=1)
@@ -31,52 +32,54 @@ class Dichotomy(JsonTask):
 
         for _ in range(self.max_loop):
             param = 0.5 * (start + end)
-            error = yield self.clone(self.MinimizationTask,
-                                     param=param,
-                                     folder=sub_folder(self.folder, param))
+            error = yield self.clone(
+                self.MinimizationTask, param=param, folder=sub_folder(self.folder, param)
+            )
 
             with error.open() as inputf:
-                result = json.load(inputf)['error']
+                result = json.load(inputf)["error"]
             if abs(result) < self.target_margin:
-                with self.output().open('w') as outf:
-                    json.dump({'param': param}, outf)
+                with self.output().open("w") as outf:
+                    json.dump({"param": param}, outf)
                     return
 
             if result > 0:
                 end = param
             else:
                 start = param
-        raise Exception('Maximum number of iteration reached')
+        raise Exception("Maximum number of iteration reached")
 
     def output(self):
         name = camel2spinal_case(type(self).__name__)
-        return LocalTarget('{}/{}.json'.format(self.folder, name))
+        return LocalTarget("{}/{}.json".format(self.folder, name))
 
     def requires(self):
         return FolderTask(folder=self.folder)
 
 
 def sub_folder(base_folder, param):
-    '''Return the directory for the given param '''
-    return os.path.join(base_folder, 'param_{}'.format(param))
+    """Return the directory for the given param"""
+    return os.path.join(base_folder, "param_{}".format(param))
 
 
 class TargetMismatch(JsonTask):
-    '''The task whose value must be minimized'''
+    """The task whose value must be minimized"""
+
     target = FloatParameter()
     param = FloatParameter(default=0)
 
     def run(self):  # pragma: no cover
         task = yield self.clone(SynapseCountPerConnectionTarget, oversampling=self.param)
         with task.open() as fd:
-            last_target = json.load(fd)['result']
-        with self.output().open('w') as fd:
-            json.dump({'error': last_target - self.target}, fd)
+            last_target = json.load(fd)["result"]
+        with self.output().open("w") as fd:
+            json.dump({"error": last_target - self.target}, fd)
 
 
 class SynapseCountMeanMinimizer(CommonParams):
-    '''Dichotomy applied to approaching the correct number of synapses per connection
-    in target_mtype cells'''
+    """Dichotomy applied to approaching the correct number of synapses per connection
+    in target_mtype cells"""
+
     target = FloatParameter()
     target_margin = FloatParameter(default=1)
     min_param = FloatParameter()
@@ -84,18 +87,23 @@ class SynapseCountMeanMinimizer(CommonParams):
     max_loop = IntParameter(default=20)
 
     def requires(self):  # pragma: no cover
-        '''Start by generating a large number of synapses first'''
-        return [self.clone(SampleChunk,
-                           chunk_num=chunk_num,
-                           oversampling=self.max_param,
-                           folder=sub_folder(self.folder, self.max_param))
-                for chunk_num in range(self.n_total_chunks)] + \
-            [self.clone(Dichotomy, MinimizationTask=TargetMismatch), ]
+        """Start by generating a large number of synapses first"""
+        return [
+            self.clone(
+                SampleChunk,
+                chunk_num=chunk_num,
+                oversampling=self.max_param,
+                folder=sub_folder(self.folder, self.max_param),
+            )
+            for chunk_num in range(self.n_total_chunks)
+        ] + [
+            self.clone(Dichotomy, MinimizationTask=TargetMismatch),
+        ]
 
     def run(self):  # pragma: no cover
         dichotomy = self.input()[-1]
         with dichotomy.open() as inputf:
-            param = json.load(inputf)['param']
+            param = json.load(inputf)["param"]
 
         folder = sub_folder(self.folder, param)
         yield self.clone(FullSample, from_chunks=True, folder=folder)

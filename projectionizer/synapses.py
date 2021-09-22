@@ -1,4 +1,4 @@
-'''Functions for picking synpases'''
+"""Functions for picking synpases"""
 import logging
 import os
 from functools import partial
@@ -20,44 +20,60 @@ from projectionizer.utils import (
 
 L = logging.getLogger(__name__)
 
-SEGMENT_START_COLS = [Segment.X1, Segment.Y1, Segment.Z1, ]
-SEGMENT_END_COLS = [Segment.X2, Segment.Y2, Segment.Z2, ]
+SEGMENT_START_COLS = [
+    Segment.X1,
+    Segment.Y1,
+    Segment.Z1,
+]
+SEGMENT_END_COLS = [
+    Segment.X2,
+    Segment.Y2,
+    Segment.Z2,
+]
 
-WANTED_COLS = ['gid', Section.ID, Segment.ID, 'segment_length', 'synapse_offset',
-               'x', 'y', 'z', ]
-XYZ = list('xyz')
-SOURCE_XYZ = ['source_x', 'source_y', 'source_z']
-VOLUME_TRANSMISSION_COLS = ['sgid'] + WANTED_COLS + SOURCE_XYZ + ['distance_volume_transmission']
-INT_COLS = ['gid', Section.ID, Segment.ID]
+WANTED_COLS = [
+    "gid",
+    Section.ID,
+    Segment.ID,
+    "segment_length",
+    "synapse_offset",
+    "x",
+    "y",
+    "z",
+]
+XYZ = list("xyz")
+SOURCE_XYZ = ["source_x", "source_y", "source_z"]
+VOLUME_TRANSMISSION_COLS = ["sgid"] + WANTED_COLS + SOURCE_XYZ + ["distance_volume_transmission"]
+INT_COLS = ["gid", Section.ID, Segment.ID]
 
 
 def segment_pref_length(df):
-    '''don't want axons, assign probability of 0 to them, and 1 to other neurite types,
+    """don't want axons, assign probability of 0 to them, and 1 to other neurite types,
     multiplied by the length of the segment
     this will be normalized by the caller
-    '''
-    return df['segment_length'] * (df[Section.NEURITE_TYPE] != NeuriteType.axon).astype(float)
+    """
+    return df["segment_length"] * (df[Section.NEURITE_TYPE] != NeuriteType.axon).astype(float)
 
 
 def build_synapses_default(height, synapse_density, oversampling):
-    '''Build voxel count from densities according to the height along the column.
+    """Build voxel count from densities according to the height along the column.
 
     Height and densities can be in relative height <layer_index>.<fraction> format or absolute
     values. (See: sscx.recipe_to_relative_height_and_density)
-    '''
+    """
     raw = np.zeros_like(height.raw, dtype=np.uint)  # pylint: disable=no-member
 
     voxel_volume = np.prod(np.abs(height.voxel_dimensions))
     for dist in synapse_density:
         for (bottom, density), (top, _) in zip(dist[:-1], dist[1:]):
-            with np.errstate(invalid='ignore'):  # ignore warning about nans in height.raw
+            with np.errstate(invalid="ignore"):  # ignore warning about nans in height.raw
                 idx = (bottom <= height.raw) & (height.raw < top)
             idx = np.nonzero(np.nan_to_num(idx, 0))
             count = voxel_volume * density * oversampling
             if count < 1:
                 datalen = np.shape(idx)[1]
                 raw[idx] = (count > np.random.rand(datalen)).astype(int)
-                L.debug('assigned density: %.3f, target:%.3f', np.sum(raw[idx]) / datalen, count)
+                L.debug("assigned density: %.3f, target:%.3f", np.sum(raw[idx]) / datalen, count)
             else:
                 raw[idx] = int(count)
 
@@ -65,17 +81,18 @@ def build_synapses_default(height, synapse_density, oversampling):
 
 
 def _min_max_axis(min_xyz, max_xyz):
-    '''get min/max axis'''
+    """get min/max axis"""
     return np.minimum(min_xyz, max_xyz), np.maximum(min_xyz, max_xyz)
 
 
 def _sample_with_flat_index(index_path, min_xyz, max_xyz):
-    '''use flat index to get segments within min_xyz, max_xyz'''
+    """use flat index to get segments within min_xyz, max_xyz"""
     #  this is loaded late so that multiprocessing loads it outside of the main
     #  python binary - at one point, this was necessary, as there was shared state
     import libFLATIndex as FI  # pylint:disable=import-outside-toplevel
+
     try:
-        index = FI.loadIndex(str(os.path.join(index_path, 'SEGMENT')))  # pylint: disable=no-member
+        index = FI.loadIndex(str(os.path.join(index_path, "SEGMENT")))  # pylint: disable=no-member
         min_xyz_ = tuple(map(float, min_xyz))
         max_xyz_ = tuple(map(float, max_xyz))
         segs_df = FI.numpy_windowQuery(index, *(min_xyz_ + max_xyz_))  # pylint: disable=no-member
@@ -89,7 +106,7 @@ def _sample_with_flat_index(index_path, min_xyz, max_xyz):
 
 
 def get_segment_limits_within_sphere(starts, ends, pos, radius):
-    '''Computes segments' start and end points within a sphere
+    """Computes segments' start and end points within a sphere
 
     Args:
         starts(np.array): Mx3 array giving the segment start points (X,Y,Z)
@@ -100,7 +117,7 @@ def get_segment_limits_within_sphere(starts, ends, pos, radius):
     Returns:
         start_point(np.array): start points of the segments within the sphere
         end_point(np.array): end points of the segments within the sphere
-    '''
+    """
     # pylint: disable=too-many-locals
     starts = starts.copy()
     ends = ends.copy()
@@ -114,10 +131,12 @@ def get_segment_limits_within_sphere(starts, ends, pos, radius):
 
     # Segments for which the closest point is within radius but the segment is out.
     # I.e., both the start and end points are in the same direction from the closest point.
-    start_mask = np.sum(start_to_pos**2, axis=1) > radius**2
-    end_mask = np.sum(end_to_pos**2, axis=1) > radius**2
-    segment_mask = np.logical_and(np.logical_and(start_mask, end_mask),
-                                  np.sign(magnitude_start_to_pos) == np.sign(magnitude_end_to_pos))
+    start_mask = np.sum(start_to_pos ** 2, axis=1) > radius ** 2
+    end_mask = np.sum(end_to_pos ** 2, axis=1) > radius ** 2
+    segment_mask = np.logical_and(
+        np.logical_and(start_mask, end_mask),
+        np.sign(magnitude_start_to_pos) == np.sign(magnitude_end_to_pos),
+    )
     starts[segment_mask] = np.nan
     ends[segment_mask] = np.nan
 
@@ -125,9 +144,9 @@ def get_segment_limits_within_sphere(starts, ends, pos, radius):
     # center of the sphere, point where the line (on which the segment lies) is closest to the
     # center and the point where the line intersects with the surface
     closest_point = magnitude_start_to_pos[:, None] * direction + starts
-    shortest_distance_squared = np.sum((closest_point - pos)**2, axis=1)
-    with np.errstate(invalid='ignore'):  # ignore warning of negative values (will result in nan)
-        distance_to_surface = np.sqrt(radius**2 - shortest_distance_squared)
+    shortest_distance_squared = np.sum((closest_point - pos) ** 2, axis=1)
+    with np.errstate(invalid="ignore"):  # ignore warning of negative values (will result in nan)
+        distance_to_surface = np.sqrt(radius ** 2 - shortest_distance_squared)
 
     # If start/end point is outside radius but segment is in, replace with the surface point
     start_mask &= ~segment_mask
@@ -140,13 +159,13 @@ def get_segment_limits_within_sphere(starts, ends, pos, radius):
 
 
 def spherical_sampling(pos_sgid, index_path, radius):
-    '''Get segments within a sphere with a given position and radius
+    """Get segments within a sphere with a given position and radius
 
     Args:
         pos_sgid(tuple): a tuple with XYZ-position of a synapse and its sgid
         index_path(str): path to the circuit directory
         radius(float): maximum radius of the volume_transmission
-    '''
+    """
     position, sgid = pos_sgid
     min_xyz = position - radius
     max_xyz = position + radius
@@ -171,16 +190,16 @@ def spherical_sampling(pos_sgid, index_path, radius):
     synapse = alpha[:, None] * (segment_end - segment_start) + segment_start
     segs_df[XYZ] = synapse
     segs_df[SOURCE_XYZ] = position
-    segs_df.loc[:, 'sgid'] = sgid
-    segs_df.loc[:, 'synapse_offset'] = np.linalg.norm(synapse - starts, axis=1)
-    segs_df.loc[:, 'segment_length'] = np.linalg.norm(ends - starts, axis=1)
-    segs_df.loc[:, 'distance_volume_transmission'] = np.linalg.norm(synapse - position, axis=1)
+    segs_df.loc[:, "sgid"] = sgid
+    segs_df.loc[:, "synapse_offset"] = np.linalg.norm(synapse - starts, axis=1)
+    segs_df.loc[:, "segment_length"] = np.linalg.norm(ends - starts, axis=1)
+    segs_df.loc[:, "distance_volume_transmission"] = np.linalg.norm(synapse - position, axis=1)
 
     return segs_df[VOLUME_TRANSMISSION_COLS].dropna()
 
 
 def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup):
-    '''Select `count` synapses from the circuit that lie between `min_xyz` and `max_xyz`
+    """Select `count` synapses from the circuit that lie between `min_xyz` and `max_xyz`
 
     Args:
         xyz_counts(tuple of min_xyz, max_xyz, count): bounding box and count of synapses desired
@@ -191,7 +210,7 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
 
     Returns:
         DataFrame with `WANTED_COLS`
-    '''
+    """
     min_xyz, max_xyz, count = xyz_counts
 
     segs_df = _sample_with_flat_index(index_path, min_xyz, max_xyz)
@@ -205,7 +224,7 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
     # pylint: enable=unsubscriptable-object
 
     # keep only the segments whose midpoints are in the current voxel
-    in_bb = pd.DataFrame((ends + starts) / 2., columns=list('xyz'), index=segs_df.index)
+    in_bb = pd.DataFrame((ends + starts) / 2.0, columns=list("xyz"), index=segs_df.index)
     in_bb = in_bounding_box(*_min_max_axis(min_xyz, max_xyz), df=in_bb)
 
     segs_df = segs_df[in_bb].copy()  # pylint: disable=unsubscriptable-object
@@ -213,8 +232,8 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
     if len(segs_df) == 0:
         return None
 
-    segs_df['segment_length'] = np.linalg.norm(ends[in_bb] - starts[in_bb], axis=1)
-    segs_df['segment_length'] = segs_df['segment_length'].astype(np.float32)
+    segs_df["segment_length"] = np.linalg.norm(ends[in_bb] - starts[in_bb], axis=1)
+    segs_df["segment_length"] = segs_df["segment_length"].astype(np.float32)
 
     prob_density = segment_pref(segs_df)
     try:
@@ -227,16 +246,19 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
 
     alpha = np.random.random(size=len(segs_df))
 
-    segs_df['synapse_offset'] = alpha * segs_df['segment_length']
+    segs_df["synapse_offset"] = alpha * segs_df["segment_length"]
 
     segs_df = segs_df.join(
-        pd.DataFrame(alpha[:, None] * segs_df[SEGMENT_START_COLS].to_numpy().astype(float) +
-                     (1. - alpha[:, None]) * segs_df[SEGMENT_END_COLS].to_numpy().astype(float),
-                     columns=list('xyz'),
-                     dtype=np.float32,
-                     index=segs_df.index))
+        pd.DataFrame(
+            alpha[:, None] * segs_df[SEGMENT_START_COLS].to_numpy().astype(float)
+            + (1.0 - alpha[:, None]) * segs_df[SEGMENT_END_COLS].to_numpy().astype(float),
+            columns=list("xyz"),
+            dtype=np.float32,
+            index=segs_df.index,
+        )
+    )
 
-    segs_df['synapse_offset'] = alpha * segs_df['segment_length']
+    segs_df["synapse_offset"] = alpha * segs_df["segment_length"]
     segs_df = segs_df[WANTED_COLS]
 
     if dataframe_cleanup is not None:
@@ -246,14 +268,18 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
 
 
 def downcast_int_columns(df):
-    '''Downcast int columns'''
+    """Downcast int columns"""
     for name in INT_COLS:
         df[name] = convert_to_smallest_allowed_int_type(df[name])
 
 
-def pick_synapses(index_path, synapse_counts,
-                  segment_pref=segment_pref_length, dataframe_cleanup=downcast_int_columns):
-    '''Sample segments from circuit
+def pick_synapses(
+    index_path,
+    synapse_counts,
+    segment_pref=segment_pref_length,
+    dataframe_cleanup=downcast_int_columns,
+):
+    """Sample segments from circuit
     Args:
         index_path: absolute path to circuit path, where a SEGMENT exists
         synapse_counts(VoxelData):
@@ -262,7 +288,7 @@ def pick_synapses(index_path, synapse_counts,
     Returns:
         a DataFrame with the following columns:
             ['tgid', 'Section.ID', 'Segment.ID', 'segment_length', 'x', 'y', 'z']
-    '''
+    """
 
     idx = np.nonzero(synapse_counts.raw)
 
@@ -270,25 +296,27 @@ def pick_synapses(index_path, synapse_counts,
     max_xyzs = min_xyzs + synapse_counts.voxel_dimensions
     xyz_counts = zip(min_xyzs, max_xyzs, synapse_counts.raw[idx])
 
-    func = partial(pick_synapses_voxel,
-                   index_path=index_path,
-                   segment_pref=segment_pref,
-                   dataframe_cleanup=dataframe_cleanup)
+    func = partial(
+        pick_synapses_voxel,
+        index_path=index_path,
+        segment_pref=segment_pref,
+        dataframe_cleanup=dataframe_cleanup,
+    )
 
     synapses = list(map_parallelize(func, tqdm(xyz_counts, total=len(min_xyzs))))
 
     n_none_dfs = sum(df is None for df in synapses)
     percentage_none = n_none_dfs / float(len(synapses)) * 100
-    if percentage_none > 20.:  # pragma: no cover
-        L.warning('%s of dataframes are None.', percentage_none)
+    if percentage_none > 20.0:  # pragma: no cover
+        L.warning("%s of dataframes are None.", percentage_none)
 
-    L.debug('Picking finished. Now concatenating...')
+    L.debug("Picking finished. Now concatenating...")
     return pd.concat(synapses, ignore_index=True)
 
 
 def organize_indices(synapses):
-    '''*inplace* reorganize the synapses indices'''
-    synapses.set_index(['tgid', 'sgid'], inplace=True)
+    """*inplace* reorganize the synapses indices"""
+    synapses.set_index(["tgid", "sgid"], inplace=True)
     synapses.sort_index(inplace=True)
     synapses.reset_index(inplace=True)
 
