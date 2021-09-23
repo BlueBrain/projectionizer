@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from numpy.testing import (assert_almost_equal,
+                           assert_array_equal,
                            assert_allclose,)
 
 from voxcell.nexus.voxelbrain import Atlas
@@ -41,10 +42,10 @@ def test_generate_kmeans_fibers():
     assert np.all(fibers['y'] == y_level)
     assert len(fibers) == n_fibers
 
-    assert np.all(fibers.sort_values(XZ)[XZ].values == [[1, 1],
-                                                        [1, 11],
-                                                        [11, 1],
-                                                        [11, 11]])
+    assert_array_equal(fibers.sort_values(XZ)[XZ].values, [[1, 1],
+                                                           [1, 11],
+                                                           [11, 1],
+                                                           [11, 11]])
 
 
 def test_get_fiber_directions():
@@ -69,7 +70,7 @@ def test_get_l5_l34_border_voxel_indices():
     ret = fiber_simulation.get_l5_l34_border_voxel_indices(atlas, ['S1FL'])
 
     region_ids = brain_regions.raw[tuple(np.transpose(ret))]
-    assert np.all([1123] == np.unique(region_ids))
+    assert_array_equal([1123], np.unique(region_ids))
 
     neighbors = np.array([[-1, 0, 0],
                           [0, -1, 0],
@@ -92,14 +93,14 @@ def test_mask_layers_in_regions():
 
     mask = brain_regions.raw == 1121
     ret = fiber_simulation.mask_layers_in_regions(atlas, ['L3'], ['S1FL'])
-    assert np.all(ret == mask)
+    assert_array_equal(ret, mask)
 
     mask = brain_regions.raw == 1121
     mask |= brain_regions.raw == 1122
     mask |= brain_regions.raw == 1127
     mask |= brain_regions.raw == 1128
     ret = fiber_simulation.mask_layers_in_regions(atlas, ['L3', 'L4'], ['S1FL', 'S1HL'])
-    assert np.all(ret == mask)
+    assert_array_equal(ret, mask)
 
 
 def test_mask_layer_6_bottom():
@@ -113,7 +114,7 @@ def test_mask_layer_6_bottom():
     mask &= distance.raw == 0
 
     ret = fiber_simulation.mask_layer_6_bottom(atlas, ['S1J'])
-    assert np.all(ret == mask)
+    assert_array_equal(ret, mask)
 
 
 def test_ray_tracing():
@@ -131,7 +132,7 @@ def test_ray_tracing():
     ind_fibers = distance.positions_to_indices(ret[list('xyz')].values)
 
     assert len(ind_fibers) == len(ind_zero)
-    assert np.all(ind_fibers == ind_zero)
+    assert_array_equal(ind_fibers, ind_zero)
 
 
 def test_average_distance_to_nearest_neighbor():
@@ -179,7 +180,7 @@ def test_increase_fibers():
     new_fibers = fiber_simulation.increase_fibers(fiber, n_fibers)
 
     assert len(new_fibers) == n_fibers
-    assert np.all(new_fibers[UVW].to_numpy() == np.tile(dir_v, (n_fibers, 1)))
+    assert_array_equal(new_fibers[UVW].to_numpy(), np.tile(dir_v, (n_fibers, 1)))
 
     # to verify the fiber positions are on the same plane
     xyzs = new_fibers[XYZ].to_numpy()

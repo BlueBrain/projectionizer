@@ -4,7 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 import pytest
-from numpy.testing import assert_array_almost_equal
+from numpy.testing import assert_array_equal, assert_array_almost_equal
 from voxcell import VoxelData
 from voxcell.nexus.voxelbrain import Atlas
 
@@ -19,7 +19,7 @@ def test_choice():
     indices = test_module.choice(np.array([[1., 2, 3, 4],
                                            [0, 0, 1, 0],
                                            [6, 5, 4, 0]]))
-    assert np.all(indices == [2, 2, 1])
+    assert_array_equal(indices, [2, 2, 1])
 
 
 def test_ignore_exception():
@@ -45,7 +45,7 @@ def test_write_feather():
 def test_normalize_probability():
     p = np.array([1, 0])
     ret = test_module.normalize_probability(p)
-    assert np.all(p == ret)
+    assert_array_equal(p, ret)
 
 
 def test_normalize_probability_raises():
@@ -79,7 +79,7 @@ def test_load():
 
         assert dataframe.equals(feather)
         assert dataframe.equals(csv)
-        assert np.all(voxcell_obj.raw == nrrd.raw)
+        assert_array_equal(voxcell_obj.raw, nrrd.raw)
         assert json_obj == _json
 
 
@@ -93,7 +93,7 @@ def times_two(x):
 
 def test_map_parallelize():
     a = np.arange(10)
-    assert np.all(test_module.map_parallelize(times_two, a) == a * 2)
+    assert_array_equal(test_module.map_parallelize(times_two, a), a * 2)
 
 
 def test_in_bounding_box():
@@ -106,28 +106,28 @@ def test_in_bounding_box():
                            'y': np.arange(1, 2),
                            'z': np.arange(1, 2)})
         ret = in_bounding_box(min_xyz, max_xyz, df)
-        assert np.all(ret.values == [True, ])
+        assert_array_equal(ret.values, [True, ])
 
         # check for violation of min_xyz
         df[axis].iloc[0] = 0
         ret = in_bounding_box(min_xyz, max_xyz, df)
-        assert np.all(ret.values == [False, ])
+        assert_array_equal(ret.values, [False, ])
         df[axis].iloc[0] = 1
 
         # check for violation of max_xyz
         df[axis].iloc[0] = 10
         ret = in_bounding_box(min_xyz, max_xyz, df)
-        assert np.all(ret.values == [False, ])
+        assert_array_equal(ret.values, [False, ])
         df[axis].iloc[0] = 1
 
     df = pd.DataFrame({'x': np.arange(0, 10),
                        'y': np.arange(5, 15),
                        'z': np.arange(5, 15)})
     ret = in_bounding_box(min_xyz, max_xyz, df)
-    assert np.all(ret.values == [False,  # x == 0, fails
-                                 True, True, True, True,
-                                 False, False, False, False, False,  # y/z > 9
-                                 ])
+    assert_array_equal(ret.values, [False,  # x == 0, fails
+                                    True, True, True, True,
+                                    False, False, False, False, False,  # y/z > 9
+                                    ])
 
 
 def test_calculate_synapse_conductance():
@@ -162,18 +162,18 @@ def test_regex_to_regions():
     reg_str = '@^region_1$'
     res = test_module._regex_to_regions(reg_str)
 
-    assert np.all(res == ['region_1'])
+    assert_array_equal(res, ['region_1'])
 
     reg_str = r'@^(region_1\|region_2)$'
     res = test_module._regex_to_regions(reg_str)
 
-    assert np.all(res == ['region_1', 'region_2'])
+    assert_array_equal(res, ['region_1', 'region_2'])
 
 
 def test_convert_to_smallest_allowed_int_type():
 
     res = test_module.convert_to_smallest_allowed_int_type(np.array([0, 1]))
-    assert np.all(res == [0, 1])
+    assert_array_equal(res, [0, 1])
     assert res.dtype == np.int16
 
     res = test_module.convert_to_smallest_allowed_int_type(np.array([0, int(2**17)]))

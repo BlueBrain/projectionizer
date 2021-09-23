@@ -1,6 +1,7 @@
 import os
 from voxcell import VoxelData
 import numpy as np
+from numpy.testing import assert_array_equal
 from projectionizer import sscx_hex, utils
 
 
@@ -63,4 +64,4 @@ def test_get_mask_bounding_box():
 
     mask = sscx_hex.get_mask_bounding_box(height, mask, BOUNDING_BOX)
 
-    assert np.all(np.isfinite(height.raw) == mask)
+    assert_array_equal(np.isfinite(height.raw), mask)

@@ -2,7 +2,7 @@ from bluepy import Section, Segment
 from mock import Mock, patch
 from neurom import NeuriteType
 from numpy.testing import (assert_allclose, assert_approx_equal,
-                           assert_array_almost_equal)
+                           assert_array_equal, assert_array_almost_equal)
 from projectionizer import synapses
 import numpy as np
 import pandas as pd
@@ -18,7 +18,7 @@ def test_segment_pref_length():
                        'segment_length': 1})
     ret = synapses.segment_pref_length(df)
     assert isinstance(ret, pd.Series)
-    assert np.all(ret.values == [0, 0, 1, 1])
+    assert_array_equal(ret.values, [0, 0, 1, 1])
 
 
 def _fake_segments(min_xyz, max_xyz, count):
@@ -107,7 +107,7 @@ def test_spherical_sampling():
             res = synapses.spherical_sampling((np.array([0, 0, 0]), 1), 'fake_path', radius=5)
 
             assert len(res) == 2
-            assert np.all(res.gid == segments.iloc[:2].gid)
+            assert_array_equal(res.gid, segments.iloc[:2].gid)
 
     # Test pruning of zero length segments
     start_pos = [Segment.X1, Segment.Y1, Segment.Z1]
@@ -120,7 +120,7 @@ def test_spherical_sampling():
     with patch('projectionizer.synapses._sample_with_flat_index') as mock_sample:
         mock_sample.return_value = segments
         res = synapses.spherical_sampling((np.array([0, 0, 0]), 1), 'fake_path', radius=5)
-        assert np.all(res.gid == segments.iloc[1].gid)
+        assert_array_equal(res.gid, segments.iloc[1].gid)
 
 
 def test_pick_synapses_voxel():
@@ -232,7 +232,7 @@ def test_build_synapses_default():
     synapse_density = [[[0, 7], [2, 8], [3, 67], [7, 42]]]
     oversampling = 3
     syns = synapses.build_synapses_default(height, synapse_density, oversampling)
-    assert np.all(syns.raw == [[[21, 21], [24, 201]], [[201, 201], [201, 0]]])
+    assert_array_equal(syns.raw, [[[21, 21], [24, 201]], [[201, 201], [201, 0]]])
 
     # Test low density
     height = VoxelData(np.full((1000, 1, 1000), 1), (1, 1, 1))

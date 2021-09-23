@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from numpy.testing import assert_allclose
+from numpy.testing import assert_allclose, assert_array_equal
 
 from voxcell import VoxelData
 from voxcell.nexus.voxelbrain import Atlas
@@ -107,6 +107,6 @@ def test_recipe_to_relative_heights_per_layer():
 
     ret = sscx.recipe_to_relative_heights_per_layer(distance, atlas, layers)
 
-    assert np.all(np.isfinite(ret.raw) == atlas.get_region_mask('L6', attr='acronym').raw)
+    assert_array_equal(np.isfinite(ret.raw), atlas.get_region_mask('L6', attr='acronym').raw)
     assert np.all(ret.raw[np.isfinite(ret.raw)] >= 0.0)
     assert np.all(ret.raw[np.isfinite(ret.raw)] <= 1.0)
