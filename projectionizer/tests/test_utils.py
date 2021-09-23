@@ -181,3 +181,11 @@ def test_convert_to_smallest_allowed_int_type():
 
     res = test_module.convert_to_smallest_allowed_int_type(np.array([0, int(2**33)]))
     assert res.dtype == np.int64
+
+
+def convert_layer_to_PH_format(layer_name):
+
+    layers = [f'L{n}' for n in range(11)] + ['layer_name', 'Layer_1', 'L23', 'L3a']
+    expected = [f'{n}' for n in range(11)] + ['L10', 'layer_name', 'Layer_1', 'L23', 'L3a']
+    ret = [test_module.convert_layer_to_PH_format(l) for l in layers]
+    assert_array_equal(ret, expected)

@@ -3,24 +3,9 @@ import logging
 
 import numpy as np
 
+from projectionizer.utils import convert_layer_to_PH_format
+
 L = logging.getLogger(__name__)
-
-
-def column_layers(layers):
-    """
-
-    ie: for the SSCX layer 6 is at the bottom
-
-    Args:
-        layers(list of tuples): of (name, thickness), arranged from 'bottom' to 'top'
-
-    Returns:
-        layer_starts, layer_thickness: dictionaries of LayerName -> starts/thickness
-    """
-    names, thickness = zip(*layers)
-    cum_thickness = np.cumsum([0] + list(thickness))
-    layer_starts = dict(zip(names, cum_thickness))
-    return layer_starts, dict(layers)
 
 
 def relative_distance_layer(distance, layer_ph):
@@ -55,10 +40,9 @@ def recipe_to_relative_heights_per_layer(distance, atlas, layers):
         relative_height (VoxelData): relative voxel heights in <layer_index>.<fraction> format
     """
     relative_heights = np.full_like(distance.raw, np.nan)
-    names, _ = zip(*layers)
 
-    for layer_index, layer in enumerate(names):
-        ph = atlas.load_data("[PH]{}".format(layer))
+    for layer_index, layer in enumerate(layers):
+        ph = atlas.load_data("[PH]{}".format(convert_layer_to_PH_format(layer)))
         mask = (ph.raw[..., 0] <= distance.raw) & (distance.raw <= ph.raw[..., 1])
         ph.raw[np.invert(mask), :] = np.nan
         relative_height = relative_distance_layer(distance, ph.raw)
@@ -79,10 +63,10 @@ def recipe_to_relative_height_and_density(
     50% of the bottom layer and 60% of the third layer from the bottom respectively.
 
     Args:
-        layers(list of tuples(name, thickness)): aranged from 'bottom' to 'top'
-        low_layer(str): layer 'name'
+        layers(list): layer names arranged from 'bottom' to 'top'
+        low_layer(str): low layer 'name'
         low_fraction(float): Fraction into low_layer from which to start the region
-        high_layer(str): layer 'name' (1..6)
+        high_layer(str): high layer 'name' (1..6)
         high_fraction(float): Fraction into high_layer from which to end the region
         distribution(iter of tuples: (percent, density synapses/um3): density is assigned
         to each portion of the region: percent is the midpoint 'histogram'
@@ -90,9 +74,8 @@ def recipe_to_relative_height_and_density(
     Return:
         list of lists of [relative_height, synapse density]
     """
-    layer_names, _ = zip(*layers)
     distribution = np.array(distribution)
-    low_ind, high_ind = layer_names.index(low_layer), layer_names.index(high_layer)
+    low_ind, high_ind = layers.index(low_layer), layers.index(high_layer)
     height_diff = high_ind + high_fraction - low_ind - low_fraction
     heights = distribution[:, 0]
     heights = np.hstack((0, 0.5 * (heights[:-1] + heights[1:]), 1))
@@ -102,35 +85,3 @@ def recipe_to_relative_height_and_density(
     distribution = np.hstack((distribution[:, 1], distribution[-1, 1]))
 
     return np.vstack((relative_height, distribution)).T.tolist()
-
-
-def recipe_to_height_and_density(
-    layers, low_layer, low_fraction, high_layer, high_fraction, distribution
-):
-    """Convert recipe style layer & density values to absolute height & density values
-
-    Args:
-        layers(list of tuples(name, thickness)): aranged from 'bottom' to 'top'
-        low_layer(str): layer 'name'
-        low_fraction(float): Fraction into low_layer from which to start the region
-        high_layer(str): layer 'name' (1..6)
-        high_fraction(float): Fraction into high_layer from which to end the region
-        distribution(iter of tuples: (percent, density synapses/um3): density is assigned
-        to each portion of the region: percent is the midpoint 'histogram'
-
-    Return:
-        list of tuples of (absolute height, synapse density)
-    """
-    layer_starts, layer_thickness = column_layers(layers)
-
-    distribution = np.array(distribution)
-    heights = distribution[:, 0]
-    heights = np.hstack((0, 0.5 * (heights[0:-1] + heights[1:]), 1))
-
-    density = distribution[:, 1]
-    density = np.hstack((density, density[-1]))
-
-    bottom = layer_starts[low_layer] + low_fraction * layer_thickness[low_layer]
-    top = layer_starts[high_layer] + high_fraction * layer_thickness[high_layer]
-    diff = top - bottom
-    return [(bottom + diff * low, density) for low, density in zip(heights, density)]

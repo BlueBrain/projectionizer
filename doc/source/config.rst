@@ -16,7 +16,7 @@ Parameters
  - **sgid_offset**: the offset used for indexing the virtual fibers
  - **n_total_chunks**: in order to prevent RAM from exploding, the computation is splitted into chunks. This is the number of chunks.
  - **oversampling**: the ratio between the number of sampled synapses during the first step and the number of desired synapses. Oversampling is necessary as it allows to remove unwanted synapses with bad connectivity properties while keeping the final number of synapses stable.
- - **layers**: list of tuples with layer names and thicknesses (in um). Thicknesses will be deprecated.
+ - **layers**: list of layer names (as in `hierarchy.json`) arranged from bottom to top (e.g., `[L6, L5, L4, L3, L2, L1]`)
  - **fiber_locations_path**: path to a csv file containing fiber positions and directions (can be generated with `projectionizer generate-fibers[-hex]`)
  - **region**: list of region names to generate projections to
  - **hex_apron_bounding_box**: coordinates of the bounding box of the apron optionally used with columns to reduce edge effects (see: :ref:`apron<FAQ_apron>`)

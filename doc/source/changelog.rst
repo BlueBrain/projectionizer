@@ -14,6 +14,7 @@ New Features
 
 Improvements
 ~~~~~~~~~~~~
+- Removed layer thicknesses from config
 - Updated documentation
 - Parallelization with multiple nodes
 - Ensured runs are reproducable

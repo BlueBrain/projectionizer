@@ -227,6 +227,15 @@ def convert_to_smallest_allowed_int_type(data):
     return data
 
 
+def convert_layer_to_PH_format(layer_name):
+    """Convert layer to format used in '[PH]' files.
+
+    Currently only used due to layers LX (L1,L2,...) having files named [PH]X.nrrd.
+    """
+    match = re.match(r"^L(\d)$", layer_name)
+    return match.group(1) if match else layer_name
+
+
 @contextmanager
 def delete_file_on_exception(path):
     """Delete the file on given path if an exception is thrown in the body"""
