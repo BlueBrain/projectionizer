@@ -30,9 +30,9 @@ Parameters
  - **high_fraction**: the relative position with respect to the start of high_layer
 
  Example:
-   | low_layer: 4
+   | low_layer: L4
    | low_fraction: 0
-   | high_layer: 3
+   | high_layer: L3
    | high_fraction: 0.5
    | density_profile: [[0.25, 0.01], [0.50, 0.02], [0.75, 0.03]]
 
