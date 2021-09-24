@@ -34,7 +34,7 @@ def recipe_to_relative_heights_per_layer(distance, atlas, layers):
     Args:
         distance (VoxelData): distance from the bottom
         atlas (voxcell.Atlas): atlas instance for the circuit
-        layers(list of tuples(name, thickness)): aranged from 'bottom' to 'top'
+        layers(list): layer names arranged from 'bottom' to 'top'
 
     Returns:
         relative_height (VoxelData): relative voxel heights in <layer_index>.<fraction> format
