@@ -11,7 +11,7 @@ Parameters
 
 **CommonParams** lists params than are common to all tasks.
  - **circuit_config**: the CircuitConfig absolute path.
- - **recipe_path**: The path to the XML recipe that is used by Spykfunc
+ - **physiology_path**: The path to the XML recipe that is used by Spykfunc
  - **morphology_path**: The path to the morphology release
  - **sgid_offset**: the offset used for indexing the virtual fibers
  - **n_total_chunks**: in order to prevent RAM from exploding, the computation is splitted into chunks. This is the number of chunks.

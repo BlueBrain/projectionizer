@@ -34,7 +34,7 @@ class CommonParams(Config):
 
     circuit_config = Parameter()
     morphology_path = Parameter()
-    recipe_path = Parameter()
+    physiology_path = Parameter()
     folder = Parameter()
     n_total_chunks = IntParameter()
     sgid_offset = IntParameter()

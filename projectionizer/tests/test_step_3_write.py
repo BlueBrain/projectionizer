@@ -34,7 +34,7 @@ def test_WriteUserTargetTxt():
         class TestWriteUserTargetTxt(step_3_write.WriteUserTargetTxt):
             efferent = False
             folder = tmp_folder
-            recipe_path = morphology_path = circuit_config = 'fake_string'
+            physiology_path = morphology_path = circuit_config = 'fake_string'
             geometry = n_total_chunks = sgid_offset = oversampling = None
             extension = None
             layers = ''
@@ -60,7 +60,7 @@ def test_VirtualFibers():
         class TestVirtualFibers(step_3_write.VirtualFibers):
             folder = tmp_folder
             sgid_offset = 10
-            recipe_path = morphology_path = circuit_config = 'fake_string'
+            physiology_path = morphology_path = circuit_config = 'fake_string'
             geometry = n_total_chunks = oversampling = None
             layers = ''
 
@@ -108,7 +108,7 @@ def test_WriteSonata():
 
         class TestWriteSonata(step_3_write.WriteSonata):
             folder = tmp_folder
-            recipe_path = morphology_path = circuit_config = 'fake_string'
+            physiology_path = morphology_path = circuit_config = 'fake_string'
             sgid_offset = geometry = n_total_chunks = oversampling = None
             node_population = NODE_POPULATION
             edge_population = EDGE_POPULATION
@@ -185,7 +185,7 @@ def test_WriteSonataNodes():
 
         class TestWriteSonataNodes(step_3_write.WriteSonataNodes):
             folder = tmp_folder
-            recipe_path = morphology_path = circuit_config = 'fake_string'
+            physiology_path = morphology_path = circuit_config = 'fake_string'
             sgid_offset = geometry = n_total_chunks = oversampling = None
             node_population = NODE_POPULATION
             edge_population = EDGE_POPULATION
@@ -223,7 +223,7 @@ def test_WriteSonataEdges():
 
         class TestWriteSonataEdges(step_3_write.WriteSonataEdges):
             folder = tmp_folder
-            recipe_path = morphology_path = circuit_config = 'fake_string'
+            physiology_path = morphology_path = circuit_config = 'fake_string'
             sgid_offset = geometry = n_total_chunks = oversampling = None
             node_population = NODE_POPULATION
             edge_population = EDGE_POPULATION
@@ -255,7 +255,7 @@ def test_RunSpykfunc():
     with setup_tempdir('test_step3') as tmp_folder:
         class TestRunSpykfunc(step_3_write.RunSpykfunc):
             folder = tmp_folder
-            recipe_path = morphology_path = circuit_config = 'fake_string'
+            physiology_path = morphology_path = circuit_config = 'fake_string'
             sgid_offset = geometry = n_total_chunks = oversampling = None
             layers = ''
 
@@ -292,7 +292,7 @@ def test_RunParquetConverter():
     with setup_tempdir('test_step3') as tmp_folder:
         class TestRunParquetConverter(step_3_write.RunParquetConverter):
             folder = tmp_folder
-            recipe_path = morphology_path = circuit_config = 'fake_string'
+            physiology_path = morphology_path = circuit_config = 'fake_string'
             sgid_offset = geometry = n_total_chunks = oversampling = None
             layers = ''
 

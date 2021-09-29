@@ -34,7 +34,7 @@ def test_VolumeSample():
 
         class TestVolumeSample(test_module.VolumeSample):
             folder = tmp_folder
-            recipe_path = morphology_path = circuit_config = 'fake_string'
+            physiology_path = morphology_path = circuit_config = 'fake_string'
             sgid_offset = n_total_chunks = oversampling = None
             layers = ''
             additive_path_distance = radius = 10
@@ -66,7 +66,7 @@ def test_ScaleConductance():
     with setup_tempdir('test_scale_conductance') as tmp_folder:
         class TestScaleConductance(test_module.ScaleConductance):
             folder = tmp_folder
-            recipe_path = morphology_path = circuit_config = 'fake_string'
+            physiology_path = morphology_path = circuit_config = 'fake_string'
             sgid_offset = n_total_chunks = oversampling = None
             edge_population = 'fake_edges'
             layers = ''

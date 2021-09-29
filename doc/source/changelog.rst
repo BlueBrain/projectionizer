@@ -18,6 +18,7 @@ Improvements
 - Updated documentation
 - Parallelization with multiple nodes
 - Ensured runs are reproducable
+- Renamed `recipe_path` to `physiology_path` in config
 - `generate-fibers(-hex)` will now read circuit path, regions and bounding rectangle from the YAML config given as an argument
 - Code style improvements
 - Improved test coverage and added a restriction to 100% coverage

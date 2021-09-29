@@ -220,12 +220,12 @@ class RunSpykfunc(WriteSonata):
         if _check_if_old_syntax(self.module_archive):
             command += (
                 f"--touches {edges} {self.edge_population} "
-                f"{self.recipe_path} "
+                f"{self.physiology_path} "
                 f"{self.morphology_path} "
             )
         else:
             command += (
-                f"'--recipe' {self.recipe_path} "
+                f"'--recipe' {self.physiology_path} "
                 f"'--morphologies' {self.morphology_path} "
                 f"{edges} {self.edge_population} "
             )

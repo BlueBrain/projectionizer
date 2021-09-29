@@ -33,7 +33,7 @@ def test_FolderTask():
 def test_common_params():
     params = {'circuit_config': 'circuit',
               'morphology_path': 'a/fake/path',
-              'recipe_path': 'a/fake/path',
+              'physiology_path': 'a/fake/path',
               'folder': '/none/existant/path',
               'n_total_chunks': 'n_chunks',
               'sgid_offset': 0,
