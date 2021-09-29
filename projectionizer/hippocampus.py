@@ -151,7 +151,7 @@ def full_sample_parallel(brain_regions, region, region_id, index_path, output):
         _full_sample_worker, index_path=index_path, voxel_dimensions=brain_regions.voxel_dimensions
     )
     for i, xyzs in enumerate(np.array_split(positions, chunks, axis=0)):
-        path = os.path.join(output, "%s_%d_%03d.feather" % (region, region_id, i))
+        path = os.path.join(output, f"{region}_{region_id}_{i:03d}.feather")
 
         if os.path.exists(path):
             L.info("Already did: %s", path)

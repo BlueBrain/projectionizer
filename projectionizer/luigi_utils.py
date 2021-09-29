@@ -76,11 +76,9 @@ class CommonParams(Config):
 
     def output(self):
         name = camel2spinal_case(self.__class__.__name__)
-        target = "{}/{}.{}".format(self.folder, name, self.extension)
+        target = f"{self.folder}/{name}.{self.extension}"
         if hasattr(self, "chunk_num"):
-            target = "{}/{}-{}.{}".format(
-                self.folder, name, getattr(self, "chunk_num"), self.extension
-            )
+            target = f"{self.folder}/{name}-{getattr(self, 'chunk_num')}.{self.extension}"
         return LocalTarget(target)
 
     def requires(self):

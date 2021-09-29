@@ -47,7 +47,7 @@ def draw_layer_boundaries(ax, layer_thickness):
     for name, delta in layer_thickness:
         total += delta
         ax.axvline(x=total, color="green")
-        ax.text(x=total, y=100, s="Layer %s" % name)
+        ax.text(x=total, y=100, s=f"Layer {name}")
     ax.set_xlim([0, total])
 
 
@@ -130,7 +130,7 @@ def synapse_density_per_voxel(folder, synapses, layer_thickness, distmap, oversa
 
     ax.set_xlabel("Voxel height (um)")
     ax.set_ylabel(r"Synaptical density ($\mathregular{um^{-3}}$)")
-    fig.savefig(os.path.join(folder, "{}_density_per_voxel.png".format(prefix)))
+    fig.savefig(os.path.join(folder, f"{prefix}_density_per_voxel.png"))
 
 
 def remove_synapses_with_sgid(synapses, sgids):
@@ -215,11 +215,11 @@ def synapse_density(keep_syn, distmap, layer_thickness, bin_width=25, oversampli
 
 def fraction_pruned_vs_height(folder, n_chunks):
     """Plot how many synapses are pruned vs height"""
-    kept = read_feather("{}/choose-connections-to-keep.feather".format(folder))
+    kept = read_feather(f"{folder}/choose-connections-to-keep.feather")
     chunks = []
     for i in range(n_chunks):
-        df = read_feather("{}/sample-chunk-{}.feather".format(folder, i))
-        sgid = read_feather("{}/fiber-assignment-{}.feather".format(folder, i))
+        df = read_feather(f"{folder}/sample-chunk-{i}.feather")
+        sgid = read_feather(f"{folder}/fiber-assignment-{i}.feather")
         chunks.append(df[["tgid", "y"]].join(sgid))
 
     fat = pd.merge(
@@ -280,7 +280,7 @@ def syns_per_connection(choose_connections, cutoffs, folder, target_mtypes):
     choose_connections[choose_connections.kept].loc[:, "connection_size"].hist(bins=bins_syn)
     mean_value = choose_connections[choose_connections.kept].loc[:, "connection_size"].mean()
     plt.axvline(x=mean_value, color="red")
-    ax.set_title("Synapse / connection: {}".format(mean_value))
+    ax.set_title(f"Synapse / connection: {mean_value}")
     fig.savefig(os.path.join(folder, "syns_per_connection.png"))
 
     fig, ax = _get_ax()
@@ -290,8 +290,7 @@ def syns_per_connection(choose_connections, cutoffs, folder, target_mtypes):
     plt.axvline(x=mean_value, color="red")
     ax.set_xlabel("Synapse count per connection")
     ax.set_title(
-        "Number of synapses/connection for {} cells\n"
-        "mean value = {}".format(target_mtypes, mean_value)
+        f"Number of synapses/connection for {target_mtypes} cells\nmean value = {mean_value}"
     )
     fig.savefig(os.path.join(folder, "syns_per_connection_checked.png"))
 
@@ -301,8 +300,8 @@ def syns_per_connection(choose_connections, cutoffs, folder, target_mtypes):
     plt.axvline(x=mean_value, color="red")
     ax.set_xlabel("Synapse count per connection")
     ax.set_title(
-        "Number of synapses/connection for {} cells pre-pruning\n"
-        "mean value = {}".format(target_mtypes, mean_value)
+        f"Number of synapses/connection for {target_mtypes} cells pre-pruning\n"
+        f"mean value = {mean_value}"
     )
     fig.savefig(os.path.join(folder, "syns_per_connection_checked_pre_pruning.png"))
 
@@ -345,7 +344,7 @@ def innervation_width(pruned, circuit_config, folder):
         bins=40
     )
     ax.set_title("Innervation width (along X axis)")
-    fig.savefig("{}/innervation_x_width.png".format(folder))
+    fig.savefig(f"{folder}/innervation_x_width.png")
 
 
 def thalamo_cortical_cells_per_fiber(pruned, folder):
@@ -371,14 +370,14 @@ def thalamo_cortical_cells_per_fiber(pruned, folder):
     plt.text(
         np.mean(counts),
         (bar_pos + 0.025) * max(plt.ylim()),
-        "{:.2f}".format(np.mean(counts)),
+        f"{np.mean(counts):.2f}",
         color="gray",
         va="bottom",
         ha="center",
     )
     plt.gca().spines["top"].set_visible(False)
     plt.gca().spines["right"].set_visible(False)
-    plt.title("Thalamo-cortical projections (N={} fibers)".format(n_fibers))
+    plt.title(f"Thalamo-cortical projections (N={n_fibers} fibers)")
     plt.xlabel("#Efferent neurons per thalamic fiber")
     plt.ylabel("Count")
     plt.savefig(os.path.join(folder, "tc_efferents.png"), dpi=150)
@@ -409,7 +408,7 @@ def distribution_synapses_per_connection(pruned, folder):
     plt.text(
         np.mean(counts),
         (bar_pos + 0.025) * max(plt.ylim()),
-        "{:.2f}".format(np.mean(counts)),
+        f"{np.mean(counts):.2f}",
         color=mean_colors[0],
         va="bottom",
         ha="center",
@@ -434,7 +433,7 @@ def _synapses_per_connection_stats(pruned, cells, reg, sclass, lay):
         lay = int(lay)
     if re.match(r"mc.*_Column", reg):
         # if region is mc<N>_Column, it can be mc<N>;<layer> or mc<N>_Column
-        reg = [reg, re.sub("(mc.*)_Column", r"\g<1>", reg) + ";{}".format(lay)]
+        reg = [reg, re.sub("(mc.*)_Column", r"\g<1>", reg) + f";{lay}"]
     else:
         reg = [reg]
     tids_tmp = cells[
@@ -507,7 +506,7 @@ def distribution_synapses_per_connection_per_layer(pruned, regions, layers, circ
                     plt.text(
                         conns_mn,
                         (bar_pos[sidx] + 0.01) * max(plt.ylim()),
-                        "{:.2f}".format(conns_mn),
+                        f"{conns_mn:.2f}",
                         color=mean_colors[sidx],
                         va="bottom",
                         ha="center",
@@ -528,11 +527,9 @@ def distribution_synapses_per_connection_per_layer(pruned, regions, layers, circ
                 if lidx == len(layers) - 1 and ridx == len(regions) - 1:
                     plt.legend()
 
-            plt.suptitle("Thalamo-cortical projections [{}]".format(syn_classes[sidx]))
+            plt.suptitle(f"Thalamo-cortical projections [{syn_classes[sidx]}]")
 
-            save_path = os.path.join(
-                folder, "synapses_per_connection_{}.png".format(sclass.lower())
-            )
+            save_path = os.path.join(folder, f"synapses_per_connection_{sclass.lower()}.png")
             plt.savefig(save_path, dpi=150)
 
 
@@ -679,7 +676,7 @@ def synapse_density_profiles_region(
             plt.text(
                 xmax,
                 100.0 * np.mean(height_range[lidx, ridx, :]),
-                "  {}".format(lay),
+                f"  {lay}",
                 color=lcolors[lidx, :],
                 ha="left",
                 va="center",
@@ -791,7 +788,7 @@ class LayerThickness(JsonTask):
         res = []
         atlas = Circuit(self.circuit_config).atlas
         for layer in self.layers:  # pylint: disable=not-an-iterable
-            ph = atlas.load_data("[PH]{}".format(convert_layer_to_PH_format(layer)))
+            ph = atlas.load_data(f"[PH]{convert_layer_to_PH_format(layer)}")
             thickness = ph.raw[..., 1] - ph.raw[..., 0]
             mean = thickness[np.isfinite(thickness)].mean()
             res.append([layer, float(mean)])

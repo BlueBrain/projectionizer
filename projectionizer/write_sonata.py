@@ -12,7 +12,7 @@ def write_nodes(syns, path, population_name, mtype, keep_offset=True):
         sgid_count = syns.sgid.max() - syns.sgid.min() + 1
 
     with h5py.File(path, "w") as h5:
-        population_path = "/nodes/%s" % population_name
+        population_path = f"/nodes/{population_name}"
         group = h5.create_group(population_path)
         group["node_type_id"] = np.full((sgid_count,), -1, dtype=np.int8)
         attributes = group.create_group("0")
@@ -61,7 +61,7 @@ def write_edges(syns, path, population_name, keep_offset=True):
         min_sgid = syns.sgid.min()
 
     with h5py.File(path, "w") as h5:
-        population_path = "/edges/%s" % population_name
+        population_path = f"/edges/{population_name}"
         group = h5.create_group(population_path)
 
         group["source_node_id"] = syns.sgid.to_numpy() - min_sgid

@@ -42,7 +42,7 @@ def recipe_to_relative_heights_per_layer(distance, atlas, layers):
     relative_heights = np.full_like(distance.raw, np.nan)
 
     for layer_index, layer in enumerate(layers):
-        ph = atlas.load_data("[PH]{}".format(convert_layer_to_PH_format(layer)))
+        ph = atlas.load_data(f"[PH]{convert_layer_to_PH_format(layer)}")
         mask = (ph.raw[..., 0] <= distance.raw) & (distance.raw <= ph.raw[..., 1])
         ph.raw[np.invert(mask), :] = np.nan
         relative_height = relative_distance_layer(distance, ph.raw)

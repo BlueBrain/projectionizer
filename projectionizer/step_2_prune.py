@@ -35,9 +35,9 @@ class GroupByConnection(luigi_utils.FeatherTask):
 
         synapses.rename(columns={"gid": "tgid"}, inplace=True)
         mtypes = Circuit(self.circuit_config).cells.get(properties="mtype")
-        assert len(synapses) == len(sgids), "len(synapses): {} != len(sgids): {}".format(
-            len(synapses), len(sgids)
-        )
+        assert len(synapses) == len(
+            sgids
+        ), f"len(synapses): {len(synapses)} != len(sgids): {len(sgids)}"
         tgid_sgid_mtype = synapses[["tgid"]].join(sgids).join(mtypes, on="tgid")
         res = tgid_sgid_mtype[["mtype", "tgid", "sgid"]]
         write_feather(self.output().path, res)

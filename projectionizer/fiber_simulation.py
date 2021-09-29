@@ -209,8 +209,8 @@ def mask_layers_in_regions(atlas, layers, regions):
 def get_region_ids(atlas, layers, regions):
     """Get region id's for the regions and layers."""
     rmap = atlas.load_region_map()
-    regex_str_regions = "@^({})$".format("|".join(regions))
-    regex_str_layers = "@^.*({})$".format("|".join(layers))
+    regex_str_regions = f"@^({'|'.join(regions)})$"
+    regex_str_layers = f"@^.*({'|'.join(layers)})$"
 
     id_regions_children = rmap.find(regex_str_regions, attr="acronym", with_descendants=True)
     id_layers_all_regions = rmap.find(regex_str_layers, attr="acronym")

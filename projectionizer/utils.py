@@ -78,7 +78,7 @@ def load(filename):
             ".yaml": lambda: read_yaml(filename),
         }[extension]()
     except KeyError as key_error:
-        raise NotImplementedError("Do not know how open: {}".format(filename)) from key_error
+        raise NotImplementedError(f"Do not know how open: {filename}") from key_error
 
 
 def load_all(inputs):

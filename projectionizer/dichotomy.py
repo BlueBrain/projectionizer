@@ -51,7 +51,7 @@ class Dichotomy(JsonTask):
 
     def output(self):
         name = camel2spinal_case(type(self).__name__)
-        return LocalTarget("{}/{}.json".format(self.folder, name))
+        return LocalTarget(f"{self.folder}/{name}.json")
 
     def requires(self):
         return FolderTask(folder=self.folder)
@@ -59,7 +59,7 @@ class Dichotomy(JsonTask):
 
 def sub_folder(base_folder, param):
     """Return the directory for the given param"""
-    return os.path.join(base_folder, "param_{}".format(param))
+    return os.path.join(base_folder, f"param_{param}")
 
 
 class TargetMismatch(JsonTask):

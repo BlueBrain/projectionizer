@@ -35,9 +35,9 @@ def write_user_target(output, synapses, name):
         name(str): name of target
     """
     with open(output, "w", encoding="utf-8") as fd:
-        fd.write("Target Cell %s {\n" % name)
+        fd.write(f"Target Cell {name} {{\n")
         for tgid in sorted(synapses.sgid.unique()):
-            fd.write("    a{}\n".format(tgid))
+            fd.write(f"    a{tgid}\n")
         fd.write("}\n")
 
 
@@ -140,7 +140,7 @@ class WriteUserTargetTxt(WriteSonata):
         write_user_target(self.output().path, synapses, name=self.mtype)
 
     def output(self):
-        return LocalTarget("{}/user.target".format(self.folder))
+        return LocalTarget(f"{self.folder}/user.target")
 
 
 class WriteAll(CommonParams):  # pragma: no cover
