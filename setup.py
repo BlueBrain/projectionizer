@@ -17,7 +17,8 @@ setup(
         "tables>=3.4",
         "pyarrow>=0.11.1",
         # BBP
-        "bluepy>=2",
+        # until next release of morphio, see: https://github.com/BlueBrain/MorphIO/pull/330
+        "bluepy>=2,<2.3",
         "libFLATIndex>=1.8.11",
         "voxcell>=3",
     ],

@@ -22,3 +22,7 @@ Improvements
 - Code style improvements
 - Improved test coverage and added a restriction to 100% coverage
 - Added basic linting and `isort` to tests
+
+Bug Fixes
+~~~~~~~~~
+- Restrict bluepy<2.3 until next release of MorphIO (see https://github.com/BlueBrain/MorphIO/pull/330)

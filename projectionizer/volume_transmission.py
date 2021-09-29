@@ -18,6 +18,7 @@ from projectionizer.utils import (
     XYZ,
     XYZUVW,
     calculate_synapse_conductance,
+    delete_file_on_exception,
     load,
     map_parallelize,
     write_feather,
@@ -91,16 +92,20 @@ class ScaleConductance(CommonParams):
     interval = ListParameter([1.0, 0.1])
 
     def requires(self):  # pragma: no cover
-        return self.clone(VolumeWriteSonata), self.clone(VolumeSample)
+        target_population = self.clone(step_3_write.WriteSonata).target_population
+        return (
+            self.clone(VolumeWriteSonata, target_population=target_population),
+            self.clone(VolumeSample),
+        )
 
     def run(self):
         L.info("Scaling conductance according to distance...")
         syns = load(self.input()[1].path)
         edge_population = self.requires()[0].edge_population
         radius = self.requires()[1].radius
+        filepath = self.output().path
 
-        try:
-            filepath = self.output().path
+        with delete_file_on_exception(filepath):
             shutil.copyfile(self.input()[0].path, filepath)
 
             with h5py.File(filepath, "r+") as projections:
@@ -108,10 +113,6 @@ class ScaleConductance(CommonParams):
                 conductance[...] = calculate_synapse_conductance(
                     conductance[:], syns.distance_volume_transmission, radius, self.interval
                 )
-        except Exception:
-            if os.path.exists(filepath):
-                os.remove(filepath)
-            raise
 
     def output(self):
         name, ext = os.path.splitext(self.input()[0].path)
