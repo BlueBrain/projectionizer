@@ -1,7 +1,6 @@
 """tools for writing sonata files"""
 import h5py
 import numpy as np
-from six import text_type
 
 
 def write_nodes(syns, path, population_name, mtype, keep_offset=True):
@@ -25,7 +24,7 @@ def write_nodes(syns, path, population_name, mtype, keep_offset=True):
         attributes["region"] = attributes["mtype"]
 
         library = attributes.create_group("@library")
-        str_dt = h5py.special_dtype(vlen=text_type)
+        str_dt = h5py.string_dtype(encoding="utf-8")
         library.create_dataset(
             "mtype",
             data=[
