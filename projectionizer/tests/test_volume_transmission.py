@@ -1,15 +1,16 @@
 import os
 
-from bluepy import Section, Segment
 import h5py
-import pandas as pd
 import numpy as np
-from luigi import  Task
+import pandas as pd
+from bluepy import Section, Segment
+from luigi import Task
 from mock import Mock, patch
 from numpy.testing import assert_array_equal, assert_equal, assert_raises
 
-from utils import setup_tempdir
 from projectionizer import volume_transmission as test_module
+
+from utils import setup_tempdir
 
 
 def test_get_spherical_samples():
@@ -45,7 +46,7 @@ def test_VolumeSample():
         @patch.object(test_module, 'load', return_value=fibers)
         @patch.object(test_module, '_get_spherical_samples', return_value=samples)
         @patch.object(test_module, 'calc_pathlength_to_fiber_start', return_value=distances)
-        def run_tests(*args):
+        def run_tests(*_):
             test = TestVolumeSample()
             test.run()
 
@@ -99,4 +100,3 @@ def test_ScaleConductance():
                 patched.side_effect = RuntimeError('fake error')
                 assert_raises(RuntimeError, test.run)
                 assert not os.path.exists(os.path.join(tmp_folder, test.output().path))
-

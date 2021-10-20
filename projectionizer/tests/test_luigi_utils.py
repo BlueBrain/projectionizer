@@ -1,11 +1,15 @@
 import os
 import tempfile
-import pytest
 
-from luigi import Task, build, Parameter
-from luigi.parameter import ParameterException
+import pytest
+from luigi import Parameter, Task, build
 from luigi.local_target import LocalTarget
+from luigi.parameter import ParameterException
+from mock import patch
+from numpy.testing import assert_array_equal
+
 from projectionizer import luigi_utils as lu
+
 from utils import setup_tempdir
 
 
@@ -40,6 +44,7 @@ def test_common_params():
                          (3, 352.92508322),
                          (2, 148.87602025),
                          (1, 164.94915873), ],
+              'regions': ['region_1', 'region_2'],
               }
 
     class TestCommonParams(lu.CommonParams):
@@ -47,6 +52,18 @@ def test_common_params():
 
     task = TestCommonParams(**params)
     assert task.output().path == '/none/existant/path/test-common-params.out'
+
+    assert_array_equal(params['regions'], task.get_regions())
+    task.regions = []
+
+    with patch('projectionizer.luigi_utils.read_regions_from_manifest') as patched:
+        patched.return_value = []
+        pytest.raises(AssertionError, task.get_regions)
+
+    path = './relative_path'
+    assert task.load_data(path) is path
+    path = 'file_name.txt'
+    assert task.load_data(path) is not path
 
     class TestCommonParamsChunk(TestCommonParams):
         chunk_num = 42
@@ -73,7 +90,7 @@ def test_RunAnywayTargetTempDir():
 
         class Test(Task):
             def run(self):
-                with open(self.output().path, 'w') as fd:
+                with open(self.output().path, 'w', encoding='utf-8') as fd:
                     fd.write('test')
             def output(self):
                 return LocalTarget(os.path.join(tmp_dir, 'out.txt'))

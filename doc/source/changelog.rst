@@ -19,3 +19,6 @@ Improvements
 - Parallelization with multiple nodes
 - Ensured runs are reproducable
 - `generate-fibers(-hex)` will now read circuit path, regions and bounding rectangle from the YAML config given as an argument
+- Code style improvements
+- Improved test coverage and added a restriction to 100% coverage
+- Added basic linting and `isort` to tests

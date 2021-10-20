@@ -1,22 +1,20 @@
+import logging
 import os
 import shutil
 import subprocess
 
 import h5py
-from luigi import Task
-from mock import Mock, patch
 import numpy as np
 import pandas as pd
 import pytest
+from luigi import Task
+from mock import Mock, patch
 
 from projectionizer import step_3_write
 from projectionizer.utils import write_feather
 
-from utils import (setup_tempdir,
-                   EDGE_POPULATION,
-                   NODE_POPULATION,
-                   TEST_DATA_DIR)
-import logging
+from utils import EDGE_POPULATION, NODE_POPULATION, TEST_DATA_DIR, setup_tempdir
+
 logging.basicConfig()
 L = logging.getLogger(__name__)
 
@@ -204,7 +202,7 @@ def test_WriteSonataNodes():
         assert os.path.isfile(test.output().path)
 
         with h5py.File(test.output().path, 'r') as h5:
-            len(h5[f'nodes/{NODE_POPULATION}/node_type_id']) == data['sgid'][0]
+            assert len(h5[f'nodes/{NODE_POPULATION}/node_type_id']) == data['sgid'][0]
 
 
 def test_WriteSonataEdges():
@@ -242,8 +240,8 @@ def test_WriteSonataEdges():
         assert os.path.isfile(test.output().path)
 
         with h5py.File(test.output().path, 'r') as h5:
-            h5[f'edges/{EDGE_POPULATION}/source_node_id'][0] == data['sgid'][0] - 1
-            h5[f'edges/{EDGE_POPULATION}/target_node_id'][0] == data['tgid'][0] - 1
+            assert h5[f'edges/{EDGE_POPULATION}/source_node_id'][0] == data['sgid'][0] - 1
+            assert h5[f'edges/{EDGE_POPULATION}/target_node_id'][0] == data['tgid'][0] - 1
 
 
 def test_check_if_old_syntax():
@@ -299,7 +297,7 @@ def test_RunParquetConverter():
             layers = ''
 
             def run(self):
-                with open(self.output().path, 'w') as fd:
+                with open(self.output().path, 'w', encoding='utf-8') as fd:
                     fd.write('')
                 super().run()
 

@@ -1,28 +1,14 @@
 import numpy as np
 import pandas as pd
+from mocks import create_candidates, create_virtual_fibers
 from numpy.testing import assert_allclose, assert_array_equal
-
 from voxcell import VoxelData
 from voxcell.nexus.voxelbrain import Atlas
+
 from projectionizer import sscx
 from projectionizer.step_1_assign import assign_synapse_fiber
-from projectionizer.utils import choice
 
 from utils import TEST_DATA_DIR
-from mocks import (
-    create_candidates,
-    create_synapse_counts,
-    create_virtual_fibers
-)
-
-
-RAT_LAYERS = [('L6', 700),
-              ('L5', 525),
-              ('L4', 189),
-              ('L3', 352),
-              ('L2', 148),
-              ('L1', 164),
-              ]
 
 
 def test_assign_synapse_fiber():

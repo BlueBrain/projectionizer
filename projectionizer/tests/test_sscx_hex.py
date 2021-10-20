@@ -1,9 +1,10 @@
 import os
-from voxcell import VoxelData
+
 import numpy as np
 from numpy.testing import assert_array_equal
-from projectionizer import sscx_hex, utils
+from voxcell import VoxelData
 
+from projectionizer import sscx_hex, utils
 
 BOUNDING_BOX = np.array([[110, 400], [579.99, 799.99]])
 BOUNDING_BOX_APRON = [BOUNDING_BOX[0] - 10,  BOUNDING_BOX[1] + 10]

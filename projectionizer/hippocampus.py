@@ -11,6 +11,7 @@ from projectionizer import synapses, utils
 from projectionizer.utils import (
     convert_to_smallest_allowed_int_type,
     in_bounding_box,
+    min_max_axis,
     write_feather,
 )
 
@@ -38,11 +39,6 @@ SEGMENT_COLUMNS = sorted(
     + SEGMENT_END_COLS
     + ["tgid"]
 )
-
-
-def _min_max_axis(min_xyz, max_xyz):
-    """get min/max axis"""
-    return np.minimum(min_xyz, max_xyz), np.maximum(min_xyz, max_xyz)
 
 
 def _full_sample_worker(min_xyzs, index_path, voxel_dimensions):
@@ -83,7 +79,12 @@ def _full_sample_worker(min_xyzs, index_path, voxel_dimensions):
 
         # keep only the segments whose midpoints are in the current voxel
         locations = pd.DataFrame((ends + starts) / 2.0, columns=list("xyz"), index=df.index)
-        df = df[in_bounding_box(*_min_max_axis(min_xyz, max_xyz), df=locations)]
+        df = df[
+            in_bounding_box(
+                *min_max_axis(min_xyz, max_xyz),  # pylint: disable=protected-access
+                df=locations,
+            )
+        ]
 
         if df is None or len(df) == 0:
             continue
@@ -129,8 +130,10 @@ def full_sample_parallel(brain_regions, region, region_id, index_path, output):
 
     Args:
         brain_regions(VoxelData): brain regions
+        region(str): name of the region to sample
         region_id(int): single region id to sample
         index_path(str): directory where FLATIndex can find SEGMENT_*
+        output(str): directory where to save the data
     """
     output = os.path.join(output, SAMPLE_PATH)
     if not os.path.exists(output):

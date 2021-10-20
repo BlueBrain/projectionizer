@@ -15,6 +15,7 @@ from projectionizer.utils import (
     convert_to_smallest_allowed_int_type,
     in_bounding_box,
     map_parallelize,
+    min_max_axis,
     normalize_probability,
 )
 
@@ -80,12 +81,7 @@ def build_synapses_default(height, synapse_density, oversampling):
     return height.with_data(raw)
 
 
-def _min_max_axis(min_xyz, max_xyz):
-    """get min/max axis"""
-    return np.minimum(min_xyz, max_xyz), np.maximum(min_xyz, max_xyz)
-
-
-def _sample_with_flat_index(index_path, min_xyz, max_xyz):
+def _sample_with_flat_index(index_path, min_xyz, max_xyz):  # pragma: no cover
     """use flat index to get segments within min_xyz, max_xyz"""
     #  this is loaded late so that multiprocessing loads it outside of the main
     #  python binary - at one point, this was necessary, as there was shared state
@@ -225,7 +221,7 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
 
     # keep only the segments whose midpoints are in the current voxel
     in_bb = pd.DataFrame((ends + starts) / 2.0, columns=list("xyz"), index=segs_df.index)
-    in_bb = in_bounding_box(*_min_max_axis(min_xyz, max_xyz), df=in_bb)
+    in_bb = in_bounding_box(*min_max_axis(min_xyz, max_xyz), df=in_bb)
 
     segs_df = segs_df[in_bb].copy()  # pylint: disable=unsubscriptable-object
 

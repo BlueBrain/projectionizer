@@ -10,19 +10,16 @@ module load brainbuilder
 brainbuilder sonata from-syn2 -o O0_ca1_20191017_sorted.sonata O0_ca1_20191017_sorted.syn2
 '''
 
-from functools import partial
 from glob import glob
 import logging
 import os
 import shutil
 import sys
 
-import yaml
-
 import click
 import numpy as np
 import pandas as pd
-from projectionizer import hippocampus, utils, version, write_syn2 as syn2, write_sonata as sonata
+from projectionizer import hippocampus, utils, version, write_sonata as sonata
 
 from bluepy import Circuit
 
@@ -266,32 +263,6 @@ def merge(ctx):
             utils.write_feather(filepath, data)
 
 
-def _write_syn2(output_path, source_path, cells, synapse_parameters):
-    L.debug('Loading: %s', source_path)
-    syns = (utils.read_feather(source_path)
-            .join(cells[['morph_class', 'mtype', ]], on='tgid')
-            )
-
-    syns['delay'] = 1  # default delay, as specified by Armando
-
-    syns['synapse_type_name'] = (syns.morph_class == 'INT').astype(np.uint8)
-
-    synapse_data = {'type_0': {'physiology': synapse_parameters['PYR']},
-                    'type_1': {'physiology': synapse_parameters['INT']},
-                    }
-    for i, name in enumerate(synapse_parameters):
-        if name in ('INT', 'PYR', ):
-            continue
-        params = synapse_parameters[name]
-        assert 'mtypes' in params, 'Must list the mtypes for special parameters'
-        mask = np.isin(syns.mtype.values, list(params['mtypes']))
-        syns['synapse_type_name'].values[mask] = i + 2
-        synapse_data['type_%d' % (i + 2)] = {'physiology': params}
-
-    synapse_data_creator = partial(syn2.create_synapse_data, synapse_data=synapse_data)
-    syn2.write_synapses(syns, output_path, synapse_data_creator)
-
-
 @cli.command()
 @click.pass_context
 def write_sonata(ctx):
@@ -315,51 +286,6 @@ def write_sonata(ctx):
     sonata.write_nodes(syns, node_path, node_population, 'virtual', keep_offset=True)
     L.debug('Writing %s', edge_path)
     sonata.write_edges(syns, edge_path, edge_population, keep_offset=True)
-
-
-@cli.command()
-@click.option('--region', required=True)
-@click.pass_context
-def write_syn2(ctx, region):
-    '''Write out the syn2 synapse file, corresponding to the assignment'''
-    config, output = ctx.obj['config'], ctx.obj['output']
-
-    cells = Circuit(config['circuit_config']).cells.get()
-
-    paths = glob(os.path.join(output, ASSIGN_PATH, region + '*.feather'))
-
-    output = os.path.join(output, SYN2_PATH)
-    if not os.path.exists(output):
-        os.makedirs(output)
-
-    synapse_parameters = config['synapse_parameters']
-    for source_path in paths:
-        output_path = os.path.join(output, os.path.basename(source_path)[:-8] + '.syn2')
-        if os.path.exists(output_path):
-            L.info('Already have %s, skipping', output_path)
-            continue
-
-        _write_syn2(output_path, source_path, cells, synapse_parameters)
-
-
-@cli.command()
-@click.option('--prefix', required=True)
-@click.pass_context
-def create_targets(ctx, prefix):
-    '''create projection blocks suitable for the CircuitConfig/BlueConfig'''
-    output = ctx.obj['output']
-
-    blocks = ''
-    for path in sorted(glob(os.path.join(output, SYN2_PATH, '*.syn2'))):
-        path = os.path.abspath(path)
-        source = os.path.basename(path).split('.')[0]
-        name = '%s_%s' % (prefix, source)
-        blocks += PROJECTION_TEMPLATE.format(name=name, path=path, source=source)
-
-    output_path = os.path.join(output, 'targets')
-    with open(output_path, 'w') as fd:
-        fd.write(blocks)
-    click.echo('Wrote targets to: %s' % output_path)
 
 
 if __name__ == '__main__':

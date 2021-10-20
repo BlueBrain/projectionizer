@@ -1,13 +1,12 @@
 import os
 
 import h5py
-from numpy.testing import assert_equal, assert_array_equal
 import pandas as pd
+from numpy.testing import assert_array_equal, assert_equal
 
 from projectionizer import write_sonata
-from utils import (setup_tempdir,
-                   EDGE_POPULATION,
-                   NODE_POPULATION)
+
+from utils import EDGE_POPULATION, NODE_POPULATION, setup_tempdir
 
 
 def test_write_nodes():

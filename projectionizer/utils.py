@@ -110,6 +110,11 @@ def normalize_probability(p):
     return p / norm
 
 
+def min_max_axis(min_xyz, max_xyz):
+    """get min/max axis"""
+    return np.minimum(min_xyz, max_xyz), np.maximum(min_xyz, max_xyz)
+
+
 def in_bounding_box(min_xyz, max_xyz, df):
     """return boolean index of df rows that are in min_xyz/max_xyz
 

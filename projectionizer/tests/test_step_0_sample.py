@@ -1,4 +1,5 @@
 import os
+
 import numpy as np
 import pandas as pd
 from mock import Mock
@@ -8,6 +9,7 @@ from projectionizer.luigi_utils import CommonParams
 from projectionizer.utils import load, write_feather
 
 from utils import setup_tempdir
+
 
 def test_SampleChunk():
     with setup_tempdir('test_step_0') as tmp_folder:

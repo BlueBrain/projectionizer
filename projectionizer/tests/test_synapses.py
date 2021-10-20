@@ -1,12 +1,18 @@
-from bluepy import Section, Segment
-from mock import Mock, patch
-from neurom import NeuriteType
-from numpy.testing import (assert_allclose, assert_approx_equal,
-                           assert_array_equal, assert_array_almost_equal)
-from projectionizer import synapses
 import numpy as np
 import pandas as pd
+from bluepy import Section, Segment
+from mock import patch
+from neurom import NeuriteType
+from numpy.testing import (
+    assert_approx_equal,
+    assert_array_almost_equal,
+    assert_array_equal,
+)
 from voxcell import VoxelData
+
+from projectionizer import synapses
+
+from utils import fake_segments
 
 
 def test_segment_pref_length():
@@ -19,29 +25,6 @@ def test_segment_pref_length():
     ret = synapses.segment_pref_length(df)
     assert isinstance(ret, pd.Series)
     assert_array_equal(ret.values, [0, 0, 1, 1])
-
-
-def _fake_segments(min_xyz, max_xyz, count):
-    RADIUS = 10
-    COLUMNS = [Segment.X1, Segment.Y1, Segment.Z1,
-               Segment.X2, Segment.Y2, Segment.Z2,
-               Segment.R1, Segment.R2, u'gid',
-               Section.ID, Segment.ID, Section.NEURITE_TYPE]
-
-    def samp(ax):
-        return (min_xyz[ax] + (max_xyz[ax] - min_xyz[ax]) * np.random.random((2, count))).T
-
-    X, Y, Z = 0, 1, 2
-    df = pd.DataFrame(index=np.arange(count), columns=COLUMNS)
-    df[[Segment.X1, Segment.X2]] = samp(X)
-    df[[Segment.Y1, Segment.Y2]] = samp(Y)
-    df[[Segment.Z1, Segment.Z2]] = samp(Z)
-    df[[Segment.R1, Segment.R2]] = (RADIUS * np.random.random((2, count))).T
-
-    df[[Section.ID, Segment.ID, 'gid']] = np.random.randint(100, size=(3, count)).T
-    df[Section.NEURITE_TYPE] = NeuriteType.apical_dendrite
-
-    return df
 
 
 def test_get_segment_limits_within_sphere():
@@ -94,7 +77,7 @@ def test_spherical_sampling():
     min_xyz = np.array([10, 10, 10])
     max_xyz = min_xyz + 1
 
-    segments = _fake_segments(min_xyz, max_xyz, 5)
+    segments = fake_segments(min_xyz, max_xyz, 5)
 
     with patch('projectionizer.synapses._sample_with_flat_index') as mock_sample:
         mock_sample.return_value = segments
@@ -133,7 +116,7 @@ def test_pick_synapses_voxel():
         return np.ones(len(segs_df))
 
     with patch('projectionizer.synapses._sample_with_flat_index') as mock_sample:
-        mock_sample.return_value = _fake_segments(min_xyz, max_xyz, 2 * count)
+        mock_sample.return_value = fake_segments(min_xyz, max_xyz, 2 * count)
 
         # ask for duplicates, to make sure locations are different, eventhough
         # the same segment is being used
@@ -162,7 +145,7 @@ def test_pick_synapses_voxel():
         assert segs_df is None
 
         # single segment with its midpoint in the voxel
-        segments = _fake_segments(min_xyz, max_xyz, 2 * count)
+        segments = fake_segments(min_xyz, max_xyz, 2 * count)
         segments.loc[segments.index[0], [Segment.X1, Segment.Y1, Segment.Z1,
                                          Segment.X2, Segment.Y2, Segment.Z2]] = [10, 10, 10,
                                                                                  11, 11, 11]
@@ -189,19 +172,14 @@ def test_pick_synapses_voxel():
                                                dataframe_cleanup=None)
         assert segs_df is None
 
-
-def test__min_max_axis():
-    min_xyz = np.array([0, 0, 0])
-    max_xyz = np.array([1, 1, 1])
-    min_, max_ = synapses._min_max_axis(min_xyz, max_xyz)
-    assert_allclose(min_xyz, min_)
-    assert_allclose(max_xyz, max_)
-
-    min_xyz = np.array([-10, -5, 1])
-    max_xyz = np.array([-1, 0, -1])
-    min_, max_ = synapses._min_max_axis(min_xyz, max_xyz)
-    assert_allclose(min_, np.array([-10, -5, -1]))
-    assert_allclose(max_, np.array([-1, 0, 1]))
+        # return None if libFLATindex finds nothing
+        mock_sample.return_value = None
+        segs_df = synapses.pick_synapses_voxel(xyz_count,
+                                               circuit_path,
+                                               mock_segment_pref,
+                                               dataframe_cleanup=None
+                                               )
+        assert segs_df is None
 
 
 def test_pick_synapses():
@@ -218,7 +196,7 @@ def test_pick_synapses():
     np.random.seed(0)
     with patch('projectionizer.synapses._sample_with_flat_index') as mock_sample, \
             patch('projectionizer.synapses.map_parallelize', map):
-        mock_sample.return_value = _fake_segments(min_xyz, max_xyz, 2 * count)
+        mock_sample.return_value = fake_segments(min_xyz, max_xyz, 2 * count)
         voxel_synapse_count = _fake_voxel_synapse_count(shape=(10, 10, 10), voxel_size=0.1)
         segs_df = synapses.pick_synapses(circuit_path, voxel_synapse_count)
 

@@ -1,4 +1,5 @@
 import json
+
 from luigi import FloatParameter, LocalTarget, Parameter, Task, build
 
 from projectionizer.dichotomy import Dichotomy

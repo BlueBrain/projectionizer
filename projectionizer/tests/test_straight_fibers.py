@@ -2,16 +2,12 @@ import math
 
 import numpy as np
 import pandas as pd
+from mock import patch
+from mocks import create_candidates, create_synapse_counts, create_virtual_fibers
 from numpy.testing import assert_allclose
 from pandas.testing import assert_frame_equal
 
 from projectionizer import straight_fibers
-
-from mocks import (
-    create_candidates,
-    create_synapse_counts,
-    create_virtual_fibers
-)
 
 
 def test_calc_distances_vectorized():
@@ -36,7 +32,8 @@ def test_calc_distances():
     assert ret.shape == (4, 3)
     sqrt2 = math.sqrt(2)
     expected = np.array([[0., 0., 0.],  # line passes through origin
-                         [0., 10., 10.],  # x line passes through x=10, so 0 distance there, 10 for y & z lines
+                         # x line passes through x=10, so 0 distance there, 10 for y & z lines
+                         [0., 10., 10.],
                          # symmetric distances to point at 10, 10, 10
                          [10. * sqrt2, 10. * sqrt2, 10. * sqrt2],
                          # point on xy plane, so 10 distance from x & y lines, right angle to z
@@ -70,8 +67,27 @@ def test_closest_fibers_per_voxel():
     synapses = create_synapse_counts()
     virtual_fibers = create_virtual_fibers()
 
-    assert_frame_equal(straight_fibers.closest_fibers_per_voxel(synapses, virtual_fibers, 3),
-                       pd.DataFrame([[0, 1, 2, 2, 2],
-                                     [2, 1, 2, 2, 3]],
-                                    columns=[0, 1, 'i', 'j', 'k']),
+    with patch('projectionizer.straight_fibers.map_parallelize', map):
+        assert_frame_equal(straight_fibers.closest_fibers_per_voxel(synapses, virtual_fibers, 3),
+                           pd.DataFrame([[0, 1, 2, 2, 2],
+                                         [2, 1, 2, 2, 3]],
+                                        columns=[0, 1, 'i', 'j', 'k']),
+                           check_dtype=False)
+
+
+def test_candidate_fibers_per_synapse():
+    closest = pd.DataFrame([[0, 1, 2, 2, 2],
+                            [2, 1, 2, 2, 3]],
+                           columns=[0, 1, 'i', 'j', 'k'])
+
+    synapses = create_synapse_counts()
+    idx = closest[list('ijk')]
+
+    syn_pos = pd.DataFrame(synapses.indices_to_positions(idx.to_numpy()),
+                           columns=list('xyz'))
+
+    assert_frame_equal(straight_fibers.candidate_fibers_per_synapse(syn_pos, idx, closest),
+                       pd.DataFrame([[0, 1, *syn_pos.to_numpy()[0]],
+                                     [2, 1, *syn_pos.to_numpy()[1]]],
+                                    columns=[0, 1, 'x', 'y', 'z']),
                        check_dtype=False)

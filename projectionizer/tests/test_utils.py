@@ -4,14 +4,15 @@ import os
 import numpy as np
 import pandas as pd
 import pytest
-from numpy.testing import assert_array_equal, assert_array_almost_equal
+import yaml
+from mock import Mock, patch
+from numpy.testing import assert_allclose, assert_array_almost_equal, assert_array_equal
 from voxcell import VoxelData
 from voxcell.nexus.voxelbrain import Atlas
 
 import projectionizer.utils as test_module
 
-from utils import setup_tempdir
-from utils import TEST_DATA_DIR
+from utils import TEST_DATA_DIR, setup_tempdir
 
 
 def test_choice():
@@ -26,11 +27,11 @@ def test_ignore_exception():
     with test_module.ignore_exception(OSError):
         raise OSError('This should not be propagated')
 
-    def foo():
+    def raise_error():
         with test_module.ignore_exception(OSError):
             raise KeyError('This should be propagated')
 
-    pytest.raises(KeyError, foo)
+    pytest.raises(KeyError, raise_error)
 
 
 def test_write_feather():
@@ -55,18 +56,21 @@ def test_normalize_probability_raises():
 
 def test_load():
     with setup_tempdir('test_utils') as path:
-        extensions = ['nrrd', 'json', 'feather', 'csv']
+        extensions = ['nrrd', 'json', 'feather', 'csv', 'yaml']
         files = {ext: os.path.join(path, 'test_load.{}'.format(ext)) for ext in extensions}
         dataframe = pd.DataFrame({'a': [1, 2, 3, 4]})
         dataframe.index.name = 'index_name'
         voxcell_obj = VoxelData(np.array([[[1, 1, 1]]]), (1, 1, 1))
         json_obj = {'a': 1}
+        yaml_obj = json_obj
 
         test_module.write_feather(files['feather'], dataframe)
         dataframe.to_csv(files['csv'])
         voxcell_obj.save_nrrd(files['nrrd'])
-        with open(files['json'], 'w') as outputf:
+        with open(files['json'], 'w', encoding='utf-8') as outputf:
             json.dump(json_obj, outputf)
+        with open(files['yaml'], 'w', encoding='utf-8') as outputf:
+            yaml.dump(yaml_obj, outputf)
 
         for ext, result in zip(extensions, [VoxelData, dict, pd.DataFrame, pd.DataFrame]):
             assert isinstance(test_module.load(files[ext]), result)
@@ -75,12 +79,15 @@ def test_load():
             def __init__(self, _path):
                 self.path = _path
 
-        nrrd, _json, feather, csv = test_module.load_all([Task(files[ext]) for ext in extensions])
+        nrrd, _json, feather, csv, _yaml = test_module.load_all(
+            [Task(files[ext]) for ext in extensions]
+        )
 
         assert dataframe.equals(feather)
         assert dataframe.equals(csv)
         assert_array_equal(voxcell_obj.raw, nrrd.raw)
         assert json_obj == _json
+        assert yaml_obj == _yaml
 
 
 def test_load_raise():
@@ -92,8 +99,26 @@ def times_two(x):
 
 
 def test_map_parallelize():
-    a = np.arange(10)
-    assert_array_equal(test_module.map_parallelize(times_two, a), a * 2)
+    os.environ['PARALLEL_VERBOSE'] = 'True'
+    mock_util = Mock()
+    with patch('projectionizer.utils.multiprocessing.util.log_to_stderr', mock_util):
+        a = np.arange(10)
+        assert_array_equal(test_module.map_parallelize(times_two, a), a * 2)
+        mock_util.assert_called()
+
+
+def test_min_max_axis():
+    min_xyz = np.array([0, 0, 0])
+    max_xyz = np.array([1, 1, 1])
+    min_, max_ = test_module.min_max_axis(min_xyz, max_xyz)
+    assert_allclose(min_xyz, min_)
+    assert_allclose(max_xyz, max_)
+
+    min_xyz = np.array([-10, -5, 1])
+    max_xyz = np.array([-1, 0, -1])
+    min_, max_ = test_module.min_max_axis(min_xyz, max_xyz)
+    assert_allclose(min_, np.array([-10, -5, -1]))
+    assert_allclose(max_, np.array([-1, 0, 1]))
 
 
 def test_in_bounding_box():
@@ -151,11 +176,13 @@ def test_calculate_synapse_conductance():
 
 def test_mask_by_region():
     atlas = Atlas.open(TEST_DATA_DIR)
-    mask = test_module.mask_by_region(['S1HL'], atlas)
-    assert mask.sum() == 101857
+    mask = test_module.mask_by_region(['TEST_layers'], atlas)
+    assert mask.sum() == 60 * 28 * 28
 
-    mask = test_module.mask_by_region([726], atlas)
-    assert mask.sum() == 101857
+    mask = test_module.mask_by_region([10], atlas)
+    assert mask.sum() == 60 * 28 * 28
+
+    assert pytest.raises(KeyError, test_module.mask_by_region, ['Fake_layers'], atlas)
 
 
 def test_regex_to_regions():
@@ -168,6 +195,29 @@ def test_regex_to_regions():
     res = test_module._regex_to_regions(reg_str)
 
     assert_array_equal(res, ['region_1', 'region_2'])
+
+
+def test_read_regions_from_manifest():
+    with setup_tempdir('test_utils') as dirpath:
+        circuit_config = os.path.join(dirpath, 'CircuitConfig')
+        manifest_path = os.path.join(dirpath, 'MANIFEST.yaml')
+        manifest_obj = {'common': {'region': 'R1'}}
+
+        with open(circuit_config, 'w', encoding='utf-8') as fd:
+            fd.write('')
+        with open(manifest_path, 'w', encoding='utf-8') as fd:
+            yaml.dump(manifest_obj, fd)
+
+        mock_config = Mock(return_value=Mock(Run=Mock(BioName=dirpath)))
+        with patch('projectionizer.utils.BlueConfig', mock_config):
+            res = test_module.read_regions_from_manifest(circuit_config)
+            assert_array_equal(res, [manifest_obj['common']['region']])
+
+            with open(manifest_path, 'w', encoding='utf-8') as fd:
+                yaml.dump({}, fd)
+
+            res = test_module.read_regions_from_manifest(circuit_config)
+            assert_array_equal(res, [])
 
 
 def test_convert_to_smallest_allowed_int_type():
@@ -183,9 +233,29 @@ def test_convert_to_smallest_allowed_int_type():
     assert res.dtype == np.int64
 
 
-def convert_layer_to_PH_format(layer_name):
-
+def test_convert_layer_to_PH_format():
     layers = [f'L{n}' for n in range(11)] + ['layer_name', 'Layer_1', 'L23', 'L3a']
-    expected = [f'{n}' for n in range(11)] + ['L10', 'layer_name', 'Layer_1', 'L23', 'L3a']
+    expected = [f'{n}' for n in range(10)] + ['L10', 'layer_name', 'Layer_1', 'L23', 'L3a']
     ret = [test_module.convert_layer_to_PH_format(l) for l in layers]
     assert_array_equal(ret, expected)
+
+
+def test_delete_file_on_exception():
+    with setup_tempdir('test_utils') as test_dir:
+        # test that file exists if no exceptions
+        test_file = os.path.join(test_dir, 'test.txt')
+        with test_module.delete_file_on_exception(test_file):
+            with open(test_file, 'w', encoding='utf-8') as fd:
+                fd.write('')
+
+        assert os.path.exists(test_file)
+
+        # test file removal on exception
+        try:
+            with test_module.delete_file_on_exception(test_file):
+                assert os.path.exists(test_file)
+                raise IOError('')
+        except IOError:
+            pass
+
+        assert not os.path.exists(test_file)
