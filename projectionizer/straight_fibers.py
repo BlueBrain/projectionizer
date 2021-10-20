@@ -61,6 +61,8 @@ def calc_pathlength_to_fiber_start(locations, sgid_fibers):
         hypotenuse * directions, axis=1
     )
 
+    assert all(distances >= 0), "Calculation of path distance results in negative distance"
+
     return distances
 
 

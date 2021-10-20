@@ -2,6 +2,7 @@ import math
 
 import numpy as np
 import pandas as pd
+import pytest
 from mock import patch
 from mocks import create_candidates, create_synapse_counts, create_virtual_fibers
 from numpy.testing import assert_allclose
@@ -61,6 +62,13 @@ def test_calc_pathlength_to_fiber_start():
     assert_allclose(ret, [0,
                           1.39384685,
                           np.linalg.norm([1, 1, 1])]) # distance to origin
+
+    # Check that assertion error is raised if distance is negative
+    # (voxel in negative direction from fiber start)
+    sgid_fibers = np.repeat(np.array([[0, 3, 0, 0, 1, 0]]), 3, axis=0)
+    with pytest.raises(AssertionError,
+                       match='Calculation of path distance results in negative distance'):
+        straight_fibers.calc_pathlength_to_fiber_start(locations, sgid_fibers)
 
 
 def test_closest_fibers_per_voxel():
