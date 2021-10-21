@@ -78,8 +78,8 @@ class WriteSonata(CommonParams):
     mtype = Parameter("projections")
     node_population = Parameter("projections")
     edge_population = Parameter("projections")
-    node_file_name = Parameter("projections_nodes.h5")
-    edge_file_name = Parameter("projections_edges.h5")
+    node_file_name = Parameter("projections-nodes.h5")
+    edge_file_name = Parameter("projections-edges.h5")
     module_archive = Parameter("archive/2021-07")
 
     def requires(self):
@@ -181,7 +181,7 @@ class WriteSonataEdges(WriteSonata):
         write_sonata.write_edges(load(self.input().path), self.output().path, self.edge_population)
 
     def output(self):
-        return LocalTarget(self._get_full_path_output("nonparameterized_" + self.edge_file_name))
+        return LocalTarget(self._get_full_path_output("nonparameterized-" + self.edge_file_name))
 
 
 def _check_if_old_syntax(archive):

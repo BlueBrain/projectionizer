@@ -80,7 +80,6 @@ class SampleChunk(FeatherTask):
 class FullSample(FeatherTask):  # pragma: no cover
     """Sample segments from circuit"""
 
-    n_slices = IntParameter()
     from_chunks = BoolParameter(default=False)
 
     def requires(self):

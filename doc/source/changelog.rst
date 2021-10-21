@@ -14,11 +14,20 @@ New Features
 
 Improvements
 ~~~~~~~~~~~~
-- Removed layer thicknesses from config
-- Updated documentation
-- Parallelization with multiple nodes
-- Ensured runs are reproducable
-- Renamed `recipe_path` to `physiology_path` in config
+- Updated documentation contents and appearance
+- Ensured runs are reproducible
+- Introduced changes in :ref:`configuration`
+
+  - added sections `WriteSonata`, `VolumeSample`, `ScaleConductance`
+  - removed section `WriteNrn`, `WriteSyn2`
+  - changed parameters in section `CommonParams`
+
+    - added `hex_apron_bounding_box`, `morphology_path`
+    - renamed `recipe_path` to `physiology_path`
+    - renamed `hex_fiber_locations` to `fiber_locations_path`
+    - removed layer thicknesses from `layers`
+    - removed `geometry`' `voxel_path`
+
 - `generate-fibers(-hex)` will now read circuit path, regions and bounding rectangle from the YAML config given as an argument
 - Code style improvements
 - Improved test coverage and added a restriction to 100% coverage

@@ -7,64 +7,160 @@ The configuration file is a yaml file. It can be seen as a dictionary where keys
 Parameters
 ----------
 
- .. _Config_CommonParams:
+.. _Config_CommonParams:
 
-**CommonParams** lists params than are common to all tasks.
- - **circuit_config**: the CircuitConfig absolute path.
- - **physiology_path**: The path to the XML recipe that is used by Spykfunc
- - **morphology_path**: The path to the morphology release
- - **sgid_offset**: the offset used for indexing the virtual fibers
- - **n_total_chunks**: in order to prevent RAM from exploding, the computation is splitted into chunks. This is the number of chunks.
- - **oversampling**: the ratio between the number of sampled synapses during the first step and the number of desired synapses. Oversampling is necessary as it allows to remove unwanted synapses with bad connectivity properties while keeping the final number of synapses stable.
- - **layers**: list of layer names (as in `hierarchy.json`) arranged from bottom to top (e.g., `[L6, L5, L4, L3, L2, L1]`)
- - **fiber_locations_path**: path to a csv file containing fiber positions and directions (can be generated with `projectionizer generate-fibers[-hex]`)
- - **region**: list of region names to generate projections to
- - **hex_apron_bounding_box**: coordinates of the bounding box of the apron optionally used with columns to reduce edge effects (see: :ref:`apron<FAQ_apron>`)
+CommonParams
+~~~~~~~~~~~~
+Lists parameters that are common to all tasks.
 
-**SynapseDensity** has a single parameter:
- - **density_params**: is a list where each item describes the synaptic density along a layer (or a portion of it). It is composed of multiple sub-items
- - **density_profile**: a list of 2-tuple (relative position in the item (in %), density unit)
- - **low_layer**: the starting layer name for the item
- - **low_fraction**: the relative position with respect to the start of low_layer
- - **high_layer**: the ending layer name for the item
- - **high_fraction**: the relative position with respect to the start of high_layer
+.. table::
 
- Example:
-   | low_layer: L4
-   | low_fraction: 0
-   | high_layer: L3
-   | high_fraction: 0.5
-   | density_profile: [[0.25, 0.01], [0.50, 0.02], [0.75, 0.03]]
+  ====================== ========= ========= =======================================
+  Parameter              Mandatory Default   Description
+  ====================== ========= ========= =======================================
+  circuit_config         Yes                 The CircuitConfig absolute path.
+  physiology_path        Yes                 The path to the XML recipe that is used by Spykfunc
+  morphology_path        Yes                 The path to the morphology release
+  sgid_offset            Yes                 The offset used for indexing the virtual fibers
+  n_total_chunks         Yes                 In order to prevent RAM from exploding, the computation is split into chunks. This is the number of chunks.
+  oversampling           Yes                 The ratio between the number of sampled synapses during the first step and the number of desired synapses. Oversampling is necessary as it allows to remove unwanted synapses with bad connectivity properties while keeping the final number of synapses stable.
+  layers                 Yes                 List of layer names (as in `hierarchy.json`) arranged from bottom to top (e.g., `[L6, L5, L4, L3, L2, L1]`)
+  fiber_locations_path   Yes                 Path to a csv file containing fiber positions and directions. It can be :ref:`generated<Index_CreatingFibers>` with projectionizer.
+  region                 No        None      List of region names to generate projections to. If not given, parsed from MANIFEST (should be defined in [common] > [region]). If not defined in manifest, raises an exception.
+  hex_apron_bounding_box No        None      Coordinates of the bounding box of the apron optionally used with columns to reduce edge effects (see: :ref:`apron<FAQ_apron>`)
+  ====================== ========= ========= =======================================
 
-   This represents a density profile spanning from the bottom (low_fraction=0) of layer 4 to 50% of the height of layer 3. The first quarter of the span has a density of 0.01, the second as a density of 0.02 and the rest as a density of 0.03.
+SynapseDensity
+~~~~~~~~~~~~~~
+Samples he synapses according to a vertical synapse density profile.
 
-**FullSample** build the synapse dataframe:
-  - **n_slices**: this is a convenience parameter to sample synapses only for a given number of voxels. -1 means all. Other value should **never** be used for scientific purposes.
+.. table::
 
-**FiberAssignment** assigns each sampled synapse to a virtual fiber:
-  - **sigma**: The probability of pairing between a fiber and a synapse is proportional to a gaussian of the distance fiber-synapse parameter. This is its sigma.
+  ====================== ========= ========= =======================================
+  Parameter              Mandatory Default   Description
+  ====================== ========= ========= =======================================
+  density_params         Yes                 A list where each item describes the synaptic density along a layer (or a portion of it).
+  ====================== ========= ========= =======================================
 
-**ClosestFibersPerVoxel** exists because computing the pairing probabilities between every synapse and every fiber would take forever. It returns a dataframe with the most relevant (ie. closest) fibers for each synapses.
-  - **closest_count**: the number of fibers to return for each synapse
+The `density_params` is composed of multiple sub-items
 
-**ChooseConnectionsToKeep** is the task responsible for getting rid of 'unbiological' connections; pairs connected by a too small numbers of synapses.
-  - **cutoff_var**: Connections are filtered based on there number of synapses. The filter function is a sigmoid function centered at the cutoff value. `cutoff_var` is the width of the sigmoid.
+.. table::
 
-**PruneChunk** prunes out the connections that are not kept
-  - **additive_path_distance**: distance to add to the path distance (to make sure sure delay > .1 in simulations)
+  ====================== ========= ========= =======================================
+  Parameter              Mandatory Default   Description
+  ====================== ========= ========= =======================================
+  density_profile        Yes                 A list of 2-tuple (relative position in the item (in %), density unit)
+  low_layer              Yes                 The starting layer name for the item
+  low_fraction           Yes                 The relative position with respect to the start of low_layer
+  high_layer             Yes                 The ending layer name for the item
+  high_fraction          Yes                 The relative position with respect to the start of high_layer
+  ====================== ========= ========= =======================================
 
-**WriteSonata** parameterizes the SONATA files (assumes 'sonata' format was used in WriteAll)
-  - **target_population**: The name of the target node population (default: All)
-  - **mtype**: mtype of the nodes, also used as the target name in the user.target file (default: projections)
-  - **node_population**: The name of the created node population (default: projections)
-  - **edge_population**: The name of the created edge population (default: projections)
-  - **node_file_name**: file name for the sonata node file (default: projections_nodes.h5)
-  - **edge_file_name**: file name for the sonata edge file (default: projections_edges.h5)
-  - **module_archive**: which archive to load spykfunc and parquet-converters from (default: archive/2021-07)
+**Example**
 
-**VolumeSample** does the spherical sampling for volume transmission projections
-  - **radius**: radius (around synapses) to consider for volume transmission (Default: 5um)
-  - **additive_path_distance**: distance to add to the path distance (to make sure sure delay > .1 in simulations) (Default: 300um)
+.. code-block:: yaml
 
-**ScaleConductance** scale the conductance of volume transmission projections according to the distance from the synapse
-  - **interval**: A tuple giving the linear scale for conductance scaling (Default: [1.0, 0.1])
+    SynapseDensity:
+      density_params:         # List of density profile items
+        - low_layer: L4       # starts from layer L4
+          low_fraction: 0     # starts from bottom of the layer L4
+          high_layer: L3      # ends in layer L3
+          high_fraction: 0.5  # ends in midway of the layer L3
+          density_profile:    # the density profile of the item
+            - [0.25, 0.01]    # from 0% to 25% of the span the density is 0.01
+            - [0.50, 0.02]    # from 25% to 50%: the density is 0.02
+            - [0.75, 0.03]    # from 50 to 75% (and to 100%): the density is 0.03
+        - low_layer: L6       # next item start from layer L6
+          ...                 # etc.
+
+FiberAssignment
+~~~~~~~~~~~~~~~
+Assigns each sampled synapse to a virtual fiber
+
+.. table::
+
+  ====================== ========= ========== =======================================
+  Parameter              Mandatory Default    Description
+  ====================== ========= ========== =======================================
+  sigma                  Yes                  The probability of pairing between a fiber and a synapse is proportional to a gaussian of the distance fiber-synapse parameter. This is its sigma.
+  ====================== ========= ========== =======================================
+
+ClosestFibersPerVoxel
+~~~~~~~~~~~~~~~~~~~~~
+Returns a dataframe with the most relevant (ie. closest) fibers for each synapses.
+This is done because computing the pairing probabilities between every synapse and every fiber would take forever.
+
+.. table::
+
+  ====================== ========= ========== =======================================
+  Parameter              Mandatory Default    Description
+  ====================== ========= ========== =======================================
+  closest_count          Yes                  The number of fibers to return for each synapse
+  ====================== ========= ========== =======================================
+
+ChooseConnectionsToKeep
+~~~~~~~~~~~~~~~~~~~~~~~
+Is the task responsible for getting rid of 'unbiological' connections; pairs connected by a too small numbers of synapses.
+
+.. table::
+
+  ====================== ========= ========== =======================================
+  Parameter              Mandatory Default    Description
+  ====================== ========= ========== =======================================
+  cutoff_var             Yes                  Connections are filtered based on there number of synapses. The filter function is a sigmoid function centered at the cutoff value. `cutoff_var` is the width of the sigmoid.
+  ====================== ========= ========== =======================================
+
+PruneChunk
+~~~~~~~~~~
+Prunes out the connections that are not kept.
+
+.. table::
+
+  ====================== ========= ========== =======================================
+  Parameter              Mandatory Default    Description
+  ====================== ========= ========== =======================================
+  additive_path_distance No        0.0        Distance to add to the path distance (to make sure sure delay > .1 in simulations)
+  ====================== ========= ========== =======================================
+
+WriteSonata
+~~~~~~~~~~~
+Parameterizes the SONATA files.
+
+.. table::
+
+  ====================== ========= ====================== =======================================
+  Parameter              Mandatory Default                Description
+  ====================== ========= ====================== =======================================
+  target_population      No        All                    The name of the target node population
+  mtype                  No        projections            The mtype of the nodes, also used as the target name in the user.target file
+  node_population        No        projections            The name of the created node population
+  edge_population        No        projections            The name of the created edge population
+  node_file_name         No        projections-nodes.h5   File name for the sonata node file
+  edge_file_name         No        projections-edges.h5   File name for the sonata edge file
+  module_archive         No        archive/2021-07        Which archive to load spykfunc and parquet-converters from
+  ====================== ========= ====================== =======================================
+
+VolumeSample
+~~~~~~~~~~~~
+Does the spherical sampling for volume transmission projections.
+
+.. table::
+
+  ====================== ========= ========== =======================================
+  Parameter              Mandatory Default    Description
+  ====================== ========= ========== =======================================
+  radius                 No        5          radius (around synapses) to consider for volume transmission
+  additive_path_distance No        300        distance to add to the path distance (to make sure sure delay > .1 in simulations)
+  ====================== ========= ========== =======================================
+
+ScaleConductance
+~~~~~~~~~~~~~~~~
+Scale the conductance of volume transmission projections according to the distance from the synapse.
+
+.. table::
+
+  ====================== ========= =============== =======================================
+  Parameter              Mandatory Default         Description
+  ====================== ========= =============== =======================================
+  interval               No        [1.0, 0.1]      A tuple giving the linear scale for conductance scaling
+  ====================== ========= =============== =======================================

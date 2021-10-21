@@ -76,6 +76,28 @@ Tasks related to pruning (in order of appearence in `step_2_prune.py`):
 Write
 -----
 Projectionizer writes edges and nodes in SONATA format. For now, it also outputs the user.target file until node set files are fully supported.
- * **projections_nodes.h5**: projection node file in a SONATA format
- * **projections_edges.h5**: projection edge file in a SONATA format
+ * **projections-nodes.h5**: projection node file in a SONATA format
+ * **projections-edges.h5**: projection edge file in a SONATA format
  * **user.target**: target file containing the fiber IDs (sgid)
+
+Volume Transmission
+-------------------
+Volume transmission workflow is run on top of the regular projections workflow to simulate the effects of acetylcholine release into the extrasynaptic space.
+
+The main phases of the workflow are:
+
+#. Spherical **sampling** of the affected synapses
+
+   #. For each source (input) synapse, find all the segments within given radius of the synapse
+   #. Within each found segment, randomly pick a target synapse position (still staying within the radius)
+   #. For each target synapse, compute the distance from the source (input) synapse
+
+#. **Parameterization** of all the sampled synapses
+
+   * The afferent cell ids (`sgid`) are those of the input synapses
+   * The efferent cell ids (`tgid`) are those of the sampled synapses
+
+#. **Scaling** the conductance of the volume transmission projections according to the distance
+
+   #. Map the distances between sgid and tgid (`[0, radius]`) linearly to given interval (e.g., `[1.0, 0.1]`)
+   #. Use the mapped values as scaling factors (i.e., `conductance = scaling_factor * conductance`)

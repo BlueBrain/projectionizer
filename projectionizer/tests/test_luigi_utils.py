@@ -4,7 +4,6 @@ import tempfile
 import pytest
 from luigi import Parameter, Task, build
 from luigi.local_target import LocalTarget
-from luigi.parameter import ParameterException
 from mock import patch
 from numpy.testing import assert_array_equal
 
@@ -72,15 +71,6 @@ def test_common_params():
     assert chunked_task.output().path == '/none/existant/path/test-common-params-chunk-42.out'
 
     assert isinstance(task.requires(), lu.FolderTask)
-
-    # Test deprecation
-    deprecated = params.copy()
-    deprecated['voxel_path'] = '/fake/path'
-    pytest.raises(ParameterException, TestCommonParams, **deprecated)
-
-    deprecated = params.copy()
-    deprecated['hex_fiber_locations'] = '/fake/path'
-    pytest.raises(ParameterException, TestCommonParams, **deprecated)
 
 
 def test_RunAnywayTargetTempDir():

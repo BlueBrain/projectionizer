@@ -6,7 +6,6 @@ import pkg_resources
 from luigi import Config, FloatParameter, IntParameter, ListParameter, Parameter, Task
 from luigi.contrib.simulate import RunAnywayTarget
 from luigi.local_target import LocalTarget
-from luigi.parameter import ParameterException
 
 from projectionizer.utils import read_regions_from_manifest
 
@@ -58,21 +57,7 @@ class CommonParams(Config):
     # ListParameter can not default to None without further problems with luigi
     hex_apron_bounding_box = ListParameter(default=[])
 
-    # Deprecated Parameters
-    hex_fiber_locations = Parameter(default="")
-    voxel_path = Parameter(default="")
-
     extension = None
-
-    def __init__(self, *args, **kwargs):
-        Config.__init__(self, *args, **kwargs)
-
-        if self.hex_fiber_locations != "":
-            message = '"hex_fiber_locations" is deprecated, use "fiber_locations_path" instead'
-            raise ParameterException(message)
-        if self.voxel_path != "":
-            message = '"voxel_path" is deprecated, providing "circuit_config" is sufficient'
-            raise ParameterException(message)
 
     def output(self):
         name = camel2spinal_case(self.__class__.__name__)

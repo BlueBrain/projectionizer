@@ -25,7 +25,6 @@ def test_SampleChunk():
                   }
         mock = Mock(path=mock_path)
         class TestSampleChunk(step_0_sample.SampleChunk):
-            n_slices = 1
             def input(self):
                 return mock
 
