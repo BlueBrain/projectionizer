@@ -75,7 +75,7 @@ def test_load():
         for ext, result in zip(extensions, [VoxelData, dict, pd.DataFrame, pd.DataFrame]):
             assert isinstance(test_module.load(files[ext]), result)
 
-        class Task(object):
+        class Task:
             def __init__(self, _path):
                 self.path = _path
 
