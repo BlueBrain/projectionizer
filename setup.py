@@ -17,8 +17,11 @@ setup(
         "tables>=3.4",
         "pyarrow>=0.11.1",
         # BBP
-        # until next release of morphio, see: https://github.com/BlueBrain/MorphIO/pull/330
-        "bluepy>=2,<2.3",
+        # until next release of morphio, restict both bluepy and bluepysnap to specific versions.
+        # See: https://github.com/BlueBrain/MorphIO/pull/330 and the discussion in
+        #      https://bbpgitlab.epfl.ch/nse/projectionizer/-/merge_requests/15
+        "bluepy==2.2.0",
+        "bluepysnap==0.11.0",
         "libFLATIndex>=1.8.11",
         "voxcell>=3",
     ],

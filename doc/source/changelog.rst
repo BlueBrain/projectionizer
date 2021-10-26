@@ -1,6 +1,14 @@
 Changelog
 =========
 
+Version v2.0.1
+--------------
+
+Bug Fixes
+~~~~~~~~~
+- Restrict `bluepy==2.2.0` and `bluepysnap==0.11.0` due to inefficient dependency resolving in pip
+
+
 Version v2.0.0
 --------------
 
