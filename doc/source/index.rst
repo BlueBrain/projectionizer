@@ -15,7 +15,7 @@ The sampling must be done with respect to the following constraints:
 Installation
 ------------
 
-Since it depends on FLATIndex, it cannot be installed through `spack` currently, and should create a virtual environment with Python 3.7, and run:
+Since `projectionizer` depends on FLATIndex, it cannot be installed through `spack` currently. To install it, user should create a virtual environment with Python 3.7, and run:
 
 .. code-block:: bash
 
@@ -28,7 +28,7 @@ Usage
 
 .. note::
 
-    Since sonata format relies on `Spykfunc <https://bbpteam.epfl.ch/documentation/projects/spykfunc/latest/usage.html>`_ (if output_type is sonata), Projectionizer needs to be run in an exclusive allocation to ensure that Spykfunc functions as expected.
+    Since sonata format relies on `Spykfunc <https://bbpteam.epfl.ch/documentation/projects/spykfunc/latest/usage.html>`_, Projectionizer needs to be run in an exclusive allocation to ensure that Spykfunc functions as expected.
 
 Starting a new job
 ~~~~~~~~~~~~~~~~~~

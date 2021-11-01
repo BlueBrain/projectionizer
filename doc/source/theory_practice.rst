@@ -99,5 +99,5 @@ The main phases of the workflow are:
 
 #. **Scaling** the conductance of the volume transmission projections according to the distance
 
-   #. Map the distances between sgid and tgid (`[0, radius]`) linearly to given interval (e.g., `[1.0, 0.1]`)
+   #. Map the distances between sgid and tgid (within `[0, radius]`) linearly to given interval (e.g., `[1.0, 0.1]`)
    #. Use the mapped values as scaling factors (i.e., `conductance = scaling_factor * conductance`)
