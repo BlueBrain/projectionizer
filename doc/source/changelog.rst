@@ -1,6 +1,19 @@
 Changelog
 =========
 
+Version v2.0.2
+--------------
+
+Improvements
+~~~~~~~~~~~~
+- Remove version pins from `bluepy` and `bluepysnap` and require newer versions
+- Updated project URLs in setup.py
+
+Bug Fixes
+~~~~~~~~~
+- Restrict `numpy<1.22` as the support for `python3.7` will be dropped in that release
+
+
 Version v2.0.1
 --------------
 
