@@ -2,7 +2,10 @@
 
 Configuration file
 ==================
-The configuration file is a yaml file. It can be seen as a dictionary where keys are Luigi tasks and values are parameters specific to each task.
+The configuration file is a yaml file.
+It can be seen as a dictionary where keys are Luigi tasks and values are parameters specific to each task.
+
+For **TL;DR**, see the :ref:`example configuration<Config_ExampleFile>`.
 
 Parameters
 ----------
@@ -164,3 +167,80 @@ Scale the conductance of volume transmission projections according to the distan
   ====================== ========= =============== =======================================
   interval               No        [1.0, 0.1]      A tuple giving the linear scale for conductance scaling
   ====================== ========= =============== =======================================
+
+.. _Config_ExampleFile:
+
+Example
+-------
+
+.. code-block:: yaml
+
+    ChooseConnectionsToKeep:
+      cutoff_var: 1.0
+    ClosestFibersPerVoxel:
+      closest_count: 25
+    CommonParams:
+      circuit_config: /gpfs/bbp.cscs.ch/project/proj87/scratch/circuits/SSCX-O1/CircuitConfig
+      fiber_locations_path: /gpfs/bbp.cscs.ch/project/proj87/scratch/projections/SSCX-O1/dopamine/dopamine_fibers.csv
+      morphology_path: /gpfs/bbp.cscs.ch/project/proj83/morphologies/fixed_ais_L23PC_20201210/ascii
+      physiology_path: /gpfs/bbp.cscs.ch/project/proj87/scratch/projections/SSCX-O1/dopamine/DA_proj_recipe.xml
+      layers:
+      - L6
+      - L5
+      - L4
+      - L3
+      - L2
+      - L1
+      n_total_chunks: 1
+      oversampling: 1
+      regions:
+      - mc0_Column
+      - mc1_Column
+      - mc2_Column
+      - mc3_Column
+      - mc4_Column
+      - mc5_Column
+      - mc6_Column
+      sgid_offset: 6000000
+    FiberAssignment:
+      sigma: 50
+    PruneChunk:
+      additive_path_distance: 300
+    SynapseDensity:
+      density_params:
+      # .
+      # .
+      # .
+      # <truncated for readability>
+      # .
+      # .
+      # .
+      - low_layer: L2
+        low_fraction: 0.0
+        high_layer: L2
+        high_fraction: 1.0
+        density_profile:
+        - - 0.333333333333
+          - 0.0004254399737045899
+        - - 0.666666666667
+          - 0.0004169391749822368
+        - - 1.0
+          - 0.00041463895885736476
+      - low_layer: L1
+        low_fraction: 0.0
+        high_layer: L1
+        high_fraction: 1.0
+        density_profile:
+        - - 0.294117647059
+          - 0.00041463895885736476
+        - - 0.588235294118
+          - 0.00041463895885736476
+    WriteSonata:
+      target_population: All
+    VolumeSample:
+      additive_path_distance: 300
+      radius: 2
+    ScaleConductance:
+      interval:
+        - 1.0  # conductance = 1.0 * conductance at distance==0
+        - 0.1  # conductance = 0.1 * conductance at distance==VolumeSample.radius

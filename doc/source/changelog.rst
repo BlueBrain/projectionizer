@@ -1,3 +1,5 @@
+.. _changelog:
+
 Changelog
 =========
 
@@ -8,6 +10,7 @@ Improvements
 ~~~~~~~~~~~~
 - Remove version pins from `bluepy` and `bluepysnap` and require newer versions
 - Updated project URLs in setup.py
+- Added an :ref:`example configuration file<Config_ExampleFile>`
 
 Bug Fixes
 ~~~~~~~~~
