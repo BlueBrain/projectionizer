@@ -1,4 +1,4 @@
 Projectionizer
 
 Please see:
-https://bbp.epfl.ch/documentation/projects/Projectionizer/index.html
+https://bbpteam.epfl.ch/documentation/projects/projectionizer/latest/index.html
