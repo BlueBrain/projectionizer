@@ -26,6 +26,7 @@ L.setLevel(logging.INFO)
 CONFIG_FILENAME = "config.yaml"
 LUIGI_TARGET = "projectionizer.analysis"
 TEMPLATES_PATH = pkg_resources.resource_filename("projectionizer", "templates")
+VOLUME_TRANSMISSION_TASKS = {"ScaleConductance", "VolumeSample"}
 WORKERS = "1"
 
 
@@ -172,7 +173,7 @@ def load_config(path):
     return config
 
 
-def luigi_params(args):
+def luigi_params(args, skip_vt_tasks=True):
     """Prepare the list of parameters to be passed to luigi.run command"""
     cmd = ["--log-level", "INFO"]
 
@@ -181,6 +182,8 @@ def luigi_params(args):
     config = load_config(os.path.join(args.output, CONFIG_FILENAME))
 
     for task, options in config.items():
+        if skip_vt_tasks and task in VOLUME_TRANSMISSION_TASKS:
+            continue
         for option, value in options.items():
             prefix = task + "-" if task != "CommonParams" else ""
             if isinstance(value, (dict, list)):
@@ -344,7 +347,7 @@ def _cmd_volume_transmission(args):
         "projectionizer.volume_transmission",
         "--workers",
         WORKERS,
-    ] + luigi_params(args)
+    ] + luigi_params(args, skip_vt_tasks=False)
 
 
 if __name__ == "__main__":

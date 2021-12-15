@@ -15,6 +15,7 @@ Improvements
 Bug Fixes
 ~~~~~~~~~
 - Restrict `numpy<1.22` as the support for `python3.7` will be dropped in that release
+- Fixed a bug which prevented from running the normal pipeline with a config containing Volume Transmission tasks
 
 
 Version v2.0.1
