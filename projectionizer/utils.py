@@ -12,6 +12,7 @@ import pandas as pd
 import pyarrow
 import yaml
 from bluepy_configfile.configfile import BlueConfig
+from morphio import SectionType
 from pyarrow import feather
 from voxcell import VoxelData
 
@@ -19,6 +20,13 @@ X, Y, Z = 0, 1, 2
 XYZUVW = list("xyzuvw")
 IJK = list("ijk")
 XYZ = list("xyz")
+
+SECTION_TYPE_MAP = {
+    SectionType.soma: 1,
+    SectionType.axon: 2,
+    SectionType.basal_dendrite: 3,
+    SectionType.apical_dendrite: 4,
+}
 
 
 class ErrorCloseToZero(Exception):

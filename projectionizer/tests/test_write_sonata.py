@@ -19,6 +19,7 @@ def test_write_nodes():
                        'synapse_offset': [128.] * 2,
                        'afferent_indices': [12] * 2,
                        'segment_id': [1033] * 2,
+                       'section_type': [3] * 2,
                        'sgid_path_distance': [300.] * 2
                        })
 
@@ -59,6 +60,7 @@ def test_write_edges():
                        'synapse_offset': [128.] * 2,
                        'afferent_indices': [12] * 2,
                        'segment_id': [1033] * 2,
+                       'section_type': [3] * 2,
                        'sgid_path_distance': [300.] * 2
                        })
 
@@ -83,6 +85,8 @@ def test_write_edges():
             assert_array_equal(attributes['afferent_section_id'], df.section_id)
             assert_array_equal(attributes['afferent_segment_id'], df.segment_id)
             assert_array_equal(attributes['afferent_segment_offset'], df.synapse_offset)
+            assert_array_equal(attributes['afferent_section_type'], df.section_type)
+            assert_array_equal(attributes['efferent_section_type'], [2] * 2)
 
     with setup_tempdir('test_utils') as folder:
         path = os.path.join(folder, 'sscx_edges.sonata')

@@ -1,6 +1,12 @@
 """tools for writing sonata files"""
 import h5py
 import numpy as np
+from morphio import SectionType
+
+from projectionizer.utils import SECTION_TYPE_MAP
+
+# Asssume the source cell types to be axons
+EFFERENT_SECTION_TYPE = SECTION_TYPE_MAP[SectionType.axon]
 
 
 def write_nodes(syns, path, population_name, mtype, keep_offset=True):
@@ -13,9 +19,9 @@ def write_nodes(syns, path, population_name, mtype, keep_offset=True):
     with h5py.File(path, "w") as h5:
         population_path = f"/nodes/{population_name}"
         group = h5.create_group(population_path)
-        group["node_type_id"] = np.full((sgid_count,), -1, dtype=np.int8)
+        group["node_type_id"] = np.full(sgid_count, -1, dtype=np.int8)
         attributes = group.create_group("0")
-        attributes["mtype"] = np.full((sgid_count,), 0, dtype=np.int8)
+        attributes["mtype"] = np.full(sgid_count, 0, dtype=np.int8)
 
         attributes["synapse_class"] = attributes["mtype"]
         attributes["model_type"] = attributes["mtype"]
@@ -65,9 +71,13 @@ def write_edges(syns, path, population_name, keep_offset=True):
 
         group["source_node_id"] = syns.sgid.to_numpy() - min_sgid
         group["target_node_id"] = syns.tgid.to_numpy() - 1
-        group["edge_type_id"] = np.full((len(syns),), -1, dtype=np.int8)
+        group["edge_type_id"] = np.full(len(syns), -1, dtype=np.int8)
 
         attributes = group.create_group("0")
+        attributes["efferent_section_type"] = np.full(
+            len(syns), EFFERENT_SECTION_TYPE, dtype=np.int8
+        )
+        attributes["afferent_section_type"] = syns.section_type.to_numpy()
         attributes["distance_soma"] = syns.sgid_path_distance.to_numpy()
 
         attributes["afferent_section_id"] = syns.section_id.to_numpy()

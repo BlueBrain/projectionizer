@@ -8,12 +8,14 @@ Version v2.0.2
 
 Improvements
 ~~~~~~~~~~~~
+- Added `afferent_section_type` and `efferent_section_type` to the resulting `projections-edges.h5` file
 - Remove version pins from `bluepy` and `bluepysnap` and require newer versions
 - Updated project URLs in setup.py
 - Added an :ref:`example configuration file<Config_ExampleFile>`
 
 Bug Fixes
 ~~~~~~~~~
+- Fixed the workflow for newer (than `archive/2021-07`) versions of `spykfunc`
 - Restrict `numpy<1.22` as the support for `python3.7` will be dropped in that release
 - Fixed a bug which prevented from running the normal pipeline with a config containing Volume Transmission tasks
 

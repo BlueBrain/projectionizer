@@ -11,6 +11,7 @@ from neurom import NeuriteType
 from tqdm import tqdm
 
 from projectionizer.utils import (
+    SECTION_TYPE_MAP,
     ErrorCloseToZero,
     convert_to_smallest_allowed_int_type,
     in_bounding_box,
@@ -38,6 +39,7 @@ WANTED_COLS = [
     Segment.ID,
     "segment_length",
     "synapse_offset",
+    "section_type",
     "x",
     "y",
     "z",
@@ -190,6 +192,9 @@ def spherical_sampling(pos_sgid, index_path, radius):
     segs_df.loc[:, "synapse_offset"] = np.linalg.norm(synapse - starts, axis=1)
     segs_df.loc[:, "segment_length"] = np.linalg.norm(ends - starts, axis=1)
     segs_df.loc[:, "distance_volume_transmission"] = np.linalg.norm(synapse - position, axis=1)
+    segs_df.loc[:, "section_type"] = np.array(
+        [SECTION_TYPE_MAP[x] for x in segs_df[Section.NEURITE_TYPE]], dtype=np.uint8
+    )
 
     return segs_df[VOLUME_TRANSMISSION_COLS].dropna()
 
@@ -243,6 +248,9 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
     alpha = np.random.random(size=len(segs_df))
 
     segs_df["synapse_offset"] = alpha * segs_df["segment_length"]
+    segs_df["section_type"] = np.array(
+        [SECTION_TYPE_MAP[x] for x in segs_df[Section.NEURITE_TYPE]], dtype=np.uint8
+    )
 
     segs_df = segs_df.join(
         pd.DataFrame(
