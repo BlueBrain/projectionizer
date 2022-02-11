@@ -236,7 +236,7 @@ Example
         - - 0.588235294118
           - 0.00041463895885736476
     WriteSonata:
-      target_population: All
+      target_population: sscx_neurons
     VolumeSample:
       additive_path_distance: 300
       radius: 2

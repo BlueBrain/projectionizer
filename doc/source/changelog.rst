@@ -53,7 +53,12 @@ Improvements
     - renamed `recipe_path` to `physiology_path`
     - renamed `hex_fiber_locations` to `fiber_locations_path`
     - removed layer thicknesses from `layers`
-    - removed `geometry`' `voxel_path`
+    - removed `geometry` and `voxel_path`
+
+  - removed `n-slices` from `FullSample`
+  - removed `target-name` from `WriteUserTargetTxt`
+
+    - target name is now automatically the same as the `mtype` in `WriteSonata`
 
 - `generate-fibers(-hex)` will now read circuit path, regions and bounding rectangle from the YAML config given as an argument
 - Code style improvements
