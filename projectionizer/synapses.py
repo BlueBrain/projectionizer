@@ -129,8 +129,8 @@ def get_segment_limits_within_sphere(starts, ends, pos, radius):
 
     # Segments for which the closest point is within radius but the segment is out.
     # I.e., both the start and end points are in the same direction from the closest point.
-    start_mask = np.sum(start_to_pos ** 2, axis=1) > radius ** 2
-    end_mask = np.sum(end_to_pos ** 2, axis=1) > radius ** 2
+    start_mask = np.sum(start_to_pos**2, axis=1) > radius**2
+    end_mask = np.sum(end_to_pos**2, axis=1) > radius**2
     segment_mask = np.logical_and(
         np.logical_and(start_mask, end_mask),
         np.sign(magnitude_start_to_pos) == np.sign(magnitude_end_to_pos),
@@ -144,7 +144,7 @@ def get_segment_limits_within_sphere(starts, ends, pos, radius):
     closest_point = magnitude_start_to_pos[:, None] * direction + starts
     shortest_distance_squared = np.sum((closest_point - pos) ** 2, axis=1)
     with np.errstate(invalid="ignore"):  # ignore warning of negative values (will result in nan)
-        distance_to_surface = np.sqrt(radius ** 2 - shortest_distance_squared)
+        distance_to_surface = np.sqrt(radius**2 - shortest_distance_squared)
 
     # If start/end point is outside radius but segment is in, replace with the surface point
     start_mask &= ~segment_mask
