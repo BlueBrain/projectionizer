@@ -19,9 +19,9 @@ def write_nodes(syns, path, population_name, mtype, keep_offset=True):
     with h5py.File(path, "w") as h5:
         population_path = f"/nodes/{population_name}"
         group = h5.create_group(population_path)
-        group["node_type_id"] = np.full(sgid_count, -1, dtype=np.int8)
+        group["node_type_id"] = np.full(sgid_count, -1, dtype=np.int16)
         attributes = group.create_group("0")
-        attributes["mtype"] = np.full(sgid_count, 0, dtype=np.int8)
+        attributes["mtype"] = np.full(sgid_count, 0, dtype=np.int16)
 
         attributes["synapse_class"] = attributes["mtype"]
         attributes["model_type"] = attributes["mtype"]
@@ -71,13 +71,19 @@ def write_edges(syns, path, population_name, keep_offset=True):
 
         group["source_node_id"] = syns.sgid.to_numpy() - min_sgid
         group["target_node_id"] = syns.tgid.to_numpy() - 1
-        group["edge_type_id"] = np.full(len(syns), -1, dtype=np.int8)
+        group["edge_type_id"] = np.full(len(syns), -1, dtype=np.int16)
 
         attributes = group.create_group("0")
         attributes["efferent_section_type"] = np.full(
-            len(syns), EFFERENT_SECTION_TYPE, dtype=np.int8
+            len(syns), EFFERENT_SECTION_TYPE, dtype=np.int16
         )
-        attributes["afferent_section_type"] = syns.section_type.to_numpy()
+
+        # To keep backwards compatibility with results achieved projectionizer < v2.0.2 needing to
+        # rerun parts of the workflow, have section_type optional. Full workflow is not affected.
+        if "section_type" in syns.columns:
+            # TODO: make mandatory when we can be reasonably sure there is no longer need for this
+            attributes["afferent_section_type"] = syns.section_type.to_numpy()
+
         attributes["distance_soma"] = syns.sgid_path_distance.to_numpy()
 
         attributes["afferent_section_id"] = syns.section_id.to_numpy()
@@ -87,3 +93,11 @@ def write_edges(syns, path, population_name, keep_offset=True):
         attributes["afferent_center_x"] = syns.x.to_numpy()
         attributes["afferent_center_y"] = syns.y.to_numpy()
         attributes["afferent_center_z"] = syns.z.to_numpy()
+
+        if all(np.in1d(["source_x", "source_y", "source_z"], syns.columns)):
+            attributes["efferent_center_x"] = syns.source_x.to_numpy()
+            attributes["efferent_center_y"] = syns.source_y.to_numpy()
+            attributes["efferent_center_z"] = syns.source_z.to_numpy()
+
+        if "distance_volume_transmission" in syns.columns:
+            attributes["distance_volume_transmission"] = syns.distance_volume_transmission

@@ -79,12 +79,13 @@ def test_ScaleConductance():
                 edge_population = self.requires()[0].edge_population
 
                 with h5py.File(self.input()[0].path, 'w') as h5:
-                    population_path = '/edges/%s/0' % edge_population
+                    population_path = f'/edges/{edge_population}/0'
                     group = h5.create_group(population_path)
+                    group['distance_volume_transmission'] = [0]
                     group['conductance'] = [0]
                 super().run()
 
-        with patch('projectionizer.volume_transmission.calculate_synapse_conductance') as patched:
+        with patch(f'{test_module.__name__}.calculate_conductance_scaling_factor') as patched:
             patched.return_value = [0]
 
             with patch('projectionizer.volume_transmission.load'):

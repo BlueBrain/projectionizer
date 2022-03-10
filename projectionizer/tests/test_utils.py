@@ -155,23 +155,17 @@ def test_in_bounding_box():
                                     ])
 
 
-def test_calculate_synapse_conductance():
+def test_calculate_conductance_scaling_factor():
 
     radius = 5
     interval = np.array((1, .1))
     distance = np.array((0, radius / 2, radius, radius + 1))
-    conductance = np.ones(len(distance))
 
-    res = test_module.calculate_synapse_conductance(
-        conductance, distance, max_radius=radius, interval=interval)
+    res = test_module.calculate_conductance_scaling_factor(
+        distance, max_radius=radius, interval=interval)
     expected = np.array([interval[0], interval.mean(), interval[1], 0])
 
     assert_array_almost_equal(res, expected)
-
-    conductance = np.random.random(len(distance))
-    res = test_module.calculate_synapse_conductance(
-        conductance, distance, max_radius=radius, interval=interval)
-    assert_array_almost_equal(res, conductance * expected)
 
 
 def test_mask_by_region():

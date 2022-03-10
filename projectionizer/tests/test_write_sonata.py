@@ -1,6 +1,7 @@
 import os
 
 import h5py
+import numpy as np
 import pandas as pd
 from numpy.testing import assert_array_equal, assert_equal
 
@@ -51,17 +52,22 @@ def test_write_nodes():
 
 
 def test_write_edges():
+    np.random.seed(42)
     df = pd.DataFrame({'tgid': [10, 15],
                        'sgid': [20, 13],
-                       'x': [0.45] * 2,
-                       'y': [0.33] * 2,
-                       'z': [0.11] * 2,
+                       'x': np.random.random(2),
+                       'y': np.random.random(2),
+                       'z': np.random.random(2),
+                       'source_x': np.random.random(2),
+                       'source_y': np.random.random(2),
+                       'source_z': np.random.random(2),
                        'section_id': [1033] * 2,
                        'synapse_offset': [128.] * 2,
                        'afferent_indices': [12] * 2,
                        'segment_id': [1033] * 2,
                        'section_type': [3] * 2,
-                       'sgid_path_distance': [300.] * 2
+                       'sgid_path_distance': [300.] * 2,
+                       'distance_volume_transmission': np.random.random(2),
                        })
 
     with setup_tempdir('test_utils') as folder:
@@ -81,12 +87,19 @@ def test_write_edges():
             assert_array_equal(attributes['afferent_center_x'], df.x)
             assert_array_equal(attributes['afferent_center_y'], df.y)
             assert_array_equal(attributes['afferent_center_z'], df.z)
+            assert_array_equal(attributes['efferent_center_x'], df.source_x)
+            assert_array_equal(attributes['efferent_center_y'], df.source_y)
+            assert_array_equal(attributes['efferent_center_z'], df.source_z)
             assert_array_equal(attributes['distance_soma'], df.sgid_path_distance)
             assert_array_equal(attributes['afferent_section_id'], df.section_id)
             assert_array_equal(attributes['afferent_segment_id'], df.segment_id)
             assert_array_equal(attributes['afferent_segment_offset'], df.synapse_offset)
             assert_array_equal(attributes['afferent_section_type'], df.section_type)
             assert_array_equal(attributes['efferent_section_type'], [2] * 2)
+            assert_array_equal(
+                    attributes['distance_volume_transmission'],
+                    df.distance_volume_transmission
+            )
 
     with setup_tempdir('test_utils') as folder:
         path = os.path.join(folder, 'sscx_edges.sonata')

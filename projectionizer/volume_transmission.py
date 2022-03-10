@@ -5,6 +5,7 @@ import shutil
 from functools import partial
 
 import h5py
+import numpy as np
 import pandas as pd
 from bluepy import Section, Segment
 from luigi import FloatParameter, ListParameter, LocalTarget
@@ -17,7 +18,7 @@ from projectionizer.synapses import spherical_sampling
 from projectionizer.utils import (
     XYZ,
     XYZUVW,
-    calculate_synapse_conductance,
+    calculate_conductance_scaling_factor,
     delete_file_on_exception,
     load,
     map_parallelize,
@@ -100,7 +101,6 @@ class ScaleConductance(CommonParams):
 
     def run(self):
         L.info("Scaling conductance according to distance...")
-        syns = load(self.input()[1].path)
         edge_population = self.requires()[0].edge_population
         radius = self.requires()[1].radius
         filepath = self.output().path
@@ -110,13 +110,16 @@ class ScaleConductance(CommonParams):
 
             with h5py.File(filepath, "r+") as projections:
                 conductance = projections[f"edges/{edge_population}/0/conductance"]
-                conductance[...] = calculate_synapse_conductance(
-                    conductance[:], syns.distance_volume_transmission, radius, self.interval
+                distances = np.asarray(
+                    projections[f"edges/{edge_population}/0/distance_volume_transmission"]
+                )
+                conductance[...] = calculate_conductance_scaling_factor(
+                    distances, radius, self.interval
                 )
 
     def output(self):
         name, ext = os.path.splitext(self.input()[0].path)
-        return LocalTarget(name + "-scaled" + ext)
+        return LocalTarget(name + "-final" + ext)
 
 
 class VolumeWriteSonataEdges(step_3_write.WriteSonataEdges):  # pragma: no cover

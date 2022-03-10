@@ -12,12 +12,15 @@ Improvements
 - Remove version pins from `bluepy` and `bluepysnap` and require newer versions
 - Updated project URLs in setup.py
 - Added an :ref:`example configuration file<Config_ExampleFile>`
+- Added `efferent_center_{x,y,z}` and `distance_volume_transmission` fields to volume transmission edges file
 
 Bug Fixes
 ~~~~~~~~~
 - Fixed the workflow for newer (than `archive/2021-07`) versions of `spykfunc`
 - Restrict `numpy<1.22` as the support for `python3.7` will be dropped in that release
 - Fixed a bug which prevented from running the normal pipeline with a config containing Volume Transmission tasks
+- Fixed a bug in Volume Transmission pipeline causing the conductance values to be incorrect
+- Changed smallest integer type to `int16` for backward compatibility with older `spykfunc` versions
 
 
 Version v2.0.1
