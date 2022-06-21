@@ -480,7 +480,7 @@ def distribution_synapses_per_connection_per_layer(pruned, regions, layers, circ
                     bins=25,
                     rwidth=0.75,
                     color=bar_colors[sidx],
-                    label=syn_classes[sidx],
+                    label=sclass,
                 )
 
                 plt.ylim(plt.ylim())
@@ -527,7 +527,7 @@ def distribution_synapses_per_connection_per_layer(pruned, regions, layers, circ
                 if lidx == len(layers) - 1 and ridx == len(regions) - 1:
                     plt.legend()
 
-            plt.suptitle(f"Thalamo-cortical projections [{syn_classes[sidx]}]")
+            plt.suptitle(f"Thalamo-cortical projections [{sclass}]")
 
             save_path = os.path.join(folder, f"synapses_per_connection_{sclass.lower()}.png")
             plt.savefig(save_path, dpi=150)
