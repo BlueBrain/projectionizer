@@ -5,7 +5,7 @@ from morphio import SectionType
 
 from projectionizer.utils import SECTION_TYPE_MAP
 
-# Asssume the source cell types to be axons
+# Assume the source cell types to be axons
 EFFERENT_SECTION_TYPE = SECTION_TYPE_MAP[SectionType.axon]
 
 
@@ -29,29 +29,11 @@ def write_nodes(syns, path, population_name, mtype, keep_offset=True):
         attributes["morphology"] = attributes["mtype"]
         attributes["region"] = attributes["mtype"]
 
-        library = attributes.create_group("@library")
         str_dt = h5py.string_dtype(encoding="utf-8")
-        library.create_dataset(
-            "mtype",
-            data=[
-                mtype,
-            ],
-            dtype=str_dt,
-        )
-        library.create_dataset(
-            "synapse_class",
-            data=[
-                "EXC",
-            ],
-            dtype=str_dt,
-        )
-        library.create_dataset(
-            "model_type",
-            data=[
-                "virtual",
-            ],
-            dtype=str_dt,
-        )
+        library = attributes.create_group("@library")
+        library.create_dataset("mtype", data=[mtype], dtype=str_dt)
+        library.create_dataset("synapse_class", data=["EXC"], dtype=str_dt)
+        library.create_dataset("model_type", data=["virtual"], dtype=str_dt)
 
         library["etype"] = library["model_type"]
         library["morphology"] = library["model_type"]
@@ -74,19 +56,14 @@ def write_edges(syns, path, population_name, keep_offset=True):
         group["edge_type_id"] = np.full(len(syns), -1, dtype=np.int16)
 
         attributes = group.create_group("0")
+        attributes["afferent_section_type"] = syns.section_type.to_numpy()
         attributes["efferent_section_type"] = np.full(
             len(syns), EFFERENT_SECTION_TYPE, dtype=np.int16
         )
 
-        # To keep backwards compatibility with results achieved projectionizer < v2.0.2 needing to
-        # rerun parts of the workflow, have section_type optional. Full workflow is not affected.
-        if "section_type" in syns.columns:
-            # TODO: make mandatory when we can be reasonably sure there is no longer need for this
-            attributes["afferent_section_type"] = syns.section_type.to_numpy()
-
         attributes["distance_soma"] = syns.sgid_path_distance.to_numpy()
-
         attributes["afferent_section_id"] = syns.section_id.to_numpy()
+        attributes["afferent_section_pos"] = syns.section_pos.to_numpy()
         attributes["afferent_segment_id"] = syns.segment_id.to_numpy()
         attributes["afferent_segment_offset"] = syns.synapse_offset.to_numpy()
 

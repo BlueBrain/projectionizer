@@ -84,6 +84,11 @@ Volume Transmission
 -------------------
 Volume transmission workflow is run on top of the regular projections workflow to simulate the effects of acetylcholine release into the extrasynaptic space.
 
+The workflow outputs two files:
+
+ * **volume-transmission-nodes.h5**: volume transmission node file in a SONATA format
+ * **volume-transmission-edges.h5**: volume transmission edge file in a SONATA format
+
 The main phases of the workflow are:
 
 #. Spherical **sampling** of the affected synapses

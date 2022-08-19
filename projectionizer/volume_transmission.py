@@ -29,6 +29,7 @@ L = logging.getLogger(__name__)
 
 MAX_VOLUME_TRANSMISSION_DISTANCE = 5
 DEFAULT_ADDITIVE_PATH_DISTANCE = 300
+EDGE_FILE_NAME = "volume-transmission-edges.h5"
 
 
 def _get_spherical_samples(syns, circuit_path, radius):
@@ -87,17 +88,20 @@ class VolumeSample(FeatherTask):
         write_feather(self.output().path, samples)
 
 
+class VolumeComputeAfferentSectionPos(step_2_prune.ComputeAfferentSectionPos):
+    """Computes the afferent section position for the Volume Transmission synapses"""
+
+    def requires(self):  # pragma: no cover
+        return self.clone(VolumeSample)
+
+
 class ScaleConductance(CommonParams):
     """Scale the conductance."""
 
     interval = ListParameter([1.0, 0.1])
 
     def requires(self):  # pragma: no cover
-        target_population = self.clone(step_3_write.WriteSonata).target_population
-        return (
-            self.clone(VolumeWriteSonata, target_population=target_population),
-            self.clone(VolumeSample),
-        )
+        return (self.clone(VolumeWriteSonata), self.clone(VolumeSample))
 
     def run(self):
         L.info("Scaling conductance according to distance...")
@@ -118,15 +122,14 @@ class ScaleConductance(CommonParams):
                 )
 
     def output(self):
-        name, ext = os.path.splitext(self.input()[0].path)
-        return LocalTarget(name + "-final" + ext)
+        return LocalTarget(f"{self.folder}/{EDGE_FILE_NAME}")
 
 
 class VolumeWriteSonataEdges(step_3_write.WriteSonataEdges):  # pragma: no cover
     """Adapter class to step_3_write.WriteSonataEdges"""
 
     def requires(self):
-        return self.clone(VolumeSample)
+        return self.clone(VolumeSample), self.clone(VolumeComputeAfferentSectionPos)
 
 
 class VolumeWriteSonataNodes(step_3_write.WriteSonataNodes):  # pragma: no cover
@@ -140,7 +143,7 @@ class VolumeWriteSonata(step_3_write.WriteSonata):  # pragma: no cover
     """Adapter class to step_3_write.WriteSonata"""
 
     node_file_name = "volume-transmission-nodes.h5"
-    edge_file_name = "volume-transmission-edges.h5"
+    edge_file_name = "nonscaled-" + EDGE_FILE_NAME
     mtype = "volume_projections"
     node_population = "volume_projections"
     edge_population = "volume_projections"

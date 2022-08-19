@@ -3,6 +3,27 @@
 Changelog
 =========
 
+Version v3.0.0
+--------------
+
+.. _ver_3_0_0_breaking:
+
+Breaking Changes
+~~~~~~~~~~~~~~~~
+- removed values from config (providing these will cause the workflow to crash)
+
+  - `CommonParams: morphology_path`
+  - `WriteSonata: target_population`
+
+New Features
+~~~~~~~~~~~~
+- `afferent_section_pos` is now computed for the synapses
+
+Improvements
+~~~~~~~~~~~~
+- reading more parameters from circuit config instead of the user-provided config file (see :ref:`ver_3_0_0_breaking`)
+
+
 Version v2.0.2
 --------------
 

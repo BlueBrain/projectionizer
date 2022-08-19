@@ -94,7 +94,7 @@ def load_all(inputs):
     return [load(x.path) for x in inputs]
 
 
-def map_parallelize(func, it, jobs=36, chunksize=100):
+def map_parallelize(func, it, jobs=36, chunksize=100, maxtasksperchild=1):
     """apply func to all items in it, using a process pool"""
     if os.environ.get("PARALLEL_VERBOSE", False):
         from multiprocessing import util  # pylint:disable=import-outside-toplevel
@@ -106,7 +106,7 @@ def map_parallelize(func, it, jobs=36, chunksize=100):
     # FLATIndex is not threadsafe, and it leaks memory; to work around that
     # a the process pool forks a new process, and only runs 100 (b/c chunksize=100)
     # iterations before forking a new process (b/c maxtasksperchild=1)
-    with multiprocessing.Pool(jobs, maxtasksperchild=1) as pool:
+    with multiprocessing.Pool(jobs, maxtasksperchild=maxtasksperchild) as pool:
         return pool.map(func, it, chunksize)  # pylint: disable=no-value-for-parameter
 
 
@@ -212,16 +212,25 @@ def _regex_to_regions(region_str):
     return re.sub(r"[\@\^\$\(\)\\]", "", region_str).split("|")
 
 
+def read_blueconfig(path):
+    """Read a file in BlueConfig format"""
+    with open(path, "r", encoding="utf-8") as fd:
+        return BlueConfig(fd)
+
+
+def read_manifest(circuit_config):
+    """Read the MANIFEST.yaml"""
+    bc = read_blueconfig(circuit_config)
+
+    return load(os.path.join(bc.Run.BioName, "MANIFEST.yaml"))
+
+
 def read_regions_from_manifest(circuit_config):
     """Read the regions from the MANIFEST.yaml"""
-    with open(circuit_config, "r", encoding="utf-8") as fd:
-        bc = BlueConfig(fd)
+    manifest = read_manifest(circuit_config)
 
-    if hasattr(bc.Run, "BioName"):
-        manifest = load(os.path.join(bc.Run.BioName, "MANIFEST.yaml"))
-
-        if ("common" in manifest) and ("region" in manifest["common"]):
-            return _regex_to_regions(manifest["common"]["region"])
+    if ("common" in manifest) and ("region" in manifest["common"]):
+        return _regex_to_regions(manifest["common"]["region"])
 
     return []
 

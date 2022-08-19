@@ -19,7 +19,13 @@ import sys
 import click
 import numpy as np
 import pandas as pd
-from projectionizer import hippocampus, utils, version, write_sonata as sonata
+from projectionizer import (
+    afferent_section_position,
+    hippocampus,
+    utils,
+    version,
+    write_sonata as sonata
+)
 
 from bluepy import Circuit
 
@@ -31,14 +37,20 @@ SONATA_PATH = 'SONATA'
 SYN2_PATH = 'SYN2'
 CHUNK_SIZE = 100000000
 
-SEGMENT_START_COLS = ['segment_x1', 'segment_y1', 'segment_z1', ]
-SEGMENT_END_COLS = ['segment_x2', 'segment_y2', 'segment_z2', ]
-SEGMENT_COLUMNS = sorted(['section_id', 'segment_id', 'segment_length', ] +
-                         SEGMENT_START_COLS + SEGMENT_END_COLS +
-                         ['tgid']
-                         )
-
-ASSIGNED_COLS = ['section_id', 'segment_id', 'tgid', 'synapse_offset', 'x', 'y', 'z', 'sgid']
+SEGMENT_START_COLS = hippocampus.SEGMENT_START_COLS
+SEGMENT_END_COLS = hippocampus.SEGMENT_END_COLS
+ASSIGNED_COLS = [
+    'sgid',
+    'tgid',
+    'section_id',
+    'segment_id',
+    'synapse_offset',
+    'section_pos',
+    'section_type',
+    'x',
+    'y',
+    'z',
+]
 
 REQUIRED_PATH = click.Path(exists=True, readable=True, dir_okay=False, resolve_path=True)
 
@@ -68,6 +80,10 @@ class DataFrameWrapper():
                          name='sgid_path_distance',
                          dtype=np.float32)
 
+    @property
+    def columns(self):
+        return ASSIGNED_COLS
+
     def __len__(self):
         if self._length is None:
             self._length = len(self[ASSIGNED_COLS[0]])
@@ -78,12 +94,26 @@ class DataFrameWrapper():
         return os.path.join(self._path, column + '.feather')
 
     def __getattr__(self, attribute):
-        if attribute in ASSIGNED_COLS:
+        if attribute in self.columns:
             return pd.read_feather(self._get_column_path(attribute))[attribute]
         return self.__getattribute__(attribute)
 
     def __getitem__(self, item):
         return self.__getattr__(item)
+
+
+def _create_dir(path):
+    '''Create a dir if it doesn't exist'''
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+
+def _path_exists(path):
+    exists = os.path.exists(path)
+    if exists:
+        L.info('Already have %s, skipping', path)
+
+    return exists
 
 
 @click.group()
@@ -101,9 +131,7 @@ def cli(ctx, config, verbose, output):
         import multiprocessing.util
         multiprocessing.util.log_to_stderr(logging.DEBUG)
 
-    if not os.path.exists(output):
-        os.makedirs(output)
-
+    _create_dir(output)
     orig_config = os.path.join(output, os.path.basename(config))
     if os.path.exists(orig_config):
         orig_config_contents = utils.load(orig_config)
@@ -181,10 +209,9 @@ def _assign_sgid(syns, sgid_start, sgid_count):
     return syns
 
 
-def _assign(cells, morph_class, count, samples_path, output, region, sgid_start, sgid_count):
+def _assign(cells, morph_class, count, samples_path, output, region, sgid_start, sgid_count, config):
     output = os.path.join(output, ASSIGN_PATH)
-    if not os.path.exists(output):
-        os.makedirs(output)
+    _create_dir(output)
 
     L.debug('Assign doing: %s[%s] with %d synapses', region, morph_class, count)
 
@@ -200,14 +227,17 @@ def _assign(cells, morph_class, count, samples_path, output, region, sgid_start,
 
     for i, size in enumerate([CHUNK_SIZE] * (count // CHUNK_SIZE) + [(count % CHUNK_SIZE)]):
         path = os.path.join(output, '%s_%s_%05d.feather' % (region, morph_class, i))
-        if os.path.exists(path):
-            L.info('Already have %s, skipping', path)
-            continue
-
-        with utils.delete_file_on_exception(path):
-            syns = _pick_synapse_locations(segs, dist, size)
-            syns = _assign_sgid(syns, sgid_start, sgid_count)
-            utils.write_feather(path, syns)
+        if not _path_exists(path):
+            with utils.delete_file_on_exception(path):
+                syns = _pick_synapse_locations(segs, dist, size)
+                syns = _assign_sgid(syns, sgid_start, sgid_count)
+                syns['section_pos'] = afferent_section_position.compute_positions(
+                    syns,
+                    config['target_node_path'],
+                    config['morphology_path'],
+                    config['morphology_type']
+                )
+                utils.write_feather(path, syns)
 
 
 @cli.command()
@@ -233,34 +263,30 @@ def assign(ctx, region):
     sgid_start, sgid_count = config['sgid_start'], config['sgid_count']
 
     sample_path = os.path.join(output, hippocampus.SAMPLE_PATH)
-    _assign(cells, 'INT', int_count, sample_path, output, region, sgid_start, sgid_count)
-    _assign(cells, 'PYR', pyr_count, sample_path, output, region, sgid_start, sgid_count)
+    _assign(cells, 'INT', int_count, sample_path, output, region, sgid_start, sgid_count, config)
+    _assign(cells, 'PYR', pyr_count, sample_path, output, region, sgid_start, sgid_count, config)
 
 
 @cli.command()
 @click.pass_context
 def merge(ctx):
     '''merge the data in the assigned files column by column (one file per column)'''
-    output = ctx.obj['output']
+    config, output = ctx.obj['config'], ctx.obj['output']
     paths = glob(os.path.join(output, ASSIGN_PATH, '*.feather'))
 
     output = os.path.join(output, MERGE_PATH)
-    if not os.path.exists(output):
-        os.makedirs(output)
+    _create_dir(output)
 
     for col in ASSIGNED_COLS:
         filepath = os.path.join(output, f'{col}.feather')
-        if os.path.exists(filepath):
-            L.info('Already have %s, skipping', filepath)
-            continue
+        if not _path_exists(filepath):
+            L.debug('Merging column %s', col)
+            data = pd.concat((utils.read_feather(f, columns=[col])
+                              for f in paths), sort=False, ignore_index=False)
 
-        L.debug('Merging column %s', col)
-        data = pd.concat((utils.read_feather(f, columns=[col])
-                          for f in paths), sort=False, ignore_index=False)
-
-        L.debug('Writing %s', filepath)
-        with utils.delete_file_on_exception(filepath):
-            utils.write_feather(filepath, data)
+            L.debug('Writing %s', filepath)
+            with utils.delete_file_on_exception(filepath):
+                utils.write_feather(filepath, data)
 
 
 @cli.command()
@@ -271,21 +297,25 @@ def write_sonata(ctx):
     column_path = os.path.join(output, MERGE_PATH)
 
     output = os.path.join(output, SONATA_PATH)
-    if not os.path.exists(output):
-        os.makedirs(output)
+    _create_dir(output)
 
+    syns = DataFrameWrapper(column_path, config['distance_soma'])
     node_path = os.path.join(output, 'nodes.h5')
     edge_path = os.path.join(output, 'nonparameterized-edges.h5')
 
-    syns = DataFrameWrapper(column_path, config['distance_soma'])
+    if not _path_exists(node_path):
+        node_population = config.get('node_population_name', 'projections')
 
-    node_population = config.get('node_population_name', 'projections')
-    edge_population = config.get('edge_population_name', 'projections')
+        L.debug('Writing %s', node_path)
+        with utils.delete_file_on_exception(node_path):
+            sonata.write_nodes(syns, node_path, node_population, 'virtual', keep_offset=True)
 
-    L.debug('Writing %s', node_path)
-    sonata.write_nodes(syns, node_path, node_population, 'virtual', keep_offset=True)
-    L.debug('Writing %s', edge_path)
-    sonata.write_edges(syns, edge_path, edge_population, keep_offset=True)
+    if not _path_exists(edge_path):
+        edge_population = config.get('edge_population_name', 'projections')
+
+        L.debug('Writing %s', edge_path)
+        with utils.delete_file_on_exception(edge_path):
+            sonata.write_edges(syns, edge_path, edge_population, keep_offset=True)
 
 
 if __name__ == '__main__':

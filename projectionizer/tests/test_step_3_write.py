@@ -26,6 +26,7 @@ def test_WriteUserTargetTxt():
                 'section_id': [1033],
                 'segment_id': [1033],
                 'section_type': [3],
+                'section_pos': [0.5],
                 'synapse_offset': [128.],
                 'sgid_path_distance': [0.5],
                 }
@@ -35,7 +36,8 @@ def test_WriteUserTargetTxt():
         class TestWriteUserTargetTxt(step_3_write.WriteUserTargetTxt):
             efferent = False
             folder = tmp_folder
-            physiology_path = morphology_path = circuit_config = 'fake_string'
+            physiology_path = 'fake_string'
+            circuit_config = os.path.join(tmp_folder, 'CircuitConfig')
             geometry = n_total_chunks = sgid_offset = oversampling = None
             extension = None
             layers = ''
@@ -61,7 +63,8 @@ def test_VirtualFibers():
         class TestVirtualFibers(step_3_write.VirtualFibers):
             folder = tmp_folder
             sgid_offset = 10
-            physiology_path = morphology_path = circuit_config = 'fake_string'
+            physiology_path = 'fake_string'
+            circuit_config = os.path.join(tmp_folder, 'CircuitConfig')
             geometry = n_total_chunks = oversampling = None
             layers = ''
 
@@ -86,6 +89,7 @@ def test_WriteSonata():
                            'section_id': [1033],
                            'segment_id': [1033],
                            'section_type': [3],
+                           'section_pos': [0.5],
                            'synapse_offset': [128.],
                            'x': [101],
                            'y': [102],
@@ -110,7 +114,8 @@ def test_WriteSonata():
 
         class TestWriteSonata(step_3_write.WriteSonata):
             folder = tmp_folder
-            physiology_path = morphology_path = circuit_config = 'fake_string'
+            physiology_path = 'fake_string'
+            circuit_config = os.path.join(tmp_folder, 'CircuitConfig')
             sgid_offset = geometry = n_total_chunks = oversampling = None
             node_population = NODE_POPULATION
             edge_population = EDGE_POPULATION
@@ -177,6 +182,7 @@ def test_WriteSonataNodes():
                 'section_id': [1033],
                 'segment_id': [1033],
                 'section_type': [3],
+                'section_pos': [0.5],
                 'synapse_offset': [128.],
                 'x': [101],
                 'y': [102],
@@ -188,7 +194,8 @@ def test_WriteSonataNodes():
 
         class TestWriteSonataNodes(step_3_write.WriteSonataNodes):
             folder = tmp_folder
-            physiology_path = morphology_path = circuit_config = 'fake_string'
+            physiology_path = 'fake_string'
+            circuit_config = os.path.join(tmp_folder, 'CircuitConfig')
             sgid_offset = geometry = n_total_chunks = oversampling = None
             node_population = NODE_POPULATION
             edge_population = EDGE_POPULATION
@@ -210,7 +217,8 @@ def test_WriteSonataNodes():
 
 def test_WriteSonataEdges():
     with setup_tempdir('test_step3') as tmp_folder:
-        mock_path = os.path.join(tmp_folder, 'mock_synapses.feather')
+        mock_syn_path = os.path.join(tmp_folder, 'mock_synapses.feather')
+        mock_pos_path = os.path.join(tmp_folder, 'mock_positions.feather')
         data = {'tgid': [10],
                 'sgid': [20],
                 'section_id': [1033],
@@ -222,12 +230,14 @@ def test_WriteSonataEdges():
                 'z': [103],
                 'sgid_path_distance': [0.5],
                 }
-        write_feather(mock_path, pd.DataFrame(data))
-        mock = Mock(path=mock_path)
+        write_feather(mock_syn_path, pd.DataFrame(data))
+        write_feather(mock_pos_path, pd.DataFrame({'section_pos': [0.5]}))
+        mock_syn, mock_pos = Mock(path=mock_syn_path), Mock(path=mock_pos_path)
 
         class TestWriteSonataEdges(step_3_write.WriteSonataEdges):
             folder = tmp_folder
-            physiology_path = morphology_path = circuit_config = 'fake_string'
+            physiology_path = 'fake_string'
+            circuit_config = os.path.join(tmp_folder, 'CircuitConfig')
             sgid_offset = geometry = n_total_chunks = oversampling = None
             node_population = NODE_POPULATION
             edge_population = EDGE_POPULATION
@@ -235,10 +245,12 @@ def test_WriteSonataEdges():
             edge_file_name = 'edges.h5'
 
             def input(self):
-                return mock
+                return mock_syn, mock_pos
 
         test = TestWriteSonataEdges()
-        assert isinstance(test.requires(), Task)
+        assert isinstance(test.requires(), tuple)
+        for t in test.requires():
+            assert isinstance(t, Task)
 
         test.run()
         assert os.path.isfile(test.output().path)
@@ -259,7 +271,8 @@ def test_RunSpykfunc():
     with setup_tempdir('test_step3') as tmp_folder:
         class TestRunSpykfunc(step_3_write.RunSpykfunc):
             folder = tmp_folder
-            physiology_path = morphology_path = circuit_config = 'fake_string'
+            physiology_path = 'fake_string'
+            circuit_config = os.path.join(tmp_folder, 'CircuitConfig')
             sgid_offset = geometry = n_total_chunks = oversampling = None
             layers = ''
 
@@ -296,7 +309,8 @@ def test_RunParquetConverter():
     with setup_tempdir('test_step3') as tmp_folder:
         class TestRunParquetConverter(step_3_write.RunParquetConverter):
             folder = tmp_folder
-            physiology_path = morphology_path = circuit_config = 'fake_string'
+            physiology_path = 'fake_string'
+            circuit_config = os.path.join(tmp_folder, 'CircuitConfig')
             sgid_offset = geometry = n_total_chunks = oversampling = None
             layers = ''
 

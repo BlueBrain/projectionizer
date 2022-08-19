@@ -37,11 +37,40 @@ def fake_segments(min_xyz, max_xyz, count):
 
     return df
 
+def fake_manifest(path):
+    manifest = (
+        'common:\n'
+        f'  node_population_name: {NODE_POPULATION}\n'
+    )
+
+    with open(os.path.join(path, 'MANIFEST.yaml'), 'w', encoding='utf-8') as fd:
+        fd.write(manifest)
+
+
+def fake_circuit_config(path):
+    config = (
+        'Run Default {\n'
+        '    CircuitPath fake\n'
+        '    nrnPath fake\n'
+        f'    MorphologyPath {path}\n'
+        '    MorphologyType fake\n'
+        '    METypePath fake\n'
+        '    MEComboInfoFile fake\n'
+        '    CellLibraryFile fake\n'
+        f'    BioName {path}\n'
+        '    Atlas fake\n'
+        '}'
+    )
+    with open(os.path.join(path, 'CircuitConfig'), 'w', encoding='utf-8') as fd:
+        fd.write(config)
+
 
 @contextmanager
 def setup_tempdir(prefix):
     temp_dir = tempfile.mkdtemp(prefix=prefix)
     try:
+        fake_circuit_config(temp_dir)
+        fake_manifest(temp_dir)
         yield temp_dir
     finally:
         shutil.rmtree(temp_dir)

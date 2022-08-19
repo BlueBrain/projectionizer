@@ -1,4 +1,5 @@
 import json
+import os
 
 from luigi import FloatParameter, LocalTarget, Parameter, Task, build
 
@@ -50,8 +51,6 @@ class MismatchLinearTask(Task):
                                                                   self.param))
 
 DEFAULT_PARAMS = {
-    'circuit_config': 'a/fake/path',
-    'morphology_path': 'a/fake/path',
     'physiology_path': 'a/fake/path',
     'n_total_chunks': 1,
     'sgid_offset': 1,
@@ -69,6 +68,7 @@ def test_dichotomy():
                        'max_param': 456,
                        'max_loop': 57,
                        'folder': tmp_folder,
+                       'circuit_config': os.path.join(tmp_folder, 'CircuitConfig'),
                        })
         res = build([Dichotomy(**params)], local_scheduler=True)
         assert res
@@ -86,6 +86,7 @@ def test_dichotomy_failed():
                        'max_param': 456,
                        'max_loop': 3,
                        'folder': tmp_folder,
+                       'circuit_config': os.path.join(tmp_folder, 'CircuitConfig'),
                        })
 
         res = build([Dichotomy(**params)], local_scheduler=True)

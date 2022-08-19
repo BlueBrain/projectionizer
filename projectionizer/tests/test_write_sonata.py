@@ -17,6 +17,7 @@ def test_write_nodes():
                        'y': [0.33] * 2,
                        'z': [0.11] * 2,
                        'section_id': [1033] * 2,
+                       'section_pos': [0.5] * 2,
                        'synapse_offset': [128.] * 2,
                        'afferent_indices': [12] * 2,
                        'segment_id': [1033] * 2,
@@ -62,6 +63,7 @@ def test_write_edges():
                        'source_y': np.random.random(2),
                        'source_z': np.random.random(2),
                        'section_id': [1033] * 2,
+                       'section_pos': [0.5] * 2,
                        'synapse_offset': [128.] * 2,
                        'afferent_indices': [12] * 2,
                        'segment_id': [1033] * 2,
@@ -92,6 +94,7 @@ def test_write_edges():
             assert_array_equal(attributes['efferent_center_z'], df.source_z)
             assert_array_equal(attributes['distance_soma'], df.sgid_path_distance)
             assert_array_equal(attributes['afferent_section_id'], df.section_id)
+            assert_array_equal(attributes['afferent_section_pos'], df.section_pos)
             assert_array_equal(attributes['afferent_segment_id'], df.segment_id)
             assert_array_equal(attributes['afferent_segment_offset'], df.synapse_offset)
             assert_array_equal(attributes['afferent_section_type'], df.section_type)

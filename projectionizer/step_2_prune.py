@@ -11,7 +11,13 @@ import pandas as pd
 from bluepy import Circuit
 from scipy.stats import norm  # pylint: disable=no-name-in-module
 
-from projectionizer import luigi_utils, step_0_sample, step_1_assign, straight_fibers
+from projectionizer import (
+    afferent_section_position,
+    luigi_utils,
+    step_0_sample,
+    step_1_assign,
+    straight_fibers,
+)
 from projectionizer import synapses as syns
 from projectionizer.utils import load, load_all, write_feather
 
@@ -216,10 +222,27 @@ class ReducePrune(luigi_utils.FeatherTask):
             columns={"Segment.ID": "segment_id", "Section.ID": "section_id"}
         )
 
-        # TODO: Set real values for location and neurite_type
-        synapses["location"] = 1
-        synapses["neurite_type"] = 1
         synapses["sgid"] += self.sgid_offset
 
         syns.organize_indices(synapses)
         write_feather(self.output().path, synapses)
+
+
+class ComputeAfferentSectionPos(luigi_utils.FeatherTask):
+    """Computes the afferent section position for the synapses"""
+
+    def requires(self):  # pragma: no cover
+        return self.clone(ReducePrune)
+
+    def run(self):  # pragma: no cover
+        synapses = load(self.input().path)
+
+        positions = afferent_section_position.compute_positions(
+            synapses,
+            self.target_nodes,
+            self.target_population,
+            self.morphology_path,
+            self.morphology_type,
+        )
+
+        write_feather(self.output().path, positions)

@@ -4,7 +4,7 @@ import tempfile
 import pytest
 from luigi import Parameter, Task, build
 from luigi.local_target import LocalTarget
-from mock import patch
+from mock import Mock, patch
 from numpy.testing import assert_array_equal
 
 from projectionizer import luigi_utils as lu
@@ -15,6 +15,15 @@ from utils import setup_tempdir
 def test_camel2spinal_case():
     assert (lu.camel2spinal_case('CamelCase') ==
         'camel-case')
+
+def test_resolve_morphology_config():
+    class Run():
+        MorphologyPath = '/fake_path/'
+
+    config = Mock(Run=Run())
+    res = lu.resolve_morphology_config(config)
+
+    assert res == ('/fake_path/ascii', 'asc')
 
 
 def test_FolderTask():
@@ -30,26 +39,20 @@ def test_FolderTask():
 
 
 def test_common_params():
-    params = {'circuit_config': 'circuit',
-              'morphology_path': 'a/fake/path',
-              'physiology_path': 'a/fake/path',
+    params = {'physiology_path': 'a/fake/path',
               'folder': '/none/existant/path',
               'n_total_chunks': 'n_chunks',
               'sgid_offset': 0,
               'oversampling': 0,
-              'layers': [(6, 700.37845971),
-                         (5, 525.05585701),
-                         (4, 189.57183895),
-                         (3, 352.92508322),
-                         (2, 148.87602025),
-                         (1, 164.94915873), ],
+              'layers': [6, 5, 4, 3, 2, 1],
               'regions': ['region_1', 'region_2'],
               }
 
     class TestCommonParams(lu.CommonParams):
         extension = 'out'
 
-    task = TestCommonParams(**params)
+    with setup_tempdir('test_luigi') as tmp_dir:
+        task = TestCommonParams(circuit_config=os.path.join(tmp_dir, "CircuitConfig"), **params)
     assert task.output().path == '/none/existant/path/test-common-params.out'
 
     assert_array_equal(params['regions'], task.get_regions())
@@ -67,7 +70,9 @@ def test_common_params():
     class TestCommonParamsChunk(TestCommonParams):
         chunk_num = 42
 
-    chunked_task = TestCommonParamsChunk(**params)
+    with setup_tempdir('test_luigi') as tmp_dir:
+        chunked_task = TestCommonParamsChunk(
+            circuit_config=os.path.join(tmp_dir, "CircuitConfig"), **params)
     assert chunked_task.output().path == '/none/existant/path/test-common-params-chunk-42.out'
 
     assert isinstance(task.requires(), lu.FolderTask)

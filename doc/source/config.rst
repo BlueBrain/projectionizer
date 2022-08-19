@@ -23,13 +23,12 @@ Lists parameters that are common to all tasks.
   ====================== ========= ========= =======================================
   circuit_config         Yes                 The CircuitConfig absolute path.
   physiology_path        Yes                 The path to the XML recipe that is used by Spykfunc
-  morphology_path        Yes                 The path to the morphology release
   sgid_offset            Yes                 The offset used for indexing the virtual fibers
   n_total_chunks         Yes                 In order to prevent RAM from exploding, the computation is split into chunks. This is the number of chunks.
   oversampling           Yes                 The ratio between the number of sampled synapses during the first step and the number of desired synapses. Oversampling is necessary as it allows to remove unwanted synapses with bad connectivity properties while keeping the final number of synapses stable.
   layers                 Yes                 List of layer names (as in `hierarchy.json`) arranged from bottom to top (e.g., `[L6, L5, L4, L3, L2, L1]`)
   fiber_locations_path   Yes                 Path to a csv file containing fiber positions and directions. It can be :ref:`generated<Index_CreatingFibers>` with projectionizer.
-  region                 No        None      List of region names to generate projections to. If not given, parsed from MANIFEST (should be defined in [common] > [region]). If not defined in manifest, raises an exception.
+  regions                No        None      List of region names to generate projections to. If not given, parsed from MANIFEST (should be defined in [common] > [region]). If not defined in manifest, raises an exception.
   hex_apron_bounding_box No        None      Coordinates of the bounding box of the apron optionally used with columns to reduce edge effects (see: :ref:`apron<FAQ_apron>`)
   ====================== ========= ========= =======================================
 
@@ -134,7 +133,6 @@ Parameterizes the SONATA files.
   ====================== ========= ====================== =======================================
   Parameter              Mandatory Default                Description
   ====================== ========= ====================== =======================================
-  target_population      No        All                    The name of the target node population
   mtype                  No        projections            The mtype of the nodes, also used as the target name in the user.target file
   node_population        No        projections            The name of the created node population
   edge_population        No        projections            The name of the created edge population
@@ -182,7 +180,6 @@ Example
     CommonParams:
       circuit_config: /gpfs/bbp.cscs.ch/project/proj87/scratch/circuits/SSCX-O1/CircuitConfig
       fiber_locations_path: /gpfs/bbp.cscs.ch/project/proj87/scratch/projections/SSCX-O1/dopamine/dopamine_fibers.csv
-      morphology_path: /gpfs/bbp.cscs.ch/project/proj83/morphologies/fixed_ais_L23PC_20201210/ascii
       physiology_path: /gpfs/bbp.cscs.ch/project/proj87/scratch/projections/SSCX-O1/dopamine/DA_proj_recipe.xml
       layers:
       - L6
@@ -235,8 +232,6 @@ Example
           - 0.00041463895885736476
         - - 0.588235294118
           - 0.00041463895885736476
-    WriteSonata:
-      target_population: sscx_neurons
     VolumeSample:
       additive_path_distance: 300
       radius: 2

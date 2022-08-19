@@ -34,6 +34,7 @@ SEGMENT_COLUMNS = sorted(
         "section_id",
         "segment_id",
         "segment_length",
+        "section_type",
     ]
     + SEGMENT_START_COLS
     + SEGMENT_END_COLS
@@ -112,6 +113,9 @@ def _full_sample_worker(min_xyzs, index_path, voxel_dimensions):
             del df[name]
 
         df["tgid"] = convert_to_smallest_allowed_int_type(df["gid"])
+        df["section_type"] = np.array(
+            [synapses.SECTION_TYPE_MAP[x] for x in df["Section.NEURITE_TYPE"]], dtype=np.int16
+        )
 
         del df["Section.NEURITE_TYPE"], df["Segment.R1"], df["Segment.R2"], df["gid"]
         #  }

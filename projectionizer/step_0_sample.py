@@ -1,7 +1,6 @@
 """Step 0; sample segments from circuit to be used as potential synapses
 """
 import json
-import os
 
 import numpy as np
 import pandas as pd
@@ -15,7 +14,13 @@ from projectionizer.sscx import (
 )
 from projectionizer.sscx_hex import get_mask_bounding_box
 from projectionizer.synapses import build_synapses_default, pick_synapses
-from projectionizer.utils import load, load_all, mask_by_region, write_feather
+from projectionizer.utils import (
+    load,
+    load_all,
+    mask_by_region,
+    read_blueconfig,
+    write_feather,
+)
 
 
 class VoxelSynapseCount(NrrdTask):  # pragma: no cover
@@ -95,7 +100,7 @@ class FullSample(FeatherTask):  # pragma: no cover
         else:
             # pylint: disable=maybe-no-member
             voxels = load(self.input().path)
-            circuit_path = os.path.dirname(self.circuit_config)
+            circuit_path = read_blueconfig(self.circuit_config).Run.CircuitPath
             synapses = pick_synapses(circuit_path, voxels)
 
             synapses.rename(columns={"gid": "tgid"}, inplace=True)

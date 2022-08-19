@@ -7,13 +7,28 @@ from luigi import Config, FloatParameter, IntParameter, ListParameter, Parameter
 from luigi.contrib.simulate import RunAnywayTarget
 from luigi.local_target import LocalTarget
 
-from projectionizer.utils import read_regions_from_manifest
+from projectionizer.utils import (
+    read_blueconfig,
+    read_manifest,
+    read_regions_from_manifest,
+)
 
 
 def camel2spinal_case(name):
     """Camel case to snake case"""
     s1 = re.sub("(.)([A-Z][a-z]+)", r"\1-\2", name)
     return re.sub("([a-z0-9])([A-Z])", r"\1-\2", s1).lower()
+
+
+def resolve_morphology_config(blueconfig):
+    """Resolve morphology configuration from circuit config."""
+    run = blueconfig.Run
+
+    if hasattr(run, "MorphologyType"):
+        return run.MorphologyPath, run.MorphologyType
+
+    # If morphology type not defined, append 'ascii' to path and assume type as 'ascii'
+    return os.path.join(run.MorphologyPath, "ascii"), "asc"
 
 
 class FolderTask(Task):
@@ -32,7 +47,6 @@ class CommonParams(Config):
     """Paramaters that must be passed to all Task"""
 
     circuit_config = Parameter()
-    morphology_path = Parameter()
     physiology_path = Parameter()
     folder = Parameter()
     n_total_chunks = IntParameter()
@@ -58,6 +72,18 @@ class CommonParams(Config):
     hex_apron_bounding_box = ListParameter(default=[])
 
     extension = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        blueconfig = read_blueconfig(self.circuit_config)
+        manifest = read_manifest(self.circuit_config)
+        path, type_ = resolve_morphology_config(blueconfig)
+
+        self.target_nodes = blueconfig.Run.CellLibraryFile
+        self.target_population = manifest["common"]["node_population_name"]
+        self.morphology_path = path
+        self.morphology_type = type_
 
     def output(self):
         name = camel2spinal_case(self.__class__.__name__)

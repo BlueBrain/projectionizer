@@ -20,8 +20,12 @@ from projectionizer.luigi_utils import (
     RunAnywayTargetTempDir,
 )
 from projectionizer.step_1_assign import VirtualFibersNoOffset
-from projectionizer.step_2_prune import ChooseConnectionsToKeep, ReducePrune
-from projectionizer.utils import load
+from projectionizer.step_2_prune import (
+    ChooseConnectionsToKeep,
+    ComputeAfferentSectionPos,
+    ReducePrune,
+)
+from projectionizer.utils import load, load_all
 
 L = logging.getLogger(__name__)
 
@@ -74,7 +78,6 @@ class SynapseCountPerConnectionTarget(JsonTask):  # pragma: no cover
 class WriteSonata(CommonParams):
     """Write projections in SONATA format."""
 
-    target_population = Parameter("All")
     mtype = Parameter("projections")
     node_population = Parameter("projections")
     edge_population = Parameter("projections")
@@ -175,10 +178,13 @@ class WriteSonataEdges(WriteSonata):
     """Write Sonata edges file to be parameterized with Spykfunc."""
 
     def requires(self):
-        return self.clone(ReducePrune)
+        return self.clone(ReducePrune), self.clone(ComputeAfferentSectionPos)
 
     def run(self):
-        write_sonata.write_edges(load(self.input().path), self.output().path, self.edge_population)
+        synapses, section_pos = load_all(self.input())
+        write_sonata.write_edges(
+            synapses.join(section_pos), self.output().path, self.edge_population
+        )
 
     def output(self):
         return LocalTarget(self._get_full_path_output("nonparameterized-" + self.edge_file_name))
@@ -199,13 +205,10 @@ class RunSpykfunc(WriteSonata):
         return self.clone(WriteSonataEdges), self.clone(WriteSonataNodes)
 
     def _parse_command(self):
-        circuit_dir = os.path.dirname(self.circuit_config)
         spykfunc_dir = self.output().path
         edges = self.input()[0].path
         from_nodes = self.input()[1].path
-        to_nodes = os.path.join(
-            circuit_dir, "sonata/networks/nodes/", self.target_population, "nodes.h5"
-        )
+        to_nodes = self.target_nodes
         cluster_dir = self._get_full_path_output("_sm_cluster")
         command = (
             f"module purge; module load {self.module_archive} spykfunc; "
@@ -251,13 +254,10 @@ class RunParquetConverter(WriteSonata):
         return self.clone(RunSpykfunc), self.clone(WriteSonataNodes)
 
     def _parse_command(self):
-        circuit_dir = os.path.dirname(self.circuit_config)
         from_nodes = self.input()[1].path
         parquet_dir = os.path.join(self.input()[0].path, "circuit.parquet")
         parquet_glob = os.path.join(parquet_dir, "*.parquet")
-        to_nodes = os.path.join(
-            circuit_dir, "sonata/networks/nodes/", self.target_population, "nodes.h5"
-        )
+        to_nodes = self.target_nodes
         edge_file_name = self.output().path
         command = (
             f"module purge; "
