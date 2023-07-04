@@ -47,7 +47,7 @@ class Dichotomy(JsonTask):
                 end = param
             else:
                 start = param
-        raise Exception("Maximum number of iteration reached")
+        raise RuntimeError("Maximum number of iteration reached")
 
     def output(self):
         name = camel2spinal_case(type(self).__name__)

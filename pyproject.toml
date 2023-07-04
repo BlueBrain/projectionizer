@@ -1,6 +1,91 @@
 [tool.black]
 line-length = 100
 target-version = [
-    'py37',
+    "py37",
 ]
-include = 'projectionizer\/[^/]*\.py$|doc\/source\/conf\.py$|setup\.py$|apps/projectionizer'
+include = '''
+    projectionizer\/.*\.py$
+    | doc\/source\/conf\.py$
+    | setup\.py$
+    | apps/projectionizer
+    | tests\/.*\.py$
+'''
+
+[tool.isort]
+profile = "black"
+known_local_folder = ["utils", "mocks"]
+
+[tool.pylint]
+    [tool.pylint.messages_control]
+    disable = [
+        "fixme",
+        "invalid-name",
+        "len-as-condition",
+        "no-else-return",
+    ]
+
+    [tool.pylint.format]
+    # Maximum number of characters on a single line.
+    max-line-length=100
+
+    [tool.pylint.design]
+    # Maximum number of arguments for function / method
+    max-args=8
+    # Argument names that match this expression will be ignored. Default to name
+    # with leading underscore
+    ignored-argument-names="_.*"
+    # Maximum number of locals for function / method body
+    max-locals=15
+    # Maximum number of return / yield for function / method body
+    max-returns=6
+    # Maximum number of branch for function / method body
+    max-branches=12
+    # Maximum number of statements in function / method body
+    max-statements=50
+    # Maximum number of parents for a class (see R0901).
+    max-parents=7
+    # Maximum number of attributes for a class (see R0902).
+    max-attributes=40
+    # Minimum number of public methods for a class (see R0903).
+    min-public-methods=0
+    # Maximum number of public methods for a class (see R0904).
+    max-public-methods=60
+
+    [tool.pylint.similarities]
+    # checks for similarities and duplicated code. This computation may be
+    # memory / CPU intensive, so you should disable it if you experiments some
+    # problems.
+
+    # Minimum lines number of a similarity.
+    min-similarity-lines=25
+    # Ignore comments when computing similarities.
+    ignore-comments="yes"
+    # Ignore docstrings when computing similarities.
+    ignore-docstrings="yes"
+
+    [tool.pylint.typecheck]
+    # List of classes names for which member attributes should not be checked
+    # (useful for classes with attributes dynamically set).
+    ignored-classes=[
+        "numpy",
+        "list",
+    ]
+
+    extension-pkg-whitelist=[
+        "numpy",
+        "lxml",
+    ]
+
+    [tool.pylint.tests]
+    # Disabled in tests:
+    disable=[
+        "C0114",  # missing module docstring
+        "C0115",  # missing class docstring
+        "C0116",  # missing functiondocstring
+        "C0411",  # wrong-import-order (handled by isort)
+        "W0201",  # Attribute defined outside __init__
+        "W0212",  # protected-access
+        "E0401",  # import-error (due to false positives)
+        "R0914",  # too-many-locals
+        "R0915",  # too-many-statements
+    ]

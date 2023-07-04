@@ -70,7 +70,7 @@ class SynapseCountPerConnectionTarget(JsonTask):  # pragma: no cover
         mask = connections.mtype.isin(self.target_mtypes) & connections.kept
         mean = connections[mask].connection_size.mean()
         if np.isnan(mean):
-            raise Exception("SynapseCountPerConnectionTarget returned NaN")
+            raise RuntimeError("SynapseCountPerConnectionTarget returned NaN")
         with self.output().open("w") as outputf:
             json.dump({"result": mean}, outputf)
 
