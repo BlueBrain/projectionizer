@@ -1,50 +1,42 @@
-import os
+from unittest.mock import Mock
 
+import luigi
 import numpy as np
 import pandas as pd
-from mock import Mock
+import pytest
 
-from projectionizer import step_0_sample
-from projectionizer.luigi_utils import CommonParams
-from projectionizer.utils import load, write_feather
-
-from utils import setup_tempdir
+import projectionizer
+import projectionizer.step_0_sample as test_module
 
 
-def test_SampleChunk():
-    with setup_tempdir("test_step_0") as tmp_folder:
-        mock_path = os.path.join(tmp_folder, "full-sample.feather")
-        write_feather(mock_path, pd.DataFrame(np.arange(100), columns=["foo"]))
-        params = {
-            "circuit_config": os.path.join(tmp_folder, "CircuitConfig"),
-            "physiology_path": "fake_string",
-            "folder": tmp_folder,
-            "sgid_offset": 0,
-            "oversampling": 0,
-            "layers": "",
-        }
-        mock = Mock(path=mock_path)
+@pytest.mark.MockTask(cls=test_module.SampleChunk)
+def test_SampleChunk(MockTask):
+    mock_path = MockTask.folder / "full-sample.feather"
+    projectionizer.utils.write_feather(mock_path, pd.DataFrame(np.arange(100), columns=["foo"]))
 
-        class TestSampleChunk(step_0_sample.SampleChunk):
-            def input(self):
-                return mock
+    class TestSampleChunk(MockTask):
+        n_total_chunks = 5
+        chunk_num = luigi.IntParameter()
 
-        task = TestSampleChunk(n_total_chunks=5, chunk_num=0, **params)
-        task.run()
-        # load first one
-        output = os.path.join(tmp_folder, "test-sample-chunk-0.feather")
-        chunked = load(output)
-        assert len(chunked) == 21
-        assert chunked.foo.iloc[0] == 0
-        assert chunked.foo.iloc[-1] == 20
+        def input(self):
+            return Mock(path=mock_path)
 
-        # load last one
-        task = TestSampleChunk(n_total_chunks=5, chunk_num=4, **params)
-        task.run()
-        output = os.path.join(tmp_folder, "test-sample-chunk-4.feather")
-        chunked = load(output)
-        assert len(chunked) == 16
-        assert chunked.foo.iloc[0] == 84
-        assert chunked.foo.iloc[-1] == 99
+    task = TestSampleChunk(chunk_num=0)
+    task.run()
+    # load first one
+    output = task.folder / "test-sample-chunk-0.feather"
+    chunked = projectionizer.utils.load(output)
+    assert len(chunked) == 21
+    assert chunked.foo.iloc[0] == 0
+    assert chunked.foo.iloc[-1] == 20
 
-        assert isinstance(task.requires(), CommonParams)
+    # load last one
+    task = TestSampleChunk(chunk_num=4)
+    task.run()
+    output = task.folder / "test-sample-chunk-4.feather"
+    chunked = projectionizer.utils.load(output)
+    assert len(chunked) == 16
+    assert chunked.foo.iloc[0] == 84
+    assert chunked.foo.iloc[-1] == 99
+
+    assert isinstance(task.requires(), projectionizer.luigi_utils.CommonParams)

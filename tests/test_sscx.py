@@ -4,8 +4,8 @@ from numpy.testing import assert_allclose, assert_array_equal
 from voxcell import VoxelData
 from voxcell.nexus.voxelbrain import Atlas
 
-from projectionizer import sscx
-from projectionizer.step_1_assign import assign_synapse_fiber
+import projectionizer
+import projectionizer.sscx as test_module
 
 from mocks import create_candidates, create_virtual_fibers
 from utils import TEST_DATA_DIR
@@ -15,7 +15,7 @@ def test_assign_synapse_fiber():
     np.random.seed(37)
     candidates = create_candidates()
     virtual_fibers = create_virtual_fibers()
-    ret = assign_synapse_fiber(candidates, virtual_fibers, sigma=1)
+    ret = projectionizer.step_1_assign.assign_synapse_fiber(candidates, virtual_fibers, sigma=1)
     assert ret.equals(pd.DataFrame({"sgid": [0, 2, 1]}))
 
 
@@ -37,7 +37,7 @@ def test_relative_recipe_to_height_and_density():
 
     layer4 = 4
     layer3 = 3
-    res = sscx.recipe_to_relative_height_and_density(layers, layer4, 0, layer3, 0.5, profile)
+    res = test_module.recipe_to_relative_height_and_density(layers, layer4, 0, layer3, 0.5, profile)
 
     assert_allclose(
         res,
@@ -69,7 +69,7 @@ def test_relative_distance_layer():
     )
     distance = VoxelData(np.array([[[150, 146], [np.nan, 164]]], dtype=float), (1, 1, 1))
 
-    res = sscx.relative_distance_layer(distance, layer_ph)
+    res = test_module.relative_distance_layer(distance, layer_ph)
 
     assert_allclose(
         res.raw,
@@ -85,11 +85,11 @@ def test_relative_distance_layer():
 def test_recipe_to_relative_heights_per_layer():
     # [PH]6 is created from [PH]y. It's equally thick throughout the L6:
     # min limit is 0, max limit is the highest point of L6 in [PH]y.nrrd
-    atlas = Atlas.open(TEST_DATA_DIR)
+    atlas = Atlas.open(str(TEST_DATA_DIR))
     distance = atlas.load_data("[PH]y")
     layers = ["L6"]
 
-    ret = sscx.recipe_to_relative_heights_per_layer(distance, atlas, layers)
+    ret = test_module.recipe_to_relative_heights_per_layer(distance, atlas, layers)
 
     assert_array_equal(np.isfinite(ret.raw), atlas.get_region_mask("L6", attr="acronym").raw)
     assert np.all(ret.raw[np.isfinite(ret.raw)] >= 0.0)

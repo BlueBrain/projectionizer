@@ -16,6 +16,7 @@ from morphio import SectionType
 from pyarrow import feather
 from voxcell import VoxelData
 
+MANIFEST_FILE = "MANIFEST.yaml"
 X, Y, Z = 0, 1, 2
 XYZUVW = list("xyzuvw")
 IJK = list("ijk")
@@ -48,6 +49,7 @@ def write_feather(path, df):
     Note: This performs destructive changes to the dataframe, caller must
     save it if they need an unchanged version
     """
+    path = str(path)
     assert path.endswith(".feather"), "Can only write feathers at the moment"
 
     df.columns = map(str, df.columns)
@@ -76,6 +78,8 @@ def read_json(path):
 
 def load(filename):
     """Load a Pandas/Nrrd file based on the extension"""
+    filename = str(filename)
+
     extension = os.path.splitext(filename)[1]
     try:
         return {
@@ -222,7 +226,7 @@ def read_manifest(circuit_config):
     """Read the MANIFEST.yaml"""
     bc = read_blueconfig(circuit_config)
 
-    return load(os.path.join(bc.Run.BioName, "MANIFEST.yaml"))
+    return load(os.path.join(bc.Run.BioName, MANIFEST_FILE))
 
 
 def read_regions_from_manifest(circuit_config):

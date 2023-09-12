@@ -1,14 +1,14 @@
 import numpy as np
 import pandas as pd
 
-from projectionizer import step_2_prune
+import projectionizer.step_2_prune as test_module
 
 
 def test_find_cutoff_mean_per_mtype():
     value_count = pd.Series(np.arange(10))
-    assert step_2_prune.find_cutoff_mean_per_mtype(value_count, 0.4) == 6.469387755102041
-    assert step_2_prune.find_cutoff_mean_per_mtype(value_count, 0.5) == 7.0390625
-    assert step_2_prune.find_cutoff_mean_per_mtype(value_count, 0.6) == 7.484375
+    assert test_module.find_cutoff_mean_per_mtype(value_count, 0.4) == 6.469387755102041
+    assert test_module.find_cutoff_mean_per_mtype(value_count, 0.5) == 7.0390625
+    assert test_module.find_cutoff_mean_per_mtype(value_count, 0.6) == 7.484375
 
 
 def test_calculate_cutoff_means():
@@ -22,7 +22,7 @@ def test_calculate_cutoff_means():
         ],
         columns=columns,
     )
-    ret = step_2_prune.calculate_cutoff_means(mtype_sgid_tgid, oversampling=2.0)
+    ret = test_module.calculate_cutoff_means(mtype_sgid_tgid, oversampling=2.0)
     expected = pd.DataFrame(
         {
             "mtype": pd.Categorical(["mtype0", "mtype1"]),

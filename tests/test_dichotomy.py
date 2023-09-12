@@ -1,11 +1,9 @@
 import json
-import os
 
+import pytest
 from luigi import FloatParameter, LocalTarget, Parameter, Task, build
 
-from projectionizer.dichotomy import Dichotomy
-
-from utils import setup_tempdir
+import projectionizer.dichotomy as test_module
 
 
 class LinearTask(Task):
@@ -22,12 +20,11 @@ class LinearTask(Task):
         return LocalTarget(f"{self.folder}/result-param-{self.param}.json")
 
 
-def test_simple():
-    with setup_tempdir("test_dichotomy") as tmp_folder:
-        task = LinearTask(param=-5, folder=tmp_folder)
-        task.run()
-        with task.output().open() as inputf:
-            assert json.load(inputf)["result"] == 15
+def test_simple(tmp_confdir):
+    task = LinearTask(param=-5, folder=tmp_confdir)
+    task.run()
+    with task.output().open() as inputf:
+        assert json.load(inputf)["result"] == 15
 
 
 class MismatchLinearTask(Task):
@@ -48,51 +45,32 @@ class MismatchLinearTask(Task):
         return LocalTarget(f"{self.folder}/MismatchLinearTask-{self.param}.json")
 
 
-DEFAULT_PARAMS = {
-    "physiology_path": "a/fake/path",
-    "n_total_chunks": 1,
-    "sgid_offset": 1,
-    "oversampling": 1,
-    "layers": "fake_layers",
-}
+@pytest.mark.MockTask(cls=test_module.Dichotomy)
+def test_dichotomy(MockTask):
+    class TestDichotomy(MockTask):
+        MinimizationTask = MismatchLinearTask
+        target = -27
+        target_margin = 0.5
+        min_param = -123
+        max_param = 456
+        max_loop = 57
+
+    res = build([TestDichotomy()], local_scheduler=True)
+    assert res
 
 
-def test_dichotomy():
-    with setup_tempdir("test_dichotomy") as tmp_folder:
-        params = dict(DEFAULT_PARAMS)
-        params.update(
-            {
-                "MinimizationTask": MismatchLinearTask,
-                "target": -27,
-                "target_margin": 0.5,
-                "min_param": -123,
-                "max_param": 456,
-                "max_loop": 57,
-                "folder": tmp_folder,
-                "circuit_config": os.path.join(tmp_folder, "CircuitConfig"),
-            }
-        )
-        res = build([Dichotomy(**params)], local_scheduler=True)
-        assert res
-
-
-def test_dichotomy_failed():
+@pytest.mark.MockTask(cls=test_module.Dichotomy)
+def test_dichotomy_failed(MockTask):
     """Test dichotomy not converging fast enough
     leading to maximum number of iteration reached"""
-    with setup_tempdir("test_dichotomy") as tmp_folder:
-        params = dict(DEFAULT_PARAMS)
-        params.update(
-            {
-                "MinimizationTask": MismatchLinearTask,
-                "target": 27,
-                "target_margin": 5,
-                "min_param": 123,
-                "max_param": 456,
-                "max_loop": 3,
-                "folder": tmp_folder,
-                "circuit_config": os.path.join(tmp_folder, "CircuitConfig"),
-            }
-        )
 
-        res = build([Dichotomy(**params)], local_scheduler=True)
-        assert not res
+    class TestDichotomy(MockTask):
+        MinimizationTask = MismatchLinearTask
+        target = 27
+        target_margin = 5
+        min_param = 123
+        max_param = 456
+        max_loop = 3
+
+    res = build([TestDichotomy()], local_scheduler=True)
+    assert not res

@@ -1,6 +1,5 @@
 import logging
 from collections import namedtuple
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import h5py
@@ -11,11 +10,11 @@ from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 import projectionizer.afferent_section_position as test_module
 
-from utils import TEST_DATA_DIR, setup_tempdir
+from utils import TEST_DATA_DIR
 
 
 def create_dummy_node_file(dirpath):
-    node_path = Path(dirpath, "nodes.h5")
+    node_path = dirpath / "nodes.h5"
     with h5py.File(node_path, "w") as h5:
         pop = h5.create_group("/nodes/dummy/")
         pop["node_type_id"] = [-1]
@@ -25,7 +24,7 @@ def create_dummy_node_file(dirpath):
 
 
 def test_load_morphology():
-    expected = Morphology(Path(TEST_DATA_DIR, "morph.swc"))
+    expected = Morphology(TEST_DATA_DIR / "morph.swc")
     morph = test_module.load_morphology(
         morph_name="morph", morph_path=TEST_DATA_DIR, morph_type="swc"
     )
@@ -35,7 +34,7 @@ def test_load_morphology():
 
 
 def test_compute_afferent_section_pos(caplog):
-    morph = Morphology(Path(TEST_DATA_DIR, "morph.swc"))
+    morph = Morphology(TEST_DATA_DIR / "morph.swc")
     Row = namedtuple("Row", ["section_id", "segment_id", "synapse_offset", "orig_index"])
 
     # Test for the beginning of the section
@@ -94,31 +93,31 @@ def test_compute_afferent_section_pos(caplog):
     assert_array_almost_equal(res, expected)
 
 
-@patch(f"{test_module.__name__}.load_morphology", Mock())
+@patch.object(test_module, "load_morphology", new=Mock())
+@patch.object(test_module, "compute_afferent_section_pos", new=Mock(return_value=1))
 def test_compute_positions_worker():
     df = pd.DataFrame({"orig_index": np.arange(10, 20)})
 
-    with patch(f"{test_module.__name__}.compute_afferent_section_pos") as patched:
-        patched.return_value = 1
-        res = test_module.compute_positions_worker(
-            morph_df=("morph", df),
-            morph_path="fake/path",
-            morph_type="fake",
-        )
+    res = test_module.compute_positions_worker(
+        morph_df=("morph", df),
+        morph_path="fake/path",
+        morph_type="fake",
+    )
 
     assert_array_equal(res[1], df.orig_index)
     assert res[0].dtype == np.dtype(np.float32)
 
 
-def test_get_morphs_for_nodes():
-    with setup_tempdir("get_morphs_for_nodes") as temp_dir:
-        node_path = create_dummy_node_file(temp_dir)
-        morphs = test_module.get_morphs_for_nodes(node_path, population="dummy")
+def test_get_morphs_for_nodes(tmp_confdir):
+    node_path = create_dummy_node_file(tmp_confdir)
+    morphs = test_module.get_morphs_for_nodes(node_path, population="dummy")
 
     pd.testing.assert_frame_equal(pd.DataFrame(["morph"], columns=["morph"], index=[1]), morphs)
 
 
-def test_compute_positions():
+@patch.object(test_module, "get_morphs_for_nodes")
+@patch.object(test_module, "map_parallelize")
+def test_compute_positions(mock_map_parallelize, mock_get_morphs):
     df = pd.DataFrame(
         {
             "tgid": np.zeros(1),
@@ -128,26 +127,24 @@ def test_compute_positions():
         }
     )
 
+    mock_get_morphs.return_value = pd.DataFrame({"morph": "morph"}, index=[1])
+
     a_1_10 = np.random.permutation(np.arange(10))
     a_10_20 = np.random.permutation(np.arange(10)) + 10
 
-    with patch(f"{test_module.__name__}.get_morphs_for_nodes") as patch_morphs:
-        patch_morphs.return_value = pd.DataFrame({"morph": "morph"}, index=[1])
+    # To check that the sorting the result based on the indexes works
+    mock_map_parallelize.return_value = (
+        (np.copy(a_1_10), np.copy(a_1_10)),
+        (np.copy(a_10_20), np.copy(a_10_20)),
+    )
 
-        with patch(f"{test_module.__name__}.map_parallelize") as patch_map:
-            # To check that the sorting the result based on the indexes works
-            patch_map.return_value = (
-                (np.copy(a_1_10), np.copy(a_1_10)),
-                (np.copy(a_10_20), np.copy(a_10_20)),
-            )
-
-            res = test_module.compute_positions(
-                synapses=df,
-                node_path="fake/path",
-                node_population="fake",
-                morph_path="fake/path",
-                morph_type="fake",
-            )
+    res = test_module.compute_positions(
+        synapses=df,
+        node_path="fake/path",
+        node_population="fake",
+        morph_path="fake/path",
+        morph_type="fake",
+    )
 
     assert_array_equal(res.section_pos, np.arange(20))
     assert np.dtype(res.section_pos) == np.dtype(np.float32)

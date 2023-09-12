@@ -1,13 +1,13 @@
 import math
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 import pytest
-from mock import patch
 from numpy.testing import assert_allclose
 from pandas.testing import assert_frame_equal
 
-from projectionizer import straight_fibers
+import projectionizer.straight_fibers as test_module
 
 from mocks import create_candidates, create_synapse_counts, create_virtual_fibers
 
@@ -16,7 +16,7 @@ def test_calc_distances_vectorized():
     np.random.seed(37)
     candidates = create_candidates()
     virtual_fibers = create_virtual_fibers()
-    ret = straight_fibers.calc_distances_vectorized(candidates, virtual_fibers)
+    ret = test_module.calc_distances_vectorized(candidates, virtual_fibers)
     assert_allclose(
         ret,
         [
@@ -44,7 +44,7 @@ def test_calc_distances():
             [0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
         ]
     )
-    ret = straight_fibers.calc_distances(locations, virtual_fibers)
+    ret = test_module.calc_distances(locations, virtual_fibers)
     assert ret.shape == (4, 3)
     sqrt2 = math.sqrt(2)
     expected = np.array(
@@ -72,7 +72,7 @@ def test_calc_pathlength_to_fiber_start():
     )
     sgid_fibers = np.repeat(np.array([[0, 0, 0, 1, 0, 0]]), 3, axis=0)
 
-    ret = straight_fibers.calc_pathlength_to_fiber_start(locations, sgid_fibers)
+    ret = test_module.calc_pathlength_to_fiber_start(locations, sgid_fibers)
     assert_allclose(
         ret,
         [
@@ -84,7 +84,7 @@ def test_calc_pathlength_to_fiber_start():
 
     basis = 1.0 / np.linalg.norm([1, 1, 1])
     sgid_fibers = np.repeat(np.array([[0, 0, 0, basis, basis, basis]]), 3, axis=0)
-    ret = straight_fibers.calc_pathlength_to_fiber_start(locations, sgid_fibers)
+    ret = test_module.calc_pathlength_to_fiber_start(locations, sgid_fibers)
     assert_allclose(
         ret,
         [
@@ -100,25 +100,25 @@ def test_calc_pathlength_to_fiber_start():
     with pytest.raises(
         AssertionError, match="Calculation of path distance results in negative distance"
     ):
-        straight_fibers.calc_pathlength_to_fiber_start(locations, sgid_fibers)
+        test_module.calc_pathlength_to_fiber_start(locations, sgid_fibers)
 
 
+@patch.object(test_module, "map_parallelize", new=map)
 def test_closest_fibers_per_voxel():
     synapses = create_synapse_counts()
     virtual_fibers = create_virtual_fibers()
 
-    with patch("projectionizer.straight_fibers.map_parallelize", map):
-        assert_frame_equal(
-            straight_fibers.closest_fibers_per_voxel(synapses, virtual_fibers, 3),
-            pd.DataFrame(
-                [
-                    [0, 1, 2, 2, 2],
-                    [2, 1, 2, 2, 3],
-                ],
-                columns=[0, 1, "i", "j", "k"],
-            ),
-            check_dtype=False,
-        )
+    assert_frame_equal(
+        test_module.closest_fibers_per_voxel(synapses, virtual_fibers, 3),
+        pd.DataFrame(
+            [
+                [0, 1, 2, 2, 2],
+                [2, 1, 2, 2, 3],
+            ],
+            columns=[0, 1, "i", "j", "k"],
+        ),
+        check_dtype=False,
+    )
 
 
 def test_candidate_fibers_per_synapse():
@@ -136,7 +136,7 @@ def test_candidate_fibers_per_synapse():
     syn_pos = pd.DataFrame(synapses.indices_to_positions(idx.to_numpy()), columns=list("xyz"))
 
     assert_frame_equal(
-        straight_fibers.candidate_fibers_per_synapse(syn_pos, idx, closest),
+        test_module.candidate_fibers_per_synapse(syn_pos, idx, closest),
         pd.DataFrame(
             [
                 [0, 1, *syn_pos.to_numpy()[0]],

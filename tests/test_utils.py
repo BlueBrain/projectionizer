@@ -1,18 +1,18 @@
 import json
 import os
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
 import pytest
 import yaml
-from mock import Mock, patch
 from numpy.testing import assert_allclose, assert_array_almost_equal, assert_array_equal
 from voxcell import VoxelData
 from voxcell.nexus.voxelbrain import Atlas
 
 import projectionizer.utils as test_module
 
-from utils import TEST_DATA_DIR, setup_tempdir
+from utils import CIRCUIT_CONFIG_FILE, TEST_DATA_DIR
 
 
 def test_choice():
@@ -40,13 +40,12 @@ def test_ignore_exception():
     pytest.raises(KeyError, raise_error)
 
 
-def test_write_feather():
-    with setup_tempdir("test_utils") as path:
-        path = os.path.join(path, "projectionizer_test_write.feather")
-        data = pd.DataFrame({"a": [1, 2, 3, 4]})
-        test_module.write_feather(path, data)
-        new_data = test_module.load(path)
-        pd.testing.assert_frame_equal(data, new_data)
+def test_write_feather(tmp_confdir):
+    path = tmp_confdir / "projectionizer_test_write.feather"
+    data = pd.DataFrame({"a": [1, 2, 3, 4]})
+    test_module.write_feather(path, data)
+    new_data = test_module.load(path)
+    pd.testing.assert_frame_equal(data, new_data)
 
 
 def test_normalize_probability():
@@ -60,40 +59,39 @@ def test_normalize_probability_raises():
     pytest.raises(test_module.ErrorCloseToZero, test_module.normalize_probability, p)
 
 
-def test_load():
-    with setup_tempdir("test_utils") as path:
-        extensions = ["nrrd", "json", "feather", "csv", "yaml"]
-        files = {ext: os.path.join(path, f"test_load.{ext}") for ext in extensions}
-        dataframe = pd.DataFrame({"a": [1, 2, 3, 4]})
-        dataframe.index.name = "index_name"
-        voxcell_obj = VoxelData(np.array([[[1, 1, 1]]]), (1, 1, 1))
-        json_obj = {"a": 1}
-        yaml_obj = json_obj
+def test_load(tmp_confdir):
+    extensions = [".nrrd", ".json", ".feather", ".csv", ".yaml"]
+    files = {ext: (tmp_confdir / "test_load").with_suffix(ext) for ext in extensions}
+    dataframe = pd.DataFrame({"a": [1, 2, 3, 4]})
+    dataframe.index.name = "index_name"
+    voxcell_obj = VoxelData(np.array([[[1, 1, 1]]]), (1, 1, 1))
+    json_obj = {"a": 1}
+    yaml_obj = json_obj
 
-        test_module.write_feather(files["feather"], dataframe)
-        dataframe.to_csv(files["csv"])
-        voxcell_obj.save_nrrd(files["nrrd"])
-        with open(files["json"], "w", encoding="utf-8") as outputf:
-            json.dump(json_obj, outputf)
-        with open(files["yaml"], "w", encoding="utf-8") as outputf:
-            yaml.dump(yaml_obj, outputf)
+    test_module.write_feather(files[".feather"], dataframe)
+    dataframe.to_csv(files[".csv"])
+    voxcell_obj.save_nrrd(files[".nrrd"])
+    with open(files[".json"], "w", encoding="utf-8") as outputf:
+        json.dump(json_obj, outputf)
+    with open(files[".yaml"], "w", encoding="utf-8") as outputf:
+        yaml.dump(yaml_obj, outputf)
 
-        for ext, result in zip(extensions, [VoxelData, dict, pd.DataFrame, pd.DataFrame]):
-            assert isinstance(test_module.load(files[ext]), result)
+    for ext, result in zip(extensions, [VoxelData, dict, pd.DataFrame, pd.DataFrame]):
+        assert isinstance(test_module.load(files[ext]), result)
 
-        class Task:
-            def __init__(self, _path):
-                self.path = _path
+    class Task:
+        def __init__(self, _path):
+            self.path = _path
 
-        nrrd, _json, feather, csv, _yaml = test_module.load_all(
-            [Task(files[ext]) for ext in extensions]
-        )
+    nrrd, _json, feather, csv, _yaml = test_module.load_all(
+        [Task(files[ext]) for ext in extensions]
+    )
 
-        assert dataframe.equals(feather)
-        assert dataframe.equals(csv)
-        assert_array_equal(voxcell_obj.raw, nrrd.raw)
-        assert json_obj == _json
-        assert yaml_obj == _yaml
+    assert dataframe.equals(feather)
+    assert dataframe.equals(csv)
+    assert_array_equal(voxcell_obj.raw, nrrd.raw)
+    assert json_obj == _json
+    assert yaml_obj == _yaml
 
 
 def test_load_raise():
@@ -104,13 +102,12 @@ def times_two(x):
     return x * 2
 
 
-def test_map_parallelize():
+@patch.object(test_module.multiprocessing.util, "log_to_stderr")
+def test_map_parallelize(mock_log_to_stderr):
     os.environ["PARALLEL_VERBOSE"] = "True"
-    mock_util = Mock()
-    with patch("projectionizer.utils.multiprocessing.util.log_to_stderr", mock_util):
-        a = np.arange(10)
-        assert_array_equal(test_module.map_parallelize(times_two, a), a * 2)
-        mock_util.assert_called()
+    a = np.arange(10)
+    assert_array_equal(test_module.map_parallelize(times_two, a), a * 2)
+    mock_log_to_stderr.assert_called()
 
 
 def test_min_max_axis():
@@ -194,7 +191,7 @@ def test_calculate_conductance_scaling_factor():
 
 
 def test_mask_by_region():
-    atlas = Atlas.open(TEST_DATA_DIR)
+    atlas = Atlas.open(str(TEST_DATA_DIR))
     mask = test_module.mask_by_region(["TEST_layers"], atlas)
     assert mask.sum() == 60 * 28 * 28
 
@@ -216,27 +213,23 @@ def test_regex_to_regions():
     assert_array_equal(res, ["region_1", "region_2"])
 
 
-def test_read_regions_from_manifest():
-    with setup_tempdir("test_utils") as dirpath:
-        circuit_config = os.path.join(dirpath, "CircuitConfig")
-        manifest_path = os.path.join(dirpath, "MANIFEST.yaml")
-        manifest_obj = {"common": {"region": "R1"}}
+@patch.object(test_module, "BlueConfig")
+def test_read_regions_from_manifest(mock_config, tmp_confdir):
+    mock_config.return_value = Mock(Run=Mock(BioName=tmp_confdir))
+    circuit_config = tmp_confdir / CIRCUIT_CONFIG_FILE
+    manifest_path = tmp_confdir / test_module.MANIFEST_FILE
+    manifest_obj = {"common": {"region": "R1"}}
 
-        with open(circuit_config, "w", encoding="utf-8") as fd:
-            fd.write("")
-        with open(manifest_path, "w", encoding="utf-8") as fd:
-            yaml.dump(manifest_obj, fd)
+    circuit_config.write_text("")
+    manifest_path.write_text(yaml.dump(manifest_obj))
 
-        mock_config = Mock(return_value=Mock(Run=Mock(BioName=dirpath)))
-        with patch("projectionizer.utils.BlueConfig", mock_config):
-            res = test_module.read_regions_from_manifest(circuit_config)
-            assert_array_equal(res, [manifest_obj["common"]["region"]])
+    res = test_module.read_regions_from_manifest(circuit_config)
+    assert_array_equal(res, [manifest_obj["common"]["region"]])
 
-            with open(manifest_path, "w", encoding="utf-8") as fd:
-                yaml.dump({}, fd)
+    manifest_path.write_text(yaml.dump({}))
 
-            res = test_module.read_regions_from_manifest(circuit_config)
-            assert_array_equal(res, [])
+    res = test_module.read_regions_from_manifest(circuit_config)
+    assert_array_equal(res, [])
 
 
 def test_convert_to_smallest_allowed_int_type():
@@ -258,22 +251,20 @@ def test_convert_layer_to_PH_format():
     assert_array_equal(ret, expected)
 
 
-def test_delete_file_on_exception():
-    with setup_tempdir("test_utils") as test_dir:
-        # test that file exists if no exceptions
-        test_file = os.path.join(test_dir, "test.txt")
+def test_delete_file_on_exception(tmp_confdir):
+    # test that file exists if no exceptions
+    test_file = tmp_confdir / "test.txt"
+    with test_module.delete_file_on_exception(test_file):
+        test_file.write_text("")
+
+    assert test_file.exists()
+
+    # test file removal on exception
+    try:
         with test_module.delete_file_on_exception(test_file):
-            with open(test_file, "w", encoding="utf-8") as fd:
-                fd.write("")
+            assert test_file.exists()
+            raise IOError("")
+    except IOError:
+        pass
 
-        assert os.path.exists(test_file)
-
-        # test file removal on exception
-        try:
-            with test_module.delete_file_on_exception(test_file):
-                assert os.path.exists(test_file)
-                raise IOError("")
-        except IOError:
-            pass
-
-        assert not os.path.exists(test_file)
+    assert not test_file.exists()

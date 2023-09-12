@@ -1,18 +1,18 @@
-import os
-import shutil
-import tempfile
-from contextlib import contextmanager
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from bluepy import Section, Segment
 from neurom import NeuriteType
 
-TEST_DIR = os.path.dirname(os.path.abspath(__file__))
-TEST_DATA_DIR = os.path.join(TEST_DIR, "data")
+from projectionizer.utils import MANIFEST_FILE
+
+TEST_DIR = Path(__file__).parent.absolute()
+TEST_DATA_DIR = TEST_DIR / "data"
 
 NODE_POPULATION = "fake_node"
 EDGE_POPULATION = "fake_edge"
+CIRCUIT_CONFIG_FILE = "CircuitConfig"
 
 
 def fake_segments(min_xyz, max_xyz, count):
@@ -50,9 +50,7 @@ def fake_segments(min_xyz, max_xyz, count):
 
 def fake_manifest(path):
     manifest = "common:\n" f"  node_population_name: {NODE_POPULATION}\n"
-
-    with open(os.path.join(path, "MANIFEST.yaml"), "w", encoding="utf-8") as fd:
-        fd.write(manifest)
+    (path / MANIFEST_FILE).write_text(manifest)
 
 
 def fake_circuit_config(path):
@@ -69,16 +67,4 @@ def fake_circuit_config(path):
         "    Atlas fake\n"
         "}"
     )
-    with open(os.path.join(path, "CircuitConfig"), "w", encoding="utf-8") as fd:
-        fd.write(config)
-
-
-@contextmanager
-def setup_tempdir(prefix):
-    temp_dir = tempfile.mkdtemp(prefix=prefix)
-    try:
-        fake_circuit_config(temp_dir)
-        fake_manifest(temp_dir)
-        yield temp_dir
-    finally:
-        shutil.rmtree(temp_dir)
+    (path / CIRCUIT_CONFIG_FILE).write_text(config)

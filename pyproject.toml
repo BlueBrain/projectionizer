@@ -89,3 +89,8 @@ known_local_folder = ["utils", "mocks"]
         "R0914",  # too-many-locals
         "R0915",  # too-many-statements
     ]
+
+    [tool.pylint.spelling]
+    spelling-dict="en_US"
+    # A path to a file that contains private dictionary; one word per line.
+    spelling-private-dict-file=".spellbook.txt"

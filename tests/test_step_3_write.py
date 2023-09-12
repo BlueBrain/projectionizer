@@ -1,189 +1,79 @@
 import logging
-import os
 import shutil
 import subprocess
+from pathlib import Path
+from unittest.mock import Mock, patch
 
 import h5py
 import numpy as np
 import pandas as pd
 import pytest
-from luigi import Task
-from mock import Mock, patch
+from luigi import Parameter, Task
 
-from projectionizer import step_3_write
-from projectionizer.utils import write_feather
+import projectionizer
+import projectionizer.step_3_write as test_module
 
-from utils import EDGE_POPULATION, NODE_POPULATION, TEST_DATA_DIR, setup_tempdir
+from utils import EDGE_POPULATION, NODE_POPULATION, TEST_DATA_DIR
 
 logging.basicConfig()
 L = logging.getLogger(__name__)
 
 
-def test_WriteUserTargetTxt():
-    with setup_tempdir("test_step3") as tmp_folder:
-        mock_path = os.path.join(tmp_folder, "mock_synapses.feather")
-        data = {
-            "tgid": [1],
-            "sgid": [2],
-            "section_id": [1033],
-            "segment_id": [1033],
-            "section_type": [3],
-            "section_pos": [0.5],
-            "synapse_offset": [128.0],
-            "sgid_path_distance": [0.5],
-        }
-        write_feather(mock_path, pd.DataFrame(data))
-        mock = Mock(path=mock_path)
+@pytest.mark.MockTask(cls=test_module.WriteUserTargetTxt)
+def test_WriteUserTargetTxt(MockTask):
+    mock_path = MockTask.folder / "mock_synapses.feather"
+    data = {
+        "tgid": [1],
+        "sgid": [2],
+        "section_id": [1033],
+        "segment_id": [1033],
+        "section_type": [3],
+        "section_pos": [0.5],
+        "synapse_offset": [128.0],
+        "sgid_path_distance": [0.5],
+    }
+    projectionizer.utils.write_feather(mock_path, pd.DataFrame(data))
 
-        class TestWriteUserTargetTxt(step_3_write.WriteUserTargetTxt):
-            efferent = False
-            folder = tmp_folder
-            physiology_path = "fake_string"
-            circuit_config = os.path.join(tmp_folder, "CircuitConfig")
-            geometry = n_total_chunks = sgid_offset = oversampling = None
-            extension = None
-            layers = ""
+    class TestWriteUserTargetTxt(MockTask):
+        def input(self):
+            return Mock(path=mock_path)
 
-            def input(self):
-                return mock
+    test = TestWriteUserTargetTxt()
+    assert isinstance(test.requires(), Task)
 
-        test = TestWriteUserTargetTxt()
-        assert isinstance(test.requires(), Task)
+    test.run()
+    output_path = test.folder / "user.target"
 
-        test.run()
-        output_path = os.path.join(tmp_folder, "user.target")
-        assert os.path.exists(output_path)
+    assert output_path.exists()
 
 
-def test_VirtualFibers():
-    data = os.path.join(TEST_DATA_DIR, "virtual-fibers-no-offset.csv")
-    with setup_tempdir("test_step3") as tmp_folder:
-        mock_path = os.path.join(tmp_folder, "virtual-fibers-no-offset.csv")
-        shutil.copyfile(data, mock_path)
-        mock = Mock(path=mock_path)
+@pytest.mark.MockTask(cls=test_module.VirtualFibers)
+def test_VirtualFibers(MockTask):
+    data = TEST_DATA_DIR / "virtual-fibers-no-offset.csv"
+    mock_path = MockTask.folder / "virtual-fibers-no-offset.csv"
+    shutil.copyfile(data, mock_path)
 
-        class TestVirtualFibers(step_3_write.VirtualFibers):
-            folder = tmp_folder
-            sgid_offset = 10
-            physiology_path = "fake_string"
-            circuit_config = os.path.join(tmp_folder, "CircuitConfig")
-            geometry = n_total_chunks = oversampling = None
-            layers = ""
+    class TestVirtualFibers(MockTask):
+        sgid_offset = 10
 
-            def input(self):
-                return mock
+        def input(self):
+            return Mock(path=mock_path)
 
-        test = TestVirtualFibers()
-        assert isinstance(test.requires(), Task)
+    test = TestVirtualFibers()
+    assert isinstance(test.requires(), Task)
 
-        test.run()
-        output_path = os.path.join(tmp_folder, "test-virtual-fibers.csv")
-        assert os.path.exists(output_path)
-        df = pd.read_csv(output_path)
-        assert TestVirtualFibers.sgid_offset == df.sgid.min()
+    test.run()
+    output_path = test.folder / "test-virtual-fibers.csv"
+    assert output_path.exists()
+    df = pd.read_csv(output_path)
+    assert TestVirtualFibers.sgid_offset == df.sgid.min()
 
 
-def test_WriteSonata():
-    with setup_tempdir("test_step3") as tmp_folder:
-        syns_path = os.path.join(tmp_folder, "mock_synapses.feather")
-        df = pd.DataFrame(
-            {
-                "tgid": [10],
-                "sgid": [20],
-                "section_id": [1033],
-                "segment_id": [1033],
-                "section_type": [3],
-                "section_pos": [0.5],
-                "synapse_offset": [128.0],
-                "x": [101],
-                "y": [102],
-                "z": [103],
-                "sgid_path_distance": [0.5],
-            }
-        )
-        write_feather(syns_path, df)
-        mock_feather = Mock(path=syns_path)
-
-        def create_h5_files(sonata, node, edge):
-            with h5py.File(sonata, "w") as h5:
-                group = h5.create_group(f"edges/{EDGE_POPULATION}")
-                group["source_node_id"] = [0] * len(df.sgid)
-            with h5py.File(node, "w") as h5:
-                group = h5.create_group(f"nodes/{NODE_POPULATION}")
-                group["node_type_id"] = np.full(df.sgid.max(), -1)
-            with h5py.File(edge, "w") as h5:
-                group = h5.create_group(f"edges/{EDGE_POPULATION}")
-                group["source_node_id"] = df.sgid.to_numpy() - 1
-                group["target_node_id"] = df.tgid.to_numpy() - 1
-
-        class TestWriteSonata(step_3_write.WriteSonata):
-            folder = tmp_folder
-            physiology_path = "fake_string"
-            circuit_config = os.path.join(tmp_folder, "CircuitConfig")
-            sgid_offset = geometry = n_total_chunks = oversampling = None
-            node_population = NODE_POPULATION
-            edge_population = EDGE_POPULATION
-            node_file_name = "nodes.h5"
-            edge_file_name = "edges.h5"
-            layers = ""
-
-            def input(self):
-                sonata_path = self._get_full_path_output(self.edge_file_name)
-                node_path = self._get_full_path_output(self.node_file_name)
-                edge_path = self.clone(step_3_write.WriteSonataEdges).output().path
-                return (
-                    Mock(path=sonata_path),
-                    mock_feather,
-                    Mock(path=node_path),
-                    Mock(path=edge_path),
-                    None,
-                )
-
-        test = TestWriteSonata()
-        assert len(test.requires()) == 5
-        assert all(isinstance(t, Task) for t in test.requires())
-        assert test.requires()[0].output().path == test.output().path
-
-        sonata_path = test.input()[0].path
-        node_path = test.input()[2].path
-        edge_path = test.input()[3].path
-
-        # Clean run
-        create_h5_files(sonata_path, node_path, edge_path)
-        test.run()
-
-        # Wrong edge count
-        with h5py.File(sonata_path, "r+") as h5:
-            del h5[f"edges/{EDGE_POPULATION}/source_node_id"]
-            h5[f"edges/{EDGE_POPULATION}/source_node_id"] = [0] * (len(df.sgid) + 1)
-        pytest.raises(AssertionError, test.run)
-
-        # Wrong node count
-        create_h5_files(sonata_path, node_path, edge_path)
-        with h5py.File(node_path, "r+") as h5:
-            del h5[f"nodes/{NODE_POPULATION}/node_type_id"]
-            h5[f"nodes/{NODE_POPULATION}/node_type_id"] = np.full(df.sgid.max() + 1, -1)
-        pytest.raises(AssertionError, test.run)
-
-        # SGIDs are off
-        create_h5_files(sonata_path, node_path, edge_path)
-        with h5py.File(edge_path, "r+") as h5:
-            del h5[f"edges/{EDGE_POPULATION}/source_node_id"]
-            h5[f"edges/{EDGE_POPULATION}/source_node_id"] = df.sgid.to_numpy()
-        pytest.raises(AssertionError, test.run)
-
-        # TGIDs are off
-        create_h5_files(sonata_path, node_path, edge_path)
-        with h5py.File(edge_path, "r+") as h5:
-            del h5[f"edges/{EDGE_POPULATION}/target_node_id"]
-            h5[f"edges/{EDGE_POPULATION}/target_node_id"] = df.tgid.to_numpy()
-        pytest.raises(AssertionError, test.run)
-
-
-def test_WriteSonataNodes():
-    with setup_tempdir("test_step3") as tmp_folder:
-        mock_path = os.path.join(tmp_folder, "mock_synapses.feather")
-        data = {
+@pytest.mark.MockTask(cls=test_module.WriteSonata)
+def test_WriteSonata(MockTask):
+    syns_path = MockTask.folder / "mock_synapses.feather"
+    df = pd.DataFrame(
+        {
             "tgid": [10],
             "sgid": [20],
             "section_id": [1033],
@@ -196,157 +86,215 @@ def test_WriteSonataNodes():
             "z": [103],
             "sgid_path_distance": [0.5],
         }
-        write_feather(mock_path, pd.DataFrame(data))
-        mock = Mock(path=mock_path)
+    )
+    projectionizer.utils.write_feather(syns_path, df)
 
-        class TestWriteSonataNodes(step_3_write.WriteSonataNodes):
-            folder = tmp_folder
-            physiology_path = "fake_string"
-            circuit_config = os.path.join(tmp_folder, "CircuitConfig")
-            sgid_offset = geometry = n_total_chunks = oversampling = None
-            node_population = NODE_POPULATION
-            edge_population = EDGE_POPULATION
-            node_file_name = "nodes.h5"
-            layers = ""
+    def create_h5_files(sonata, node, edge):
+        with h5py.File(sonata, "w") as h5:
+            group = h5.create_group(f"edges/{EDGE_POPULATION}")
+            group["source_node_id"] = [0] * len(df.sgid)
+        with h5py.File(node, "w") as h5:
+            group = h5.create_group(f"nodes/{NODE_POPULATION}")
+            group["node_type_id"] = np.full(df.sgid.max(), -1)
+        with h5py.File(edge, "w") as h5:
+            group = h5.create_group(f"edges/{EDGE_POPULATION}")
+            group["source_node_id"] = df.sgid.to_numpy() - 1
+            group["target_node_id"] = df.tgid.to_numpy() - 1
 
-            def input(self):
-                return mock
+    class TestWriteSonata(MockTask):
+        node_population = NODE_POPULATION
+        edge_population = EDGE_POPULATION
+        node_file_name = "nodes.h5"
+        edge_file_name = "edges.h5"
 
-        test = TestWriteSonataNodes()
-        assert isinstance(test.requires(), Task)
+        def input(self):
+            sonata_path = self._get_full_path_output(self.edge_file_name)
+            node_path = self._get_full_path_output(self.node_file_name)
+            edge_path = self.clone(test_module.WriteSonataEdges).output().path
+            return (
+                Mock(path=sonata_path),
+                Mock(path=syns_path),
+                Mock(path=node_path),
+                Mock(path=edge_path),
+                None,
+            )
 
-        test.run()
-        assert os.path.isfile(test.output().path)
+    test = TestWriteSonata()
+    assert len(test.requires()) == 5
+    assert all(isinstance(t, Task) for t in test.requires())
+    assert test.requires()[0].output().path == test.output().path
 
-        with h5py.File(test.output().path, "r") as h5:
-            assert len(h5[f"nodes/{NODE_POPULATION}/node_type_id"]) == data["sgid"][0]
+    sonata_path = test.input()[0].path
+    node_path = test.input()[2].path
+    edge_path = test.input()[3].path
+
+    # Clean run
+    create_h5_files(sonata_path, node_path, edge_path)
+    test.run()
+
+    # Wrong edge count
+    with h5py.File(sonata_path, "r+") as h5:
+        del h5[f"edges/{EDGE_POPULATION}/source_node_id"]
+        h5[f"edges/{EDGE_POPULATION}/source_node_id"] = [0] * (len(df.sgid) + 1)
+    pytest.raises(AssertionError, test.run)
+
+    # Wrong node count
+    create_h5_files(sonata_path, node_path, edge_path)
+    with h5py.File(node_path, "r+") as h5:
+        del h5[f"nodes/{NODE_POPULATION}/node_type_id"]
+        h5[f"nodes/{NODE_POPULATION}/node_type_id"] = np.full(df.sgid.max() + 1, -1)
+    pytest.raises(AssertionError, test.run)
+
+    # SGIDs are off
+    create_h5_files(sonata_path, node_path, edge_path)
+    with h5py.File(edge_path, "r+") as h5:
+        del h5[f"edges/{EDGE_POPULATION}/source_node_id"]
+        h5[f"edges/{EDGE_POPULATION}/source_node_id"] = df.sgid.to_numpy()
+    pytest.raises(AssertionError, test.run)
+
+    # TGIDs are off
+    create_h5_files(sonata_path, node_path, edge_path)
+    with h5py.File(edge_path, "r+") as h5:
+        del h5[f"edges/{EDGE_POPULATION}/target_node_id"]
+        h5[f"edges/{EDGE_POPULATION}/target_node_id"] = df.tgid.to_numpy()
+    pytest.raises(AssertionError, test.run)
 
 
-def test_WriteSonataEdges():
-    with setup_tempdir("test_step3") as tmp_folder:
-        mock_syn_path = os.path.join(tmp_folder, "mock_synapses.feather")
-        mock_pos_path = os.path.join(tmp_folder, "mock_positions.feather")
-        data = {
-            "tgid": [10],
-            "sgid": [20],
-            "section_id": [1033],
-            "segment_id": [1033],
-            "section_type": [3],
-            "synapse_offset": [128.0],
-            "x": [101],
-            "y": [102],
-            "z": [103],
-            "sgid_path_distance": [0.5],
-        }
-        write_feather(mock_syn_path, pd.DataFrame(data))
-        write_feather(mock_pos_path, pd.DataFrame({"section_pos": [0.5]}))
-        mock_syn, mock_pos = Mock(path=mock_syn_path), Mock(path=mock_pos_path)
+@pytest.mark.MockTask(cls=test_module.WriteSonataNodes)
+def test_WriteSonataNodes(MockTask):
+    mock_path = MockTask.folder / "mock_synapses.feather"
+    data = {
+        "tgid": [10],
+        "sgid": [20],
+        "section_id": [1033],
+        "segment_id": [1033],
+        "section_type": [3],
+        "section_pos": [0.5],
+        "synapse_offset": [128.0],
+        "x": [101],
+        "y": [102],
+        "z": [103],
+        "sgid_path_distance": [0.5],
+    }
+    projectionizer.utils.write_feather(mock_path, pd.DataFrame(data))
 
-        class TestWriteSonataEdges(step_3_write.WriteSonataEdges):
-            folder = tmp_folder
-            physiology_path = "fake_string"
-            circuit_config = os.path.join(tmp_folder, "CircuitConfig")
-            sgid_offset = geometry = n_total_chunks = oversampling = None
-            node_population = NODE_POPULATION
-            edge_population = EDGE_POPULATION
-            layers = ""
-            edge_file_name = "edges.h5"
+    class TestWriteSonataNodes(MockTask):
+        node_population = NODE_POPULATION
+        edge_population = EDGE_POPULATION
+        node_file_name = "nodes.h5"
 
-            def input(self):
-                return mock_syn, mock_pos
+        def input(self):
+            return Mock(path=mock_path)
 
-        test = TestWriteSonataEdges()
-        assert isinstance(test.requires(), tuple)
-        for t in test.requires():
-            assert isinstance(t, Task)
+    test = TestWriteSonataNodes()
+    assert isinstance(test.requires(), Task)
 
-        test.run()
-        assert os.path.isfile(test.output().path)
+    test.run()
+    assert Path(test.output().path).is_file()
 
-        with h5py.File(test.output().path, "r") as h5:
-            assert h5[f"edges/{EDGE_POPULATION}/source_node_id"][0] == data["sgid"][0] - 1
-            assert h5[f"edges/{EDGE_POPULATION}/target_node_id"][0] == data["tgid"][0] - 1
+    with h5py.File(test.output().path, "r") as h5:
+        assert len(h5[f"nodes/{NODE_POPULATION}/node_type_id"]) == data["sgid"][0]
+
+
+@pytest.mark.MockTask(cls=test_module.WriteSonataEdges)
+def test_WriteSonataEdges(MockTask):
+    mock_syn_path = MockTask.folder / "mock_synapses.feather"
+    mock_pos_path = MockTask.folder / "mock_positions.feather"
+    data = {
+        "tgid": [10],
+        "sgid": [20],
+        "section_id": [1033],
+        "segment_id": [1033],
+        "section_type": [3],
+        "synapse_offset": [128.0],
+        "x": [101],
+        "y": [102],
+        "z": [103],
+        "sgid_path_distance": [0.5],
+    }
+    projectionizer.utils.write_feather(mock_syn_path, pd.DataFrame(data))
+    projectionizer.utils.write_feather(mock_pos_path, pd.DataFrame({"section_pos": [0.5]}))
+
+    class TestWriteSonataEdges(MockTask):
+        node_population = NODE_POPULATION
+        edge_population = EDGE_POPULATION
+        edge_file_name = "edges.h5"
+
+        def input(self):
+            return Mock(path=mock_syn_path), Mock(path=mock_pos_path)
+
+    test = TestWriteSonataEdges()
+    assert isinstance(test.requires(), tuple)
+    for t in test.requires():
+        assert isinstance(t, Task)
+
+    test.run()
+    assert Path(test.output().path).is_file()
+
+    with h5py.File(test.output().path, "r") as h5:
+        assert h5[f"edges/{EDGE_POPULATION}/source_node_id"][0] == data["sgid"][0] - 1
+        assert h5[f"edges/{EDGE_POPULATION}/target_node_id"][0] == data["tgid"][0] - 1
 
 
 def test_check_if_old_syntax():
-    assert not step_3_write._check_if_old_syntax("fake_archive")
-    assert not step_3_write._check_if_old_syntax("archive/2021-07")
-    assert step_3_write._check_if_old_syntax("archive/2021-06")
-    assert step_3_write._check_if_old_syntax("archive/2020-12")
+    assert not test_module._check_if_old_syntax("fake_archive")
+    assert not test_module._check_if_old_syntax("archive/2021-07")
+    assert test_module._check_if_old_syntax("archive/2021-06")
+    assert test_module._check_if_old_syntax("archive/2020-12")
 
 
-def test_RunSpykfunc():
-    with setup_tempdir("test_step3") as tmp_folder:
+@patch.object(test_module.subprocess, "run")
+@pytest.mark.MockTask(cls=test_module.RunSpykfunc)
+def test_RunSpykfunc(mock_subp_run, MockTask):
+    class TestRunSpykfunc(MockTask):
+        module_archive = Parameter(default="")
 
-        class TestRunSpykfunc(step_3_write.RunSpykfunc):
-            folder = tmp_folder
-            physiology_path = "fake_string"
-            circuit_config = os.path.join(tmp_folder, "CircuitConfig")
-            sgid_offset = geometry = n_total_chunks = oversampling = None
-            layers = ""
+        def run(self):
+            Path(self.output().path).mkdir(parents=True, exist_ok=True)
+            super().run()
 
-            def run(self):
-                os.makedirs(self.output().path, exist_ok=True)
-                super().run()
+    test = TestRunSpykfunc(module_archive="unstable")
+    assert "--touches" not in test._parse_command()
 
-        with patch("projectionizer.step_3_write.subprocess.run") as patched:
-            test = TestRunSpykfunc()
-            assert len(test.requires()) == 2
-            assert all(isinstance(t, Task) for t in test.requires())
+    test = TestRunSpykfunc(module_archive="archive/2020-12")
+    assert "--touches" in test._parse_command()
 
-            test.run()
-            assert os.path.isdir(os.path.join(tmp_folder, "spykfunc"))
+    assert len(test.requires()) == 2
+    assert all(isinstance(t, Task) for t in test.requires())
 
-            # Test that the spykfunc dir is removed on error
-            patched.side_effect = subprocess.CalledProcessError(1, "fake")
-            pytest.raises(subprocess.CalledProcessError, test.run)
-            assert not os.path.isdir(os.path.join(tmp_folder, "spykfunc"))
+    test.run()
+    assert (test.folder / "spykfunc").is_dir()
 
-        with patch("projectionizer.step_3_write.subprocess.run"):
-            test = TestRunSpykfunc()
-            test.module_archive = "unstable"
-            command = test._parse_command()
-            assert "--touches" not in command
-
-            test.module_archive = "archive/2020-12"
-            command = test._parse_command()
-            assert "--touches" in command
+    # Test that the spykfunc dir is removed on error
+    mock_subp_run.side_effect = subprocess.CalledProcessError(1, "fake")
+    pytest.raises(subprocess.CalledProcessError, test.run)
+    assert not (test.folder / "spykfunc").is_dir()
 
 
-def test_RunParquetConverter():
-    with setup_tempdir("test_step3") as tmp_folder:
+@patch.object(test_module.subprocess, "run", new=Mock())
+@pytest.mark.MockTask(cls=test_module.RunParquetConverter)
+def test_RunParquetConverter(MockTask):
+    class TestRunParquetConverter(MockTask):
+        module_archive = Parameter(default="")
 
-        class TestRunParquetConverter(step_3_write.RunParquetConverter):
-            folder = tmp_folder
-            physiology_path = "fake_string"
-            circuit_config = os.path.join(tmp_folder, "CircuitConfig")
-            sgid_offset = geometry = n_total_chunks = oversampling = None
-            layers = ""
+        def run(self):
+            with open(self.output().path, "w", encoding="utf-8") as fd:
+                fd.write("")
+            super().run()
 
-            def run(self):
-                with open(self.output().path, "w", encoding="utf-8") as fd:
-                    fd.write("")
-                super().run()
+    test = TestRunParquetConverter(module_archive="unstable")
+    assert "--format" not in test._parse_command()
 
-        with patch("projectionizer.step_3_write.subprocess.run"):
-            test = TestRunParquetConverter()
-            assert len(test.requires()) == 2
-            assert all(isinstance(t, Task) for t in test.requires())
+    test = TestRunParquetConverter(module_archive="archive/2020-12")
+    assert "--format" in test._parse_command()
 
-            test.run()
-            assert os.path.isfile(os.path.join(tmp_folder, test.edge_file_name))
+    assert len(test.requires()) == 2
+    assert all(isinstance(t, Task) for t in test.requires())
 
-            test_file_name = "fake.sonata"
-            test.edge_file_name = test_file_name
-            test.run()
-            assert os.path.isfile(os.path.join(tmp_folder, test_file_name))
+    test.run()
+    assert (test.folder / test.edge_file_name).is_file()
 
-        with patch("projectionizer.step_3_write.subprocess.run"):
-            test = TestRunParquetConverter()
-            test.module_archive = "unstable"
-            command = test._parse_command()
-            assert "--format" not in command
-
-            test.module_archive = "archive/2020-12"
-            command = test._parse_command()
-            assert "--format" in command
+    test_file_name = "fake.sonata"
+    test.edge_file_name = test_file_name
+    test.run()
+    assert (test.folder / test_file_name).is_file()

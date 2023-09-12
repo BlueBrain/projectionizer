@@ -1,0 +1,59 @@
+import pytest
+
+from utils import CIRCUIT_CONFIG_FILE, fake_circuit_config, fake_manifest
+
+MOCK_PARAMS = {
+    "IntParameter": 1,
+    "FloatParameter": 1.0,
+    "ListParameter": [],
+    "Parameter": "fake",
+    "TaskParameter": None,
+}
+
+
+@pytest.fixture(name="tmp_confdir")
+def fixture_tmp_confdir(tmp_path):
+    """Set up a temporary config directory with circuit config and manifest files."""
+    fake_circuit_config(tmp_path)
+    fake_manifest(tmp_path)
+    return tmp_path
+
+
+@pytest.fixture(name="MockTask")
+def fixture_MockTask(tmp_confdir, request):
+    """Create a mock task from the definition.
+
+    Automatically generates mock values for all the parameters in the task and sets the
+    "circuit_config" and "folder" based on the "tmp_confdir" fixture.
+
+    To use in a test, just use a decorator, inherit it in your test class and overwrite
+    parameters/methods normally.
+
+    Example:
+    >>> @pytest.mark.MockTask(cls=TaskYouWishToMock)
+    ... def test_TaskyouWishToMock(MockTask):
+    ...
+    ...     class TestTaskYouWishToMock(MockTask):
+    ...         parameter_a = "I want an actual value here for a test"  # override parameters
+    ...
+    ...         def input(self):  # override method
+    ...             pass
+    """
+    cls = request.keywords[request.fixturename].kwargs["cls"]
+
+    class MockTask(cls):
+        pass
+
+    def _get_fake_value(param_name):
+        if param_name == "folder":
+            return tmp_confdir
+        if param_name == "circuit_config":
+            return tmp_confdir / CIRCUIT_CONFIG_FILE
+
+        param = getattr(cls, param_name)
+        return MOCK_PARAMS[param.__class__.__name__]
+
+    for param in cls.get_param_names():
+        setattr(MockTask, param, _get_fake_value(param))
+
+    return MockTask
