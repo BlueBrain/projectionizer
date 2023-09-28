@@ -6,6 +6,21 @@ from luigi.local_target import LocalTarget
 from numpy.testing import assert_array_equal
 
 import projectionizer.luigi_utils as test_module
+from projectionizer.version import VERSION
+
+
+def test__check_version_compatibility():
+    assert test_module._check_version_compatibility(VERSION) is None
+
+    with pytest.raises(
+        RuntimeError, match="Given config file is intended for projectionizer version '0.0.1'."
+    ):
+        assert test_module._check_version_compatibility("0.0.1")
+
+    with pytest.raises(
+        ValueError, match="Expected projectionizer version to be given in format 'X.Y.Z'"
+    ):
+        assert test_module._check_version_compatibility("0.1")
 
 
 def test_camel2spinal_case():

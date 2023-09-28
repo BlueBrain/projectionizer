@@ -2,7 +2,6 @@ import logging
 from collections import namedtuple
 from unittest.mock import Mock, patch
 
-import h5py
 import numpy as np
 import pandas as pd
 from morphio import Morphology
@@ -11,26 +10,6 @@ from numpy.testing import assert_array_almost_equal, assert_array_equal
 import projectionizer.afferent_section_position as test_module
 
 from utils import TEST_DATA_DIR
-
-
-def create_dummy_node_file(dirpath):
-    node_path = dirpath / "nodes.h5"
-    with h5py.File(node_path, "w") as h5:
-        pop = h5.create_group("/nodes/dummy/")
-        pop["node_type_id"] = [-1]
-        pop["0/morphology"] = ["morph"]
-
-    return node_path
-
-
-def test_load_morphology():
-    expected = Morphology(TEST_DATA_DIR / "morph.swc")
-    morph = test_module.load_morphology(
-        morph_name="morph", morph_path=TEST_DATA_DIR, morph_type="swc"
-    )
-
-    for m, e in zip(morph.sections, expected.sections):
-        assert_array_equal(m.points, e.points)
 
 
 def test_compute_afferent_section_pos(caplog):
@@ -93,31 +72,18 @@ def test_compute_afferent_section_pos(caplog):
     assert_array_almost_equal(res, expected)
 
 
-@patch.object(test_module, "load_morphology", new=Mock())
+@patch.object(test_module, "Morphology", new=Mock())
 @patch.object(test_module, "compute_afferent_section_pos", new=Mock(return_value=1))
 def test_compute_positions_worker():
     df = pd.DataFrame({"orig_index": np.arange(10, 20)})
-
-    res = test_module.compute_positions_worker(
-        morph_df=("morph", df),
-        morph_path="fake/path",
-        morph_type="fake",
-    )
+    res = test_module.compute_positions_worker(morph_df=("fake/morph/path", df))
 
     assert_array_equal(res[1], df.orig_index)
     assert res[0].dtype == np.dtype(np.float32)
 
 
-def test_get_morphs_for_nodes(tmp_confdir):
-    node_path = create_dummy_node_file(tmp_confdir)
-    morphs = test_module.get_morphs_for_nodes(node_path, population="dummy")
-
-    pd.testing.assert_frame_equal(pd.DataFrame(["morph"], columns=["morph"], index=[1]), morphs)
-
-
-@patch.object(test_module, "get_morphs_for_nodes")
 @patch.object(test_module, "map_parallelize")
-def test_compute_positions(mock_map_parallelize, mock_get_morphs):
+def test_compute_positions(mock_map_parallelize):
     df = pd.DataFrame(
         {
             "tgid": np.zeros(1),
@@ -127,10 +93,10 @@ def test_compute_positions(mock_map_parallelize, mock_get_morphs):
         }
     )
 
-    mock_get_morphs.return_value = pd.DataFrame({"morph": "morph"}, index=[1])
-
     a_1_10 = np.random.permutation(np.arange(10))
     a_10_20 = np.random.permutation(np.arange(10)) + 10
+
+    morphs = pd.DataFrame({"morph": "fake/morph/path"}, index=[1])
 
     # To check that the sorting the result based on the indexes works
     mock_map_parallelize.return_value = (
@@ -138,13 +104,8 @@ def test_compute_positions(mock_map_parallelize, mock_get_morphs):
         (np.copy(a_10_20), np.copy(a_10_20)),
     )
 
-    res = test_module.compute_positions(
-        synapses=df,
-        node_path="fake/path",
-        node_population="fake",
-        morph_path="fake/path",
-        morph_type="fake",
-    )
+    res = test_module.compute_positions(synapses=df, morphs=morphs)
 
     assert_array_equal(res.section_pos, np.arange(20))
+    assert_array_equal(res.index, np.arange(20))
     assert np.dtype(res.section_pos) == np.dtype(np.float32)

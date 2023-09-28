@@ -95,11 +95,11 @@ def test_WriteSonata(MockTask):
             group["source_node_id"] = [0] * len(df.sgid)
         with h5py.File(node, "w") as h5:
             group = h5.create_group(f"nodes/{NODE_POPULATION}")
-            group["node_type_id"] = np.full(df.sgid.max(), -1)
+            group["node_type_id"] = np.full(df.sgid.max() + 1, -1)
         with h5py.File(edge, "w") as h5:
             group = h5.create_group(f"edges/{EDGE_POPULATION}")
-            group["source_node_id"] = df.sgid.to_numpy() - 1
-            group["target_node_id"] = df.tgid.to_numpy() - 1
+            group["source_node_id"] = df.sgid.to_numpy()
+            group["target_node_id"] = df.tgid.to_numpy()
 
     class TestWriteSonata(MockTask):
         node_population = NODE_POPULATION
@@ -142,21 +142,21 @@ def test_WriteSonata(MockTask):
     create_h5_files(sonata_path, node_path, edge_path)
     with h5py.File(node_path, "r+") as h5:
         del h5[f"nodes/{NODE_POPULATION}/node_type_id"]
-        h5[f"nodes/{NODE_POPULATION}/node_type_id"] = np.full(df.sgid.max() + 1, -1)
+        h5[f"nodes/{NODE_POPULATION}/node_type_id"] = np.full(df.sgid.max() + 10, -1)
     pytest.raises(AssertionError, test.run)
 
     # SGIDs are off
     create_h5_files(sonata_path, node_path, edge_path)
     with h5py.File(edge_path, "r+") as h5:
         del h5[f"edges/{EDGE_POPULATION}/source_node_id"]
-        h5[f"edges/{EDGE_POPULATION}/source_node_id"] = df.sgid.to_numpy()
+        h5[f"edges/{EDGE_POPULATION}/source_node_id"] = df.sgid.to_numpy() - 1
     pytest.raises(AssertionError, test.run)
 
     # TGIDs are off
     create_h5_files(sonata_path, node_path, edge_path)
     with h5py.File(edge_path, "r+") as h5:
         del h5[f"edges/{EDGE_POPULATION}/target_node_id"]
-        h5[f"edges/{EDGE_POPULATION}/target_node_id"] = df.tgid.to_numpy()
+        h5[f"edges/{EDGE_POPULATION}/target_node_id"] = df.tgid.to_numpy() - 1
     pytest.raises(AssertionError, test.run)
 
 
@@ -193,7 +193,8 @@ def test_WriteSonataNodes(MockTask):
     assert Path(test.output().path).is_file()
 
     with h5py.File(test.output().path, "r") as h5:
-        assert len(h5[f"nodes/{NODE_POPULATION}/node_type_id"]) == data["sgid"][0]
+        # size should be max(data['sgid']) + 1 since keep_offset=True by default
+        assert len(h5[f"nodes/{NODE_POPULATION}/node_type_id"]) == max(data["sgid"]) + 1
 
 
 @pytest.mark.MockTask(cls=test_module.WriteSonataEdges)
@@ -232,8 +233,8 @@ def test_WriteSonataEdges(MockTask):
     assert Path(test.output().path).is_file()
 
     with h5py.File(test.output().path, "r") as h5:
-        assert h5[f"edges/{EDGE_POPULATION}/source_node_id"][0] == data["sgid"][0] - 1
-        assert h5[f"edges/{EDGE_POPULATION}/target_node_id"][0] == data["tgid"][0] - 1
+        assert h5[f"edges/{EDGE_POPULATION}/source_node_id"][0] == data["sgid"][0]
+        assert h5[f"edges/{EDGE_POPULATION}/target_node_id"][0] == data["tgid"][0]
 
 
 def test_check_if_old_syntax():

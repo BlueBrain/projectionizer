@@ -40,8 +40,9 @@ def write_user_target(output, synapses, name):
     """
     with open(output, "w", encoding="utf-8") as fd:
         fd.write(f"Target Cell {name} {{\n")
-        for tgid in sorted(synapses.sgid.unique()):
-            fd.write(f"    a{tgid}\n")
+        # sgid + 1 added to take into account the 1-based indexing in blueconfig
+        for sgid in sorted(synapses.sgid.unique() + 1):
+            fd.write(f"    a{sgid}\n")
         fd.write("}\n")
 
 
@@ -70,7 +71,7 @@ class SynapseCountPerConnectionTarget(JsonTask):  # pragma: no cover
         mask = connections.mtype.isin(self.target_mtypes) & connections.kept
         mean = connections[mask].connection_size.mean()
         if np.isnan(mean):
-            raise RuntimeError("SynapseCountPerConnectionTarget returned NaN")
+            raise ValueError("SynapseCountPerConnectionTarget returned NaN")
         with self.output().open("w") as outputf:
             json.dump({"result": mean}, outputf)
 
@@ -83,7 +84,6 @@ class WriteSonata(CommonParams):
     edge_population = Parameter("projections")
     node_file_name = Parameter("projections-nodes.h5")
     edge_file_name = Parameter("projections-edges.h5")
-    module_archive = Parameter("archive/2021-07")
 
     def requires(self):
         return (
@@ -113,18 +113,19 @@ class WriteSonata(CommonParams):
             len_np_edges = len(population["source_node_id"])
             assert len_np_edges == len_edges, "Edge count mismatch (parameterized)"
 
-            assert np.all(
-                population["source_node_id"][:] == (syns.sgid - 1)
-            ), "SGID conversion mismatch (feather -> h5)"
+            assert np.all(population["source_node_id"][:] == syns.sgid), (
+                "SGID conversion mismatch."
+                "Unnecessary 1 to 0-based index conversion? (feather -> h5)"
+            )
 
             assert np.all(
-                population["target_node_id"][:] == (syns.tgid - 1)
-            ), "TGID conversion mismatch (feather -> h5)"
+                population["target_node_id"][:] == syns.tgid
+            ), "TGID mismatch. Unnecessary 1 to 0-based index conversion? (feather -> h5)"
 
         with h5py.File(node_file, "r") as h5:
             population = h5[f"nodes/{self.node_population}"]
             len_nodes = len(population["node_type_id"])
-            assert len_nodes == syns.sgid.max(), "Node count mismatch (feather -> h5)"
+            assert len_nodes == (syns.sgid.max() + 1), "Node count mismatch (feather -> h5)"
 
     def output(self):
         return LocalTarget(self.input()[0].path)
@@ -167,7 +168,10 @@ class WriteSonataNodes(WriteSonata):
 
     def run(self):
         write_sonata.write_nodes(
-            load(self.input().path), self.output().path, self.node_population, self.mtype
+            load(self.input().path),
+            self.output().path,
+            self.node_population,
+            self.mtype,
         )
 
     def output(self):
@@ -183,7 +187,9 @@ class WriteSonataEdges(WriteSonata):
     def run(self):
         synapses, section_pos = load_all(self.input())
         write_sonata.write_edges(
-            synapses.join(section_pos), self.output().path, self.edge_population
+            synapses.join(section_pos),
+            self.output().path,
+            self.edge_population,
         )
 
     def output(self):
@@ -195,7 +201,11 @@ def _check_if_old_syntax(archive):
 
     New format is expected starting from archive/2021-07."""
     m = re.match(r"archive/(?P<year>\d+)-(?P<month>\d+)", archive)
-    return m is not None and not (m.group("year") >= "2021" and m.group("month") >= "07")
+    if m is None:
+        return False
+    year = m.group("year")
+    month = m.group("month")
+    return year < "2021" or (year == "2021" and month < "07")
 
 
 class RunSpykfunc(WriteSonata):

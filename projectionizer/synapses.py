@@ -5,13 +5,14 @@ from functools import partial
 
 import numpy as np
 import pandas as pd
-from bluepy import Section, Segment
-from bluepy.index import SegmentIndex
+import spatial_index
+import spatial_index.experimental
+from bluepy import Segment
 from neurom import NeuriteType
 from tqdm import tqdm
 
 from projectionizer.utils import (
-    SECTION_TYPE_MAP,
+    PARALLEL_JOBS,
     ErrorCloseToZero,
     convert_to_smallest_allowed_int_type,
     in_bounding_box,
@@ -35,8 +36,8 @@ SEGMENT_END_COLS = [
 
 WANTED_COLS = [
     "gid",
-    Section.ID,
-    Segment.ID,
+    "section_id",
+    "segment_id",
     "segment_length",
     "synapse_offset",
     "section_type",
@@ -47,7 +48,9 @@ WANTED_COLS = [
 XYZ = list("xyz")
 SOURCE_XYZ = ["source_x", "source_y", "source_z"]
 VOLUME_TRANSMISSION_COLS = ["sgid"] + WANTED_COLS + SOURCE_XYZ + ["distance_volume_transmission"]
-INT_COLS = ["gid", Section.ID, Segment.ID]
+INT_COLS = ["gid", "section_id", "segment_id"]
+# per-process max cache size for spatial-index
+CACHE_SIZE_MB = int(os.environ.get("SPATIAL_INDEX_CACHE_SIZE_MB", 4000))
 
 
 def segment_pref_length(df):
@@ -55,7 +58,7 @@ def segment_pref_length(df):
     multiplied by the length of the segment
     this will be normalized by the caller
     """
-    return df["segment_length"] * (df[Section.NEURITE_TYPE] != NeuriteType.axon).astype(float)
+    return df["segment_length"] * (df["section_type"] != NeuriteType.axon).astype(float)
 
 
 def build_synapses_default(height, synapse_density, oversampling):
@@ -83,24 +86,20 @@ def build_synapses_default(height, synapse_density, oversampling):
     return height.with_data(raw)
 
 
-def _sample_with_flat_index(index_path, min_xyz, max_xyz):  # pragma: no cover
-    """use flat index to get segments within min_xyz, max_xyz"""
-    #  this is loaded late so that multiprocessing loads it outside of the main
-    #  python binary - at one point, this was necessary, as there was shared state
-    import libFLATIndex as FI  # pylint:disable=import-outside-toplevel
+def _sample_with_spatial_index(index, min_xyz, max_xyz):  # pragma: no cover
+    """use spatial index to get segments within min_xyz, max_xyz"""
+    res = index.box_query(
+        min_xyz, max_xyz, fields={"gid", "endpoints", "section_id", "segment_id", "section_type"}
+    )
+    starts, ends = res["endpoints"]
+    del res["endpoints"]
 
-    try:
-        index = FI.loadIndex(str(os.path.join(index_path, "SEGMENT")))  # pylint: disable=no-member
-        min_xyz_ = tuple(map(float, min_xyz))
-        max_xyz_ = tuple(map(float, max_xyz))
-        segs_df = FI.numpy_windowQuery(index, *(min_xyz_ + max_xyz_))  # pylint: disable=no-member
-        segs_df = SegmentIndex._wrap_result(segs_df)  # pylint: disable=protected-access
-        FI.unLoadIndex(index)  # pylint: disable=no-member
-        del index
-    except Exception:  # pylint: disable=broad-except
-        return None
+    segs_df = pd.DataFrame(res)
+    segs_df[SEGMENT_START_COLS] = starts
+    segs_df[SEGMENT_END_COLS] = ends
 
-    return segs_df.sort_values(segs_df.columns.tolist())
+    # .dropna() is used to get rid of somas (will be allowed in NSETM-2010)
+    return segs_df.dropna().sort_values(segs_df.columns.tolist(), ignore_index=True)
 
 
 def get_segment_limits_within_sphere(starts, ends, pos, radius):
@@ -164,16 +163,20 @@ def spherical_sampling(pos_sgid, index_path, radius):
         index_path(str): path to the circuit directory
         radius(float): maximum radius of the volume_transmission
     """
+    # TODO: check functionality that can be combined w/ pick_synapses_voxel
+    # pylint: disable=too-many-locals
     position, sgid = pos_sgid
     min_xyz = position - radius
     max_xyz = position + radius
 
-    segs_df = _sample_with_flat_index(index_path, min_xyz, max_xyz)
+    segs_df = _sample_with_spatial_index(index_path, min_xyz, max_xyz)
     starts = segs_df[SEGMENT_START_COLS].to_numpy().astype(float)
     ends = segs_df[SEGMENT_END_COLS].to_numpy().astype(float)
 
     mask_nonzero_length = np.any(starts != ends, axis=1)
-    segs_df = segs_df[mask_nonzero_length]
+
+    # .copy() to avoid pandas.core.common.SettingWithCopyWarning
+    segs_df = segs_df[mask_nonzero_length].copy()
     starts = starts[mask_nonzero_length]
     ends = ends[mask_nonzero_length]
 
@@ -188,20 +191,15 @@ def spherical_sampling(pos_sgid, index_path, radius):
     synapse = alpha[:, None] * (segment_end - segment_start) + segment_start
     segs_df[XYZ] = synapse
     segs_df[SOURCE_XYZ] = position
-    segs_df.loc[:, "sgid"] = sgid
-    segs_df.loc[:, "synapse_offset"] = np.linalg.norm(synapse - starts, axis=1)
-    segs_df.loc[:, "segment_length"] = np.linalg.norm(ends - starts, axis=1)
-    segs_df.loc[:, "distance_volume_transmission"] = np.linalg.norm(synapse - position, axis=1)
-    segs_df.loc[:, "section_type"] = np.fromiter(
-        (SECTION_TYPE_MAP[x] for x in segs_df[Section.NEURITE_TYPE]),
-        dtype=np.int16,
-        count=len(segs_df.index),
-    )
+    segs_df["sgid"] = sgid
+    segs_df["synapse_offset"] = np.linalg.norm(synapse - starts, axis=1)
+    segs_df["segment_length"] = np.linalg.norm(ends - starts, axis=1)
+    segs_df["distance_volume_transmission"] = np.linalg.norm(synapse - position, axis=1)
 
     return segs_df[VOLUME_TRANSMISSION_COLS].dropna()
 
 
-def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup):
+def pick_synapses_voxel(xyz_counts, index, segment_pref, dataframe_cleanup):
     """Select `count` synapses from the circuit that lie between `min_xyz` and `max_xyz`
 
     Args:
@@ -216,7 +214,12 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
     """
     min_xyz, max_xyz, count = xyz_counts
 
-    segs_df = _sample_with_flat_index(index_path, min_xyz, max_xyz)
+    segs_df = _sample_with_spatial_index(index, min_xyz, max_xyz)
+
+    # Drop axons early to save some CPU cycles (would be dropped in segment_pref_length anyway).
+    # We'll keep segment_pref_length and the code that uses it for reference for now.
+    if segment_pref is segment_pref_length:
+        segs_df = segs_df[segs_df["section_type"] != NeuriteType.axon].reset_index(drop=True)
 
     if segs_df is None:
         return None
@@ -227,7 +230,7 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
     # pylint: enable=unsubscriptable-object
 
     # keep only the segments whose midpoints are in the current voxel
-    in_bb = pd.DataFrame((ends + starts) / 2.0, columns=list("xyz"), index=segs_df.index)
+    in_bb = pd.DataFrame((ends + starts) / 2.0, columns=XYZ)
     in_bb = in_bounding_box(*min_max_axis(min_xyz, max_xyz), df=in_bb)
 
     segs_df = segs_df[in_bb].copy()  # pylint: disable=unsubscriptable-object
@@ -250,15 +253,12 @@ def pick_synapses_voxel(xyz_counts, index_path, segment_pref, dataframe_cleanup)
     alpha = np.random.random(size=len(segs_df))
 
     segs_df["synapse_offset"] = alpha * segs_df["segment_length"]
-    segs_df["section_type"] = np.array(
-        [SECTION_TYPE_MAP[x] for x in segs_df[Section.NEURITE_TYPE]], dtype=np.int16
-    )
 
     segs_df = segs_df.join(
         pd.DataFrame(
             alpha[:, None] * segs_df[SEGMENT_START_COLS].to_numpy().astype(float)
             + (1.0 - alpha[:, None]) * segs_df[SEGMENT_END_COLS].to_numpy().astype(float),
-            columns=list("xyz"),
+            columns=XYZ,
             dtype=np.float32,
             index=segs_df.index,
         )
@@ -277,6 +277,23 @@ def downcast_int_columns(df):
     """Downcast int columns"""
     for name in INT_COLS:
         df[name] = convert_to_smallest_allowed_int_type(df[name])
+
+
+def pick_synapses_chunk(xyz_counts, index_path, segment_pref, dataframe_cleanup):
+    """Pick synapses for a chunk of voxels."""
+    index = spatial_index.open_index(index_path, max_cache_size_mb=CACHE_SIZE_MB)
+    syns = []
+
+    for it in xyz_counts:
+        min_xyz, max_xyz, count = it[:3], it[3:6], int(it[6])
+        syns.append(
+            pick_synapses_voxel([min_xyz, max_xyz, count], index, segment_pref, dataframe_cleanup)
+        )
+
+    if all(df is None for df in syns):
+        return None
+
+    return pd.concat(syns, ignore_index=True)
 
 
 def pick_synapses(
@@ -300,24 +317,27 @@ def pick_synapses(
 
     min_xyzs = synapse_counts.indices_to_positions(np.transpose(idx))
     max_xyzs = min_xyzs + synapse_counts.voxel_dimensions
-    xyz_counts = zip(min_xyzs, max_xyzs, synapse_counts.raw[idx])
+    xyzs_count = np.hstack((min_xyzs, max_xyzs, synapse_counts.raw[idx][:, np.newaxis]))
+
+    order = spatial_index.experimental.space_filling_order(min_xyzs)
+    chunks = np.array_split(xyzs_count[order], PARALLEL_JOBS)
 
     func = partial(
-        pick_synapses_voxel,
+        pick_synapses_chunk,
         index_path=index_path,
         segment_pref=segment_pref,
         dataframe_cleanup=dataframe_cleanup,
     )
 
-    synapses = list(map_parallelize(func, tqdm(xyz_counts, total=len(min_xyzs))))
-
-    n_none_dfs = sum(df is None for df in synapses)
-    percentage_none = n_none_dfs / float(len(synapses)) * 100
-    if percentage_none > 20.0:  # pragma: no cover
-        L.warning("%s of dataframes are None.", percentage_none)
+    synapses = list(map_parallelize(func, tqdm(chunks, total=len(chunks)), jobs=PARALLEL_JOBS))
 
     L.debug("Picking finished. Now concatenating...")
-    return pd.concat(synapses, ignore_index=True)
+    synapses = pd.concat(synapses, ignore_index=True)
+
+    if (percentage := 100 * len(synapses) / sum(synapse_counts.raw[idx])) < 90:
+        L.warning("Could only pick %.2f %% of the intended synapses", percentage)
+
+    return synapses
 
 
 def organize_indices(synapses):

@@ -11,10 +11,12 @@ from numpy.testing import assert_array_equal
 import projectionizer.volume_transmission as test_module
 
 
-@patch.object(test_module, "map_parallelize")
-def test_get_spherical_samples(mock_map_parallelize):
+@patch.object(test_module, "map_parallelize", new=lambda *args, **_: map(*args))
+@patch.object(test_module.spatial_index, "open_index", new=Mock())
+@patch.object(test_module, "spherical_sampling")
+def test_get_spherical_samples(mock_sample):
     fill_value = 5
-    mock_map_parallelize.return_value = 2 * [pd.DataFrame(np.full((3, 5), fill_value))]
+    mock_sample.return_value = pd.DataFrame(np.full((3, 5), fill_value))
     syns = pd.DataFrame(np.ones((10, 4)), columns=list("xyz") + ["sgid"])
     ret = test_module._get_spherical_samples(syns, "fake", 1)
     assert np.all(ret.to_numpy() == fill_value)

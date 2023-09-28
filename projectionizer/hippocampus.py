@@ -5,9 +5,12 @@ from functools import partial
 
 import numpy as np
 import pandas as pd
+import spatial_index
+import spatial_index.experimental
 from neurom import NeuriteType
 
-from projectionizer import synapses, utils
+from projectionizer import utils
+from projectionizer.synapses import CACHE_SIZE_MB, _sample_with_spatial_index
 from projectionizer.utils import (
     convert_to_smallest_allowed_int_type,
     in_bounding_box,
@@ -50,6 +53,7 @@ def _full_sample_worker(min_xyzs, index_path, voxel_dimensions):
         index_path(str): path to FlatIndex indices
         voxel_dimensions(1x3 array): voxel dimensions
     """
+    index = spatial_index.open_index(index_path, max_cache_size_mb=CACHE_SIZE_MB)
     start_cols = ["Segment.X1", "Segment.Y1", "Segment.Z1"]
     end_cols = [
         "Segment.X2",
@@ -60,9 +64,7 @@ def _full_sample_worker(min_xyzs, index_path, voxel_dimensions):
     chunks = []
     for min_xyz in min_xyzs:
         max_xyz = min_xyz + voxel_dimensions
-        df = synapses._sample_with_flat_index(  # pylint: disable=protected-access
-            index_path, min_xyz, max_xyz
-        )
+        df = _sample_with_spatial_index(index, min_xyz, max_xyz)
 
         if df is None or len(df) == 0:
             continue
@@ -70,7 +72,7 @@ def _full_sample_worker(min_xyzs, index_path, voxel_dimensions):
         df.columns = map(str, df.columns)
 
         # pylint:disable=unsubscriptable-object
-        df = df[df["Section.NEURITE_TYPE"] != NeuriteType.axon].copy()
+        df = df[df["section_type"] != NeuriteType.axon].copy()
         # pylint:enable=unsubscriptable-object
 
         if df is None or len(df) == 0:
@@ -106,18 +108,15 @@ def _full_sample_worker(min_xyzs, index_path, voxel_dimensions):
 
         # uint -> smallest uint needed
         for name in (
-            "Section.ID",
-            "Segment.ID",
+            "section_id",
+            "segment_id",
         ):
-            df[fix_name(name)] = convert_to_smallest_allowed_int_type(df[name])
-            del df[name]
+            df[name] = convert_to_smallest_allowed_int_type(df[name])
 
         df["tgid"] = convert_to_smallest_allowed_int_type(df["gid"])
-        df["section_type"] = np.array(
-            [synapses.SECTION_TYPE_MAP[x] for x in df["Section.NEURITE_TYPE"]], dtype=np.int16
-        )
+        df["section_type"] = df["section_type"].astype(np.int16)
+        del df["gid"]
 
-        del df["Section.NEURITE_TYPE"], df["Segment.R1"], df["Segment.R2"], df["gid"]
         #  }
 
         chunks.append(df)
@@ -149,6 +148,9 @@ def full_sample_parallel(brain_regions, region, region_id, index_path, output):
 
     positions = brain_regions.indices_to_positions(nz)
     positions = np.unique(positions, axis=0)
+    order = spatial_index.experimental.space_filling_order(positions)
+    positions = positions[order]
+
     chunks = (len(positions) // 500000) + 1
 
     func = partial(
@@ -162,9 +164,7 @@ def full_sample_parallel(brain_regions, region, region_id, index_path, output):
             continue
 
         with utils.delete_file_on_exception(path):
-            df = utils.map_parallelize(
-                func, np.array_split(xyzs, (len(xyzs) // 10000) + 1, axis=0), chunksize=1
-            )
+            df = utils.map_parallelize(func, np.array_split(xyzs, (len(xyzs) // 10000) + 1, axis=0))
 
             df = pd.concat(df, ignore_index=True, sort=False)
             write_feather(path, df)

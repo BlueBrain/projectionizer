@@ -3,18 +3,18 @@ import h5py
 import numpy as np
 from morphio import SectionType
 
-from projectionizer.utils import SECTION_TYPE_MAP
-
 # Assume the source cell types to be axons
-EFFERENT_SECTION_TYPE = SECTION_TYPE_MAP[SectionType.axon]
+EFFERENT_SECTION_TYPE = SectionType.axon.value
 
 
 def write_nodes(syns, path, population_name, mtype, keep_offset=True):
     """write the nodes file"""
     if keep_offset:
-        sgid_count = syns.sgid.max()
+        min_sgid = 0
     else:
-        sgid_count = syns.sgid.max() - syns.sgid.min() + 1
+        min_sgid = syns.sgid.min()
+
+    sgid_count = syns.sgid.max() - min_sgid + 1
 
     with h5py.File(path, "w") as h5:
         population_path = f"/nodes/{population_name}"
@@ -43,7 +43,7 @@ def write_nodes(syns, path, population_name, mtype, keep_offset=True):
 def write_edges(syns, path, population_name, keep_offset=True):
     """write the edges file"""
     if keep_offset:
-        min_sgid = 1
+        min_sgid = 0
     else:
         min_sgid = syns.sgid.min()
 
@@ -52,7 +52,7 @@ def write_edges(syns, path, population_name, keep_offset=True):
         group = h5.create_group(population_path)
 
         group["source_node_id"] = syns.sgid.to_numpy() - min_sgid
-        group["target_node_id"] = syns.tgid.to_numpy() - 1
+        group["target_node_id"] = syns.tgid.to_numpy()
         group["edge_type_id"] = np.full(len(syns), -1, dtype=np.int16)
 
         attributes = group.create_group("0")

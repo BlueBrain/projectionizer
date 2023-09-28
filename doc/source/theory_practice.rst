@@ -31,7 +31,14 @@ The fiber count is increased by replacing each of the fibers with a suitable rat
 
 Sampling
 --------
-Post-synaptic dendritic segments within the defined regions are picked randomly. They will be the locations of the future synapses. The number of sampled synapses at this point is affected by the density profile and oversampling factor defined in the |Config|.
+
+.. note::
+    To find the segments in the voxels, projectionizer uses SpatialIndex and requires that the segment path is provided in the config.
+    Please refer to the `SpatialIndex documentation <https://bbpteam.epfl.ch/documentation/projects/spatial-index/latest/>`_ on how to build a segment index (Multi Index).
+
+Post-synaptic dendritic segments within the defined regions are picked randomly.
+They will be the locations of the future synapses.
+The number of sampled synapses at this point is affected by the density profile and oversampling factor defined in the |Config|.
 
 Tasks related to sampling (in order of appearence in `step_0_sampling.py`):
  * **VoxelSynapseCount** generates a VoxelData instance containing the number of synapses to be sampled per voxel

@@ -1,7 +1,7 @@
 [tool.black]
 line-length = 100
 target-version = [
-    "py37",
+    "py310",
 ]
 include = '''
     projectionizer\/.*\.py$
@@ -13,7 +13,10 @@ include = '''
 
 [tool.isort]
 profile = "black"
-known_local_folder = ["utils", "mocks"]
+known_local_folder = [
+    "utils",
+    "mocks",
+]
 
 [tool.pylint]
     [tool.pylint.messages_control]

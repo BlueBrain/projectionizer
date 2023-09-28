@@ -1,5 +1,7 @@
 import pytest
 
+from projectionizer.version import VERSION
+
 from utils import CIRCUIT_CONFIG_FILE, fake_circuit_config, fake_manifest
 
 MOCK_PARAMS = {
@@ -8,6 +10,7 @@ MOCK_PARAMS = {
     "ListParameter": [],
     "Parameter": "fake",
     "TaskParameter": None,
+    "BoolParameter": True,
 }
 
 
@@ -49,6 +52,8 @@ def fixture_MockTask(tmp_confdir, request):
             return tmp_confdir
         if param_name == "circuit_config":
             return tmp_confdir / CIRCUIT_CONFIG_FILE
+        if param_name == "projectionizer_version":
+            return VERSION
 
         param = getattr(cls, param_name)
         return MOCK_PARAMS[param.__class__.__name__]

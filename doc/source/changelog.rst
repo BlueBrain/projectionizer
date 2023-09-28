@@ -10,17 +10,32 @@ Version v3.0.0
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~
+- continueing tasks started with projectionizer < v3.0.0
+- `python` 3.7 no longer supported
 - removed values from config (providing these will cause the workflow to crash)
 
   - `CommonParams: morphology_path`
   - `WriteSonata: target_population`
 
+- new config values (not providing these will raise an error)
+
+  - `CommonParams: segment_index_path`
+  - `CommonParams: projectionizer_version`
+
+- config values moved to `CommonParams`:
+
+  - `WriteSonata: module_archive`
+
 New Features
 ~~~~~~~~~~~~
+- `python >= 3.8` support (tested with `v3.8`, `v3.9`)
 - `afferent_section_pos` is now computed for the synapses
 
 Improvements
 ~~~~~~~~~~~~
+- Everything (other than user.target files) uses 0-based GID indexing
+- default `module_archive` updated to `archive/2022-01`
+- segment indexing is done with `Spatial Index` and `libFLATIndex` was removed
 - reading more parameters from circuit config instead of the user-provided config file (see :ref:`ver_3_0_0_breaking`)
 
 

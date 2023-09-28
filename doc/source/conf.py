@@ -14,14 +14,14 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-from pkg_resources import get_distribution
+import importlib
 
 # -- Project information -----------------------------------------------------
 
 project = "projectionizer"
 
 # The short X.Y version
-version = get_distribution("projectionizer").version
+version = importlib.metadata.distribution("projectionizer").version
 
 # The full version, including alpha/beta/rc tags
 release = version

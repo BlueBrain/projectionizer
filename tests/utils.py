@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from bluepy import Section, Segment
+from bluepy import Segment
 from neurom import NeuriteType
 
 from projectionizer.utils import MANIFEST_FILE
@@ -27,9 +27,9 @@ def fake_segments(min_xyz, max_xyz, count):
         Segment.R1,
         Segment.R2,
         "gid",
-        Section.ID,
-        Segment.ID,
-        Section.NEURITE_TYPE,
+        "section_id",
+        "segment_id",
+        "section_type",
     ]
 
     def samp(ax):
@@ -42,10 +42,11 @@ def fake_segments(min_xyz, max_xyz, count):
     df[[Segment.Z1, Segment.Z2]] = samp(Z)
     df[[Segment.R1, Segment.R2]] = (RADIUS * np.random.random((2, count))).T
 
-    df[[Section.ID, Segment.ID, "gid"]] = np.random.randint(100, size=(3, count)).T
-    df[Section.NEURITE_TYPE] = NeuriteType.apical_dendrite
+    df[["section_id", "segment_id", "gid"]] = np.random.randint(100, size=(3, count)).T
 
-    return df
+    df["section_type"] = NeuriteType.apical_dendrite
+
+    return df.copy()
 
 
 def fake_manifest(path):

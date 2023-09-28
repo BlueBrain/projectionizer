@@ -17,15 +17,15 @@ from builtins import input
 
 import luigi
 import numpy as np
-import pkg_resources
 import yaml
+
+from projectionizer.luigi_utils import TEMPLATES_PATH
 
 L = logging.getLogger(__name__)
 L.setLevel(logging.INFO)
 
 CONFIG_FILENAME = "config.yaml"
 LUIGI_TARGET = "projectionizer.analysis"
-TEMPLATES_PATH = pkg_resources.resource_filename("projectionizer", "templates")
 VOLUME_TRANSMISSION_TASKS = {"ScaleConductance", "VolumeSample"}
 WORKERS = "1"
 

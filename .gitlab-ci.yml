@@ -1,4 +1,4 @@
 include:
   - project: nse/ci
+    ref: 'projectionizer_spind'
     file: /ci/pipelines/nse.projectionizer.yml
-

@@ -51,7 +51,7 @@ def test__generate_kmeans_fibers():
     assert len(fibers) == n_fibers
 
     assert_array_equal(
-        fibers.sort_values(XZ)[XZ].values,
+        fibers.sort_values(XZ)[XZ].values,  # pylint: disable=unsubscriptable-object
         [
             [1, 1],
             [1, 11],

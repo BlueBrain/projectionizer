@@ -1,12 +1,12 @@
 """Volume Transmission luigi tasks"""
 import logging
-import os
 import shutil
 from functools import partial
 
 import h5py
 import numpy as np
 import pandas as pd
+import spatial_index.experimental
 from bluepy import Section, Segment
 from luigi import FloatParameter, ListParameter, LocalTarget
 from tqdm import tqdm
@@ -14,7 +14,12 @@ from tqdm import tqdm
 from projectionizer import analysis, step_2_prune, step_3_write
 from projectionizer.luigi_utils import CommonParams, FeatherTask
 from projectionizer.straight_fibers import calc_pathlength_to_fiber_start
-from projectionizer.synapses import spherical_sampling
+from projectionizer.synapses import (
+    CACHE_SIZE_MB,
+    PARALLEL_JOBS,
+    spatial_index,
+    spherical_sampling,
+)
 from projectionizer.utils import (
     XYZ,
     XYZUVW,
@@ -32,13 +37,27 @@ DEFAULT_ADDITIVE_PATH_DISTANCE = 300
 EDGE_FILE_NAME = "volume-transmission-edges.h5"
 
 
-def _get_spherical_samples(syns, circuit_path, radius):
+def _sample_chunk_spherical(chunk, index_path, radius):
+    """Perform spherical sampling on a chunk of positions."""
+    index = spatial_index.open_index(index_path, max_cache_size_mb=CACHE_SIZE_MB)
+    syns = [spherical_sampling((np.array(pos), int(sgid)), index, radius) for *pos, sgid in chunk]
+
+    return pd.concat(syns, ignore_index=True) if syns else None
+
+
+def _get_spherical_samples(syns, index_path, radius):
     """Helper function for the spherical sampling."""
     L.info("Starting spherical sampling with a radius of %s um...", radius)
-    func = partial(spherical_sampling, index_path=circuit_path, radius=radius)
+
+    func = partial(_sample_chunk_spherical, index_path=index_path, radius=radius)
     pos = syns[list("xyz")].to_numpy()
     sgid = syns["sgid"].to_numpy()
-    samples = map_parallelize(func, tqdm(zip(pos, sgid), total=len(pos)))
+    pos_sgid = np.hstack((pos, sgid[:, np.newaxis]))
+
+    order = spatial_index.experimental.space_filling_order(pos)
+    chunks = np.array_split(pos_sgid[order], PARALLEL_JOBS)
+
+    samples = map_parallelize(func, tqdm(chunks))
 
     L.info("Concatenating samples...")
     return pd.concat(samples, ignore_index=True)
@@ -71,7 +90,7 @@ class VolumeSample(FeatherTask):
 
     def run(self):
         samples = _get_spherical_samples(
-            load(self.input()[0].path), os.path.dirname(self.circuit_config), self.radius
+            load(self.input()[0].path), self.segment_index_path, self.radius
         )
         samples.rename(
             columns={"gid": "tgid", Section.ID: "section_id", Segment.ID: "segment_id"},

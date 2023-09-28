@@ -6,28 +6,23 @@ import os
 import re
 from contextlib import contextmanager
 from itertools import chain
+from pathlib import Path
 
+import libsonata
 import numpy as np
 import pandas as pd
 import pyarrow
 import yaml
 from bluepy_configfile.configfile import BlueConfig
-from morphio import SectionType
 from pyarrow import feather
 from voxcell import VoxelData
 
+PARALLEL_JOBS = int(os.environ.get("PARALLEL_COUNT", 36))
 MANIFEST_FILE = "MANIFEST.yaml"
 X, Y, Z = 0, 1, 2
 XYZUVW = list("xyzuvw")
 IJK = list("ijk")
 XYZ = list("xyz")
-
-SECTION_TYPE_MAP = {
-    SectionType.soma: 1,
-    SectionType.axon: 2,
-    SectionType.basal_dendrite: 3,
-    SectionType.apical_dendrite: 4,
-}
 
 
 class ErrorCloseToZero(Exception):
@@ -98,18 +93,19 @@ def load_all(inputs):
     return [load(x.path) for x in inputs]
 
 
-def map_parallelize(func, it, jobs=36, chunksize=100, maxtasksperchild=1):
+def map_parallelize(func, it, jobs=None, chunksize=None, maxtasksperchild=None):
     """apply func to all items in it, using a process pool"""
     if os.environ.get("PARALLEL_VERBOSE", False):
         from multiprocessing import util  # pylint:disable=import-outside-toplevel
 
         util.log_to_stderr(logging.DEBUG)
 
-    jobs = int(os.environ.get("PARALLEL_COUNT", jobs))
+    jobs = PARALLEL_JOBS if jobs is None else jobs
 
-    # FLATIndex is not threadsafe, and it leaks memory; to work around that
-    # a the process pool forks a new process, and only runs 100 (b/c chunksize=100)
-    # iterations before forking a new process (b/c maxtasksperchild=1)
+    if chunksize is None:
+        # optimize chunksize (1-100) based on allocated cores
+        chunksize = max(min(len(it) // jobs, 100), 1)
+
     with multiprocessing.Pool(jobs, maxtasksperchild=maxtasksperchild) as pool:
         return pool.map(func, it, chunksize)  # pylint: disable=no-value-for-parameter
 
@@ -270,3 +266,24 @@ def delete_file_on_exception(path):
         if os.path.exists(path):
             os.unlink(path)
         raise
+
+
+def get_morphs_for_nodes(node_path, population, morph_path, morph_type):
+    """Get morphology names for the nodes in a node file.
+
+    Args:
+        node_path(str): path to the nodes.h5 file containing the afferent nodes
+        population(str): name of the node population
+        morph_path(str): path to the directory containing the morphologies
+        morph_type(str): the morphology type (h5, asc, swc)
+
+    Returns:
+        pandas.DataFrame: dataframe containing nodes' absolute morph paths in given population
+    """
+    node_population = libsonata.NodeStorage(node_path).open_population(population)
+    morphs = node_population.get_attribute("morphology", node_population.select_all())
+
+    def abs_path_morph(morph_name):
+        return str(Path(morph_path, f"{morph_name}.{morph_type}"))
+
+    return pd.DataFrame({"morph": map(abs_path_morph, morphs)})

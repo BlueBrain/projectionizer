@@ -5,10 +5,10 @@ distribution shape
 
 import logging
 
+import libsonata
 import luigi
 import numpy as np
 import pandas as pd
-from bluepy import Circuit
 from scipy.stats import norm  # pylint: disable=no-name-in-module
 
 from projectionizer import (
@@ -19,7 +19,7 @@ from projectionizer import (
     straight_fibers,
 )
 from projectionizer import synapses as syns
-from projectionizer.utils import load, load_all, write_feather
+from projectionizer.utils import get_morphs_for_nodes, load, load_all, write_feather
 
 L = logging.getLogger(__name__)
 
@@ -39,13 +39,18 @@ class GroupByConnection(luigi_utils.FeatherTask):
     def run(self):  # pragma: no cover
         synapses, sgids = load_all(self.input())
 
-        synapses.rename(columns={"gid": "tgid"}, inplace=True)
-        mtypes = Circuit(self.circuit_config).cells.get(properties="mtype")
         assert len(synapses) == len(
             sgids
         ), f"len(synapses): {len(synapses)} != len(sgids): {len(sgids)}"
-        tgid_sgid_mtype = synapses[["tgid"]].join(sgids).join(mtypes, on="tgid")
-        res = tgid_sgid_mtype[["mtype", "tgid", "sgid"]]
+
+        synapses.rename(columns={"gid": "tgid"}, inplace=True)
+        nodes = libsonata.NodeStorage(self.target_nodes).open_population(self.target_population)
+        synapses["mtype"] = pd.Series(
+            nodes.get_attribute("mtype", libsonata.Selection(synapses.tgid)),
+            dtype="category",
+        )
+
+        res = synapses[["mtype", "tgid"]].join(sgids)
         write_feather(self.output().path, res)
 
 
@@ -236,13 +241,12 @@ class ComputeAfferentSectionPos(luigi_utils.FeatherTask):
 
     def run(self):  # pragma: no cover
         synapses = load(self.input().path)
-
-        positions = afferent_section_position.compute_positions(
-            synapses,
+        morphs = get_morphs_for_nodes(
             self.target_nodes,
             self.target_population,
             self.morphology_path,
             self.morphology_type,
         )
 
+        positions = afferent_section_position.compute_positions(synapses, morphs)
         write_feather(self.output().path, positions)

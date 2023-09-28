@@ -31,15 +31,16 @@ def test_write_nodes(tmp_confdir):
     test_module.write_nodes(df, path, NODE_POPULATION, mtype, keep_offset=True)
 
     with h5py.File(path, "r") as f:
-        # size should be df.sgid.max() since keep_offset=True
+        # size should be df.sgid.max() + 1 since keep_offset=True and 0-based index
+        expected_size = df.sgid.max() + 1
         sscx_proj = f[f"nodes/{NODE_POPULATION}"]
-        assert_equal(sscx_proj["node_type_id"].size, df.sgid.max())
-        assert_array_equal(sscx_proj["node_type_id"][:], [-1] * df.sgid.max())
+        assert_equal(sscx_proj["node_type_id"].size, expected_size)
+        assert_array_equal(sscx_proj["node_type_id"][:], [-1] * expected_size)
         keys = sscx_proj["0"]["@library"].keys()
 
         for k in keys:
             assert_equal(sscx_proj["0"][k].size, sscx_proj["node_type_id"].size)
-            assert_array_equal(sscx_proj["0"][k][:], [0] * df.sgid.max())
+            assert_array_equal(sscx_proj["0"][k][:], [0] * expected_size)
 
     path = tmp_confdir / "sscx_nodes_no_offset.sonata"
     mtype = "fake_type"
@@ -81,10 +82,9 @@ def test_write_edges(tmp_confdir):
         sscx_proj = f[f"edges/{EDGE_POPULATION}"]
         assert_equal(sscx_proj["edge_type_id"].size, len(df.sgid))
         assert_array_equal(sscx_proj["edge_type_id"][:], [-1] * len(df.sgid))
-        # should return data.sgid - 1 since keep_offset=True and df is converted to 0-indexed
-        assert_array_equal(sscx_proj["source_node_id"][:], df.sgid - 1)
-        # should return data.tgid - 1 since df is converted to 0-indexed
-        assert_array_equal(sscx_proj["target_node_id"][:], df.tgid - 1)
+        # should return df.sgid since keep_offset=True
+        assert_array_equal(sscx_proj["source_node_id"][:], df.sgid)
+        assert_array_equal(sscx_proj["target_node_id"][:], df.tgid)
 
         attributes = sscx_proj["0"]
         assert_array_equal(attributes["afferent_center_x"], df.x)
@@ -112,5 +112,4 @@ def test_write_edges(tmp_confdir):
         assert_equal(sscx_proj["edge_type_id"].size, 2)
         # should return df.sgid-df.sgid.min() (smallest sgid = 0) since keep_offset=False
         assert_array_equal(sscx_proj["source_node_id"][:], df.sgid - df.sgid.min())
-        # should still return data.tgid - 1
-        assert_array_equal(sscx_proj["target_node_id"][:], df.tgid - 1)
+        assert_array_equal(sscx_proj["target_node_id"][:], df.tgid)

@@ -18,19 +18,22 @@ Lists parameters that are common to all tasks.
 
 .. table::
 
-  ====================== ========= ========= =======================================
-  Parameter              Mandatory Default   Description
-  ====================== ========= ========= =======================================
-  circuit_config         Yes                 The CircuitConfig absolute path.
-  physiology_path        Yes                 The path to the XML recipe that is used by Spykfunc
-  sgid_offset            Yes                 The offset used for indexing the virtual fibers
-  n_total_chunks         Yes                 In order to prevent RAM from exploding, the computation is split into chunks. This is the number of chunks.
-  oversampling           Yes                 The ratio between the number of sampled synapses during the first step and the number of desired synapses. Oversampling is necessary as it allows to remove unwanted synapses with bad connectivity properties while keeping the final number of synapses stable.
-  layers                 Yes                 List of layer names (as in `hierarchy.json`) arranged from bottom to top (e.g., `[L6, L5, L4, L3, L2, L1]`)
-  fiber_locations_path   Yes                 Path to a csv file containing fiber positions and directions. It can be :ref:`generated<Index_CreatingFibers>` with projectionizer.
-  regions                No        None      List of region names to generate projections to. If not given, parsed from MANIFEST (should be defined in [common] > [region]). If not defined in manifest, raises an exception.
-  hex_apron_bounding_box No        None      Coordinates of the bounding box of the apron optionally used with columns to reduce edge effects (see: :ref:`apron<FAQ_apron>`)
-  ====================== ========= ========= =======================================
+  ====================== ========= =============== =======================================
+  Parameter              Mandatory Default         Description
+  ====================== ========= =============== =======================================
+  circuit_config         Yes                       The CircuitConfig absolute path.
+  physiology_path        Yes                       The path to the XML recipe that is used by Spykfunc
+  segment_index_path     Yes                       The path to segment index created with spatial index
+  sgid_offset            Yes                       The offset used for indexing the virtual fibers
+  projectionizer_version Yes                       The projectionizer version (X.Y.Z) the config is supposed to be run with
+  n_total_chunks         Yes                       In order to prevent RAM from exploding, the computation is split into chunks. This is the number of chunks.
+  oversampling           Yes                       The ratio between the number of sampled synapses during the first step and the number of desired synapses. Oversampling is necessary as it allows to remove unwanted synapses with bad connectivity properties while keeping the final number of synapses stable.
+  layers                 Yes                       List of layer names (as in `hierarchy.json`) arranged from bottom to top (e.g., `[L6, L5, L4, L3, L2, L1]`)
+  fiber_locations_path   Yes                       Path to a csv file containing fiber positions and directions. It can be :ref:`generated<Index_CreatingFibers>` with projectionizer.
+  module_archive         No        archive/2022-01 Which archive to load spykfunc and parquet-converters from
+  regions                No        None            List of region names to generate projections to. If not given, parsed from MANIFEST (should be defined in [common] > [region]). If not defined in manifest, raises an exception.
+  hex_apron_bounding_box No        None            Coordinates of the bounding box of the apron optionally used with columns to reduce edge effects (see: :ref:`apron<FAQ_apron>`)
+  ====================== ========= =============== =======================================
 
 SynapseDensity
 ~~~~~~~~~~~~~~
@@ -138,7 +141,6 @@ Parameterizes the SONATA files.
   edge_population        No        projections            The name of the created edge population
   node_file_name         No        projections-nodes.h5   File name for the sonata node file
   edge_file_name         No        projections-edges.h5   File name for the sonata edge file
-  module_archive         No        archive/2021-07        Which archive to load spykfunc and parquet-converters from
   ====================== ========= ====================== =======================================
 
 VolumeSample
@@ -181,6 +183,7 @@ Example
       circuit_config: /gpfs/bbp.cscs.ch/project/proj87/scratch/circuits/SSCX-O1/CircuitConfig
       fiber_locations_path: /gpfs/bbp.cscs.ch/project/proj87/scratch/projections/SSCX-O1/dopamine/dopamine_fibers.csv
       physiology_path: /gpfs/bbp.cscs.ch/project/proj87/scratch/projections/SSCX-O1/dopamine/DA_proj_recipe.xml
+      segment_index_path: /path/to/spatial/index/multi/index
       layers:
       - L6
       - L5

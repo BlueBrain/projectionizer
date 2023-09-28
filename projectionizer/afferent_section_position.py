@@ -1,9 +1,7 @@
 """Functions to compute afferent section positions for the synapses"""
 import logging
 from functools import partial
-from pathlib import Path
 
-import libsonata
 import numpy as np
 import pandas as pd
 from morphio import Morphology
@@ -17,20 +15,24 @@ L = logging.getLogger(__name__)
 WARNING_THRESHOLD = 1.001
 
 
-def load_morphology(morph_name, morph_path, morph_type):
-    """Load the given morph from the path based on the morph_type.
+def get_morph_section(morph, section_id_sonata):
+    """Helper function to get section of morphology with given ID.
+
+    To get translate SONATA to MorphIO indexing, 1 is subtracted from the section id, since in
+    MorphIO, soma is its own property and section indexing starts at 0. In SONATA, soma is referred
+    to with a section index of 0.
+
+    This function exists to ensure the section is always acquired in the same manner and ease the
+    transition in case the indexing is ever changed either in SONATA or in MorphIO.
 
     Args:
-        morhp_name(str): the name of the morphology
-        morph_path(str): path to the directory containing the morphology
-        morph_type(str): the morphology type (h5, asc, swc)
+        morph (morphio.Morphology): Morphology instance.
+        section_id_sonata (int): Section ID in SONATA (i.e., soma==0) format.
 
     Returns:
-        morphio.Morphology: A morphio immutable morphology.
+        morphio.Section: Desired Section instance.
     """
-    filename = f"{morph_name}.{morph_type}"
-
-    return Morphology(Path(morph_path, filename))
+    return morph.section(section_id_sonata - 1)
 
 
 def compute_afferent_section_pos(row, morph):
@@ -43,9 +45,7 @@ def compute_afferent_section_pos(row, morph):
     Returns:
         float: the afferent section position for the row entry
     """
-    # Subtract 1 from the section id, since in morphio, soma is its own property and section
-    # indexing starts at 0. In SONATA, soma is referred with an index of 0.
-    section = morph.section(row.section_id - 1)
+    section = get_morph_section(morph, row.section_id)
     segment_lengths = np.linalg.norm(np.diff(section.points, axis=0), axis=1)
     len_to_segment = segment_lengths[: row.segment_id].sum()
     computed_pos = (len_to_segment + row.synapse_offset) / segment_lengths.sum()
@@ -60,53 +60,30 @@ def compute_afferent_section_pos(row, morph):
     return min(computed_pos, 1)
 
 
-def compute_positions_worker(morph_df, morph_path, morph_type):
+def compute_positions_worker(morph_df):
     """Worker function computing the afferent_section_pos values for all the sgids that connect to
     any of the nodes with the given morphology.
 
     Args:
-        morph_df(tuple): tuple with morph name and its entries in the synapses dataframe
-        morph_path(str): path to the directory containing the morphologies
-        morph_type(str): the morphology type (h5, asc, swc)
+        morph_df(tuple): tuple with morph path and its entries in the synapses dataframe
 
     Returns:
         tuple: the section_pos entries for a morphology and the indices in the synapses dataframe
     """
-    morph_name, df = morph_df
-    morph = load_morphology(morph_name, morph_path, morph_type)
+    morph_path, df = morph_df
+    morph = Morphology(morph_path)
     func = partial(compute_afferent_section_pos, morph=morph)
     positions = np.fromiter(map(func, df.itertuples()), dtype=np.float32)
 
     return positions, df.orig_index.to_numpy()
 
 
-def get_morphs_for_nodes(node_path, population):
-    """Get morphology names for the nodes in a node file.
-
-    Args:
-        node_path(str): path to the nodes.h5 file containing the afferent nodes
-        population(str): name of the node population
-
-    Returns:
-        pandas.DataFrame: the
-    """
-    node_storage = libsonata.NodeStorage(node_path)
-    node_population = node_storage.open_population(population)
-    morphs = node_population.get_attribute("morphology", node_population.select_all())
-
-    # Sonata is 0-based so add the offset of 1 to the index to match the synapses.tgid
-    return pd.DataFrame({"morph": morphs}, index=range(1, len(morphs) + 1))
-
-
-def compute_positions(synapses, node_path, node_population, morph_path, morph_type):
+def compute_positions(synapses, morphs):
     """Parallelizes afferent section positions for the entered synapses.
 
     Args:
         synapses(pandas.DataFrame): synapse dataframe (e.g., from step_2_prune.ReducePrune)
-        node_path(str): path to the nodes.h5 file containing the afferent nodes
-        node_population(str): name of the afferent node population
-        morph_path(str): path to the directory containing the morphologies
-        morph_type(str): the morphology type (h5, asc, swc)
+        morphs(pandas.DataFrame): dataframe containing nodes' absolute morph paths
 
     Returns:
         pandas.DataFrame: the afferent section positions for the synapses
@@ -117,17 +94,14 @@ def compute_positions(synapses, node_path, node_population, morph_path, morph_ty
 
     # Fetching morph names with libsonata in the worker slows down the parallel process
     # significantly. Getting the morphs here and then grouping by them later.
-    morphs = get_morphs_for_nodes(node_path, node_population)
     syns = syns.join(morphs, on="tgid").drop("tgid", axis="columns")
 
-    func = partial(
-        compute_positions_worker,
-        morph_path=morph_path,
-        morph_type=morph_type,
-    )
-
     L.info("Computing afferent section positions...")
-    ret = map_parallelize(func, tqdm(syns.groupby("morph")), maxtasksperchild=None, chunksize=1)
+    ret = map_parallelize(
+        compute_positions_worker,
+        tqdm(syns.groupby("morph")),
+        maxtasksperchild=None,
+    )
 
     L.info("Concatenating and sorting the results...")
     ret, idx = np.concatenate(ret, axis=1)

@@ -2,7 +2,7 @@
 import os
 import re
 
-import pkg_resources
+import importlib_resources
 from luigi import Config, FloatParameter, IntParameter, ListParameter, Parameter, Task
 from luigi.contrib.simulate import RunAnywayTarget
 from luigi.local_target import LocalTarget
@@ -12,6 +12,29 @@ from projectionizer.utils import (
     read_manifest,
     read_regions_from_manifest,
 )
+from projectionizer.version import VERSION
+
+REGEX_VERSION = re.compile(r"^\d+\.\d+\.\d+")
+TEMPLATES_PATH = str(importlib_resources.files(__package__) / "templates")
+
+
+def _check_version_compatibility(version):
+    if match := REGEX_VERSION.match(version):
+        curr_version = REGEX_VERSION.match(VERSION).group()
+        if match.group() == curr_version:
+            return
+        raise RuntimeError(
+            f"Given config file is intended for projectionizer version '{version}'. "
+            f"However, the version of the running projectionizer is '{VERSION}'.\n\n"
+            "Continueing runs with mixed versions of projectionizer is strongly discouraged.\n\n"
+            "To update the config to match the version, please see:\n\n"
+            f"https://bbpteam.epfl.ch/documentation/projects/projectionizer/{curr_version}/"
+        )
+
+    raise ValueError(
+        "Expected projectionizer version to be given in format 'X.Y.Z' or 'X.Y.Z.devN', "
+        f"got: '{version}'."
+    )
 
 
 def camel2spinal_case(name):
@@ -46,8 +69,10 @@ class FolderTask(Task):
 class CommonParams(Config):
     """Paramaters that must be passed to all Task"""
 
+    projectionizer_version = Parameter()
     circuit_config = Parameter()
     physiology_path = Parameter()
+    segment_index_path = Parameter()
     folder = Parameter()
     n_total_chunks = IntParameter()
     sgid_offset = IntParameter()
@@ -64,6 +89,9 @@ class CommonParams(Config):
 
     # path to CSV with six columns; x,y,z,u,v,w: location and direction of fibers
     fiber_locations_path = Parameter(default="rat_fibers.csv")
+
+    # module archive from which to load spykfunc, parquet-converters
+    module_archive = Parameter(default="archive/2022-01")
 
     # hex parameters
     # bounding box for apron around the hexagon, so that there aren't edge effects when assigning
@@ -85,6 +113,8 @@ class CommonParams(Config):
         self.morphology_path = path
         self.morphology_type = type_
 
+        _check_version_compatibility(self.projectionizer_version)
+
     def output(self):
         name = camel2spinal_case(self.__class__.__name__)
         target = f"{self.folder}/{name}.{self.extension}"
@@ -101,8 +131,7 @@ class CommonParams(Config):
         if "/" in path:
             return path
         else:
-            templates = pkg_resources.resource_filename("projectionizer", "templates")
-            return os.path.join(templates, path)
+            return os.path.join(TEMPLATES_PATH, path)
 
     def get_regions(self):
         """Get region from config or parse it from MANIFEST.

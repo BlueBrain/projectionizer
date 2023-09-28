@@ -1,25 +1,35 @@
 #!/usr/bin/env python
 """ projectionizer setup """
 
-import imp
+import importlib.util
 
 from setuptools import setup
 
-VERSION = imp.load_source("projectionizer", "projectionizer/version.py").VERSION
+spec = importlib.util.spec_from_file_location("projectionizer.version", "projectionizer/version.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+VERSION = module.VERSION
 
 setup(
     name="projectionizer",
     version=VERSION,
     install_requires=[
-        "toolz>=0.8",
-        "partd>=0.3",
-        "luigi>3.0",
-        "tables>=3.4",
-        "pyarrow>=0.11.1",
-        "numpy<1.22",  # numpy is dropping py37 support starting from v1.22
         "bluepy>=2.4.0,<3.0.0",
-        "bluepysnap>=0.12.0,<1.0.0",
-        "libFLATIndex>=1.8.11",
+        "bluepy-configfile<1.0.0",
+        "h5py<4.0.0",
+        "importlib_resources>=5.0.0",
+        "libsonata<1.0.0",
+        "luigi>3.0",
+        "matplotlib<4.0.0",
+        "morphio<4.0.0",
+        "neurom<4.0.0",
+        "numpy>=1.19",
+        "pandas<2.0.0",
+        "pyarrow>=0.11.1",
+        "pyyaml<7.0",
+        "scipy<2.0.0",
+        "spatial-index>=1.2.0,<2.0.0",
+        "tqdm<5.0.0",
         "voxcell>=3",
     ],
     extras_require={"docs": ["sphinx", "sphinx-bluebrain-theme"]},
@@ -37,7 +47,7 @@ setup(
     author_email="bbp-ou-nse@groupes.epfl.ch",
     description="Voxel based projections",
     license="BBP-internal-confidential",
-    url="http://bluebrain.epfl.ch",
+    url="https://bbpteam.epfl.ch/documentation/projects/projectionizer/latest/",
     include_package_data=True,
-    python_requires=">=3.7,<3.8",  # no libFLATIndex available for py38
+    python_requires=">=3.8",
 )

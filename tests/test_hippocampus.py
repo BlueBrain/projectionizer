@@ -1,8 +1,8 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
-from bluepy import Section, Segment
+from bluepy import Segment
 from neurom import NeuriteType
 from voxcell import VoxelData
 
@@ -19,7 +19,8 @@ def _run_full_sample_worker(positions):
     return test_module._full_sample_worker([positions], circuit_path, VOXEL_DIMENSIONS)
 
 
-@patch.object(projectionizer.synapses, "_sample_with_flat_index")
+@patch.object(test_module, "_sample_with_spatial_index")
+@patch.object(test_module.spatial_index, "open_index", new=Mock())
 def test__full_sample_worker(mock_sample):
     count = 10
     min_xyz = np.array([0, 0, 0])
@@ -41,7 +42,8 @@ def test__full_sample_worker(mock_sample):
     assert len(res) == 0
 
 
-@patch.object(projectionizer.synapses, "_sample_with_flat_index")
+@patch.object(test_module, "_sample_with_spatial_index")
+@patch.object(test_module.spatial_index, "open_index", new=Mock())
 def test__full_sample_worker_single_segment_in_voxel(mock_sample):
     count = 10
     min_xyz = np.array([0, 0, 0])
@@ -68,14 +70,15 @@ def test__full_sample_worker_single_segment_in_voxel(mock_sample):
     assert len(res[["section_id", "segment_id", "tgid"]].drop_duplicates()) == 1
 
 
-@patch.object(projectionizer.synapses, "_sample_with_flat_index")
+@patch.object(test_module, "_sample_with_spatial_index")
+@patch.object(test_module.spatial_index, "open_index", new=Mock())
 def test__full_sample_worker_segments_axons(mock_sample):
     # all segments are axons
     count = 10
     min_xyz = np.array([0, 0, 0])
 
     segments = fake_segments(min_xyz, min_xyz + VOXEL_DIMENSIONS, count)
-    segments[Section.NEURITE_TYPE] = NeuriteType.axon
+    segments["section_type"] = NeuriteType.axon
     mock_sample.return_value = segments
 
     res = _run_full_sample_worker(min_xyz)
@@ -83,7 +86,8 @@ def test__full_sample_worker_segments_axons(mock_sample):
     assert len(res) == 0
 
 
-@patch.object(projectionizer.synapses, "_sample_with_flat_index")
+@patch.object(test_module, "_sample_with_spatial_index")
+@patch.object(test_module.spatial_index, "open_index", new=Mock())
 def test__full_sample_worker_no_segments_returned(mock_sample):
     min_xyz = np.array([0, 0, 0])
 
@@ -95,7 +99,8 @@ def test__full_sample_worker_no_segments_returned(mock_sample):
 
 # mock with a 'map' that ignores kwargs
 @patch.object(projectionizer.utils, "map_parallelize", new=lambda *args, **_: map(*args))
-@patch.object(projectionizer.synapses, "_sample_with_flat_index")
+@patch.object(test_module, "_sample_with_spatial_index")
+@patch.object(test_module.spatial_index, "open_index", new=Mock())
 def test_full_sample_parallel(mock_sample, tmp_confdir):
     count = 50
     min_xyz = np.array([0, 0, 0])

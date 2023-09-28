@@ -1,7 +1,9 @@
 import json
 import os
+from pathlib import Path
 from unittest.mock import Mock, patch
 
+import h5py
 import numpy as np
 import pandas as pd
 import pytest
@@ -13,6 +15,21 @@ from voxcell.nexus.voxelbrain import Atlas
 import projectionizer.utils as test_module
 
 from utils import CIRCUIT_CONFIG_FILE, TEST_DATA_DIR
+
+
+def test_parallel_count_env():
+    assert isinstance(test_module.PARALLEL_JOBS, int)
+    assert test_module.PARALLEL_JOBS == 42
+
+
+def create_dummy_node_file(dirpath):
+    node_path = Path(dirpath, "nodes.h5")
+    with h5py.File(node_path, "w") as h5:
+        pop = h5.create_group("/nodes/dummy/")
+        pop["node_type_id"] = [-1]
+        pop["0/morphology"] = ["morph"]
+
+    return node_path
 
 
 def test_choice():
@@ -268,3 +285,19 @@ def test_delete_file_on_exception(tmp_confdir):
         pass
 
     assert not test_file.exists()
+
+
+def test_get_morphs_for_nodes(tmp_confdir):
+    node_path = create_dummy_node_file(tmp_confdir)
+    morph_type = "swc"
+    morphs = test_module.get_morphs_for_nodes(
+        node_path,
+        population="dummy",
+        morph_path=tmp_confdir,
+        morph_type=morph_type,
+    )
+    expected = pd.DataFrame(
+        [f"{str(tmp_confdir)}/morph.{morph_type}"], columns=["morph"], index=[0]
+    )
+
+    pd.testing.assert_frame_equal(expected, morphs)

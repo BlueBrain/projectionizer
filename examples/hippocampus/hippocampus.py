@@ -155,7 +155,7 @@ def full_sample(ctx, region):
     '''fully sample all the regions'''
     config, output = ctx.obj['config'], ctx.obj['output']
     atlas = Circuit(config['circuit_config']).atlas
-    index_path = os.path.dirname(config['circuit_config'])
+    index_path = config['spatial_index_path']
 
     assert region in config['region_percentages']
 
@@ -197,13 +197,10 @@ def _pick_synapse_locations(segs, dist, count):
 
 def _assign_sgid(syns, sgid_start, sgid_count):
     '''assign source gids to syns'''
-    # NOTE: Could this be the reason for the projections and target file mismatch (0 vs 1-based)?
-    # Should first sgid be sgid_start and not sgid_start + 1?
-    # e.g., 100000...100100 vs 100001...100101
     if sgid_count == 1:
-        syns['sgid'] = sgid_start + 1
+        syns['sgid'] = sgid_start
     else:
-        sgids = np.arange(sgid_start + 1, sgid_start + sgid_count + 1)
+        sgids = np.arange(sgid_start, sgid_start + sgid_count)
         syns['sgid'] = np.random.choice(sgids, size=len(syns), replace=True)
 
     return syns
@@ -231,12 +228,13 @@ def _assign(cells, morph_class, count, samples_path, output, region, sgid_start,
             with utils.delete_file_on_exception(path):
                 syns = _pick_synapse_locations(segs, dist, size)
                 syns = _assign_sgid(syns, sgid_start, sgid_count)
-                syns['section_pos'] = afferent_section_position.compute_positions(
-                    syns,
+                morphs = utils.get_morphs_for_nodes(
                     config['target_node_path'],
+                    config['target_node_population'],
                     config['morphology_path'],
-                    config['morphology_type']
+                    config['morphology_type'],
                 )
+                syns['section_pos'] = afferent_section_position.compute_positions(syns, morphs)
                 utils.write_feather(path, syns)
 
 

@@ -7,10 +7,10 @@ def create_synapse_counts():
     synapse_counts = VoxelData(np.zeros((5, 5, 5)), [10] * 3, (10, 10, 10))
     idx = np.array(
         [
-            [2, 2, 2],
-            [2, 2, 3],
-        ]  # middle of cube: xyz = (35, 35, 35)
-    )  # xyz = (35, 35, 45)
+            [2, 2, 2],  # middle of cube: xyz = (35, 35, 35)
+            [2, 2, 3],  # xyz = (35, 35, 45)
+        ]
+    )
     synapse_counts.raw[tuple(idx.T)] = 1
     return synapse_counts
 
