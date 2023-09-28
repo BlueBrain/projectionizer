@@ -2,10 +2,9 @@
 """
 import json
 import logging
-import os
 import re
-import shutil
 import subprocess
+from pathlib import Path
 
 import h5py
 import numpy as np
@@ -57,10 +56,6 @@ class WriteSonata(CommonParams):
             self.clone(WriteSonataNodes),
             self.clone(WriteSonataEdges),
         )
-
-    def _get_full_path_output(self, filename):
-        """Get full path (required by spykfunc) for output files."""
-        return os.path.realpath(os.path.join(self.folder, filename))
 
     def run(self):
         """Run checks on resulting files to eradicate e.g., off-by-1 errors."""
@@ -123,7 +118,7 @@ class WriteSonataNodes(WriteSonata):
         )
 
     def output(self):
-        return LocalTarget(self._get_full_path_output(self.node_file_name))
+        return LocalTarget(self.folder / self.node_file_name)
 
 
 class WriteSonataEdges(WriteSonata):
@@ -141,7 +136,7 @@ class WriteSonataEdges(WriteSonata):
         )
 
     def output(self):
-        return LocalTarget(self._get_full_path_output("nonparameterized-" + self.edge_file_name))
+        return LocalTarget(self.folder / ("nonparameterized-" + self.edge_file_name))
 
 
 def _check_if_old_syntax(archive):
@@ -167,7 +162,7 @@ class RunSpykfunc(WriteSonata):
         edges = self.input()[0].path
         from_nodes = self.input()[1].path
         to_nodes = self.target_nodes
-        cluster_dir = self._get_full_path_output("_sm_cluster")
+        cluster_dir = self.folder / "_sm_cluster"
         command = (
             f"module purge; module load {self.module_archive} spykfunc; "
             f"unset SLURM_MEM_PER_NODE; unset SLURM_MEM_PER_GPU; unset SLURM_MEM_PER_CPU; "
@@ -197,12 +192,12 @@ class RunSpykfunc(WriteSonata):
         try:
             subprocess.run(self._parse_command(), shell=True, check=True)
         except subprocess.CalledProcessError:
-            if os.path.isdir(self.output().path):
-                shutil.rmtree(self.output().path)
+            if self.output().exists():
+                self.output().remove()
             raise
 
     def output(self):
-        return LocalTarget(self._get_full_path_output("spykfunc"))
+        return LocalTarget(self.folder / "spykfunc")
 
 
 class RunParquetConverter(WriteSonata):
@@ -213,8 +208,8 @@ class RunParquetConverter(WriteSonata):
 
     def _parse_command(self):
         from_nodes = self.input()[1].path
-        parquet_dir = os.path.join(self.input()[0].path, "circuit.parquet")
-        parquet_glob = os.path.join(parquet_dir, "*.parquet")
+        parquet_dir = Path(self.input()[0].path) / "circuit.parquet"
+        parquet_glob = str(parquet_dir / "*.parquet")
         to_nodes = self.target_nodes
         edge_file_name = self.output().path
         command = (
@@ -241,4 +236,4 @@ class RunParquetConverter(WriteSonata):
         subprocess.run(self._parse_command(), shell=True, check=True)
 
     def output(self):
-        return LocalTarget(self._get_full_path_output(self.edge_file_name))
+        return LocalTarget(self.folder / self.edge_file_name)

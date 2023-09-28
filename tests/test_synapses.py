@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pandas as pd
 from bluepy import Segment
-from neurom import NeuriteType
+from morphio import SectionType
 from numpy.testing import (
     assert_approx_equal,
     assert_array_almost_equal,
@@ -31,10 +31,10 @@ def test_segment_pref_length():
     df = pd.DataFrame(
         {
             "section_type": [
-                NeuriteType.axon,
-                NeuriteType.axon,
-                NeuriteType.basal_dendrite,
-                NeuriteType.apical_dendrite,
+                SectionType.axon,
+                SectionType.axon,
+                SectionType.basal_dendrite,
+                SectionType.apical_dendrite,
             ],
             "segment_length": 1,
         }

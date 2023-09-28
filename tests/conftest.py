@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from projectionizer.version import VERSION
@@ -5,10 +7,11 @@ from projectionizer.version import VERSION
 from utils import CIRCUIT_CONFIG_FILE, fake_circuit_config, fake_manifest
 
 MOCK_PARAMS = {
-    "IntParameter": 1,
     "FloatParameter": 1.0,
+    "IntParameter": 1,
     "ListParameter": [],
     "Parameter": "fake",
+    "PathParameter": Path(),
     "TaskParameter": None,
     "BoolParameter": True,
 }

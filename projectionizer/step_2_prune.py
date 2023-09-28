@@ -72,7 +72,7 @@ class ReduceGroupByConnection(luigi_utils.FeatherTask):
 
 
 def find_cutoff_mean_per_mtype(value_count, synaptical_fraction):
-    """the cutoff means should be proportional for all mytpes
+    """the cutoff means should be proportional for all mtypes
 
     Args:
         value_count(pd.Series): histogram: index is syns/connection,
@@ -118,7 +118,7 @@ class CutoffMeans(luigi_utils.FeatherTask):
         "synaptical_fraction" of the total number of synapse
 
     From thalamocortical_ps_s2f.py
-        compute cutoff by inverse interpolation of target fraction on cumulative syncount
+        compute cutoff by inverse interpolation of target fraction on cumulative synapse count
         distribution approximation: assumes hard cutoff, i.e. does not account for moments beyond
         mean.  Should be OK if dist is fairly symmetrical.
     """
@@ -147,7 +147,7 @@ class ChooseConnectionsToKeep(luigi_utils.FeatherTask):
 
     def run(self):  # pragma: no cover
         """Based on the frequency of mtypes, and the synapses/connection frequency,
-        probabilistically remove *connections* (ie: groups of synapses in a (sgid, tgid) pair
+        probabilistically remove *connections* (i.e.: groups of synapses in a (sgid, tgid) pair
         """
         # pylint thinks load_all() isn't returning a DataFrame
         # pylint: disable=maybe-no-member
@@ -164,13 +164,13 @@ class ChooseConnectionsToKeep(luigi_utils.FeatherTask):
 
 
 class PruneChunk(luigi_utils.FeatherTask):
-    """Write out connections to keep for a subset of the samples (ie: chunk)
+    """Write out connections to keep for a subset of the samples (i.e.: chunk)
 
     Args:
         chunk_num(int): which chunk
         additive_path_distance(float): distance added to sgid_path_distance,
-        can be used to add delay to cope with neurodamus requiring a minimum
-        delay > dt
+        can be used to add delay to cope with neurodamus requiring a minimum delay of:
+        `delay > dt`
 
     Note: this also assigns the 'sgid_path_distance'
     """
@@ -217,7 +217,7 @@ class PruneChunk(luigi_utils.FeatherTask):
 
 
 class ReducePrune(luigi_utils.FeatherTask):
-    """Load all pruned chunks, and concat them together"""
+    """Load all pruned chunks, and concatenate them together"""
 
     def requires(self):  # pragma: no cover
         return [self.clone(PruneChunk, chunk_num=i) for i in range(self.n_total_chunks)]

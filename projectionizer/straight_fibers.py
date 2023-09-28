@@ -67,7 +67,7 @@ def calc_pathlength_to_fiber_start(locations, sgid_fibers):
 
 
 def _closest_fibers_per_voxel(pos, virtual_fibers, closest_count):
-    """get closest_count closest virtual fibers for positions in pos"""
+    """Get `closest_count` closest virtual fibers for positions in `pos`"""
     distances = calc_distances(pos, virtual_fibers[XYZUVW].values)
     closest_count = min(closest_count, distances.shape[1] - 1)
     fiber_idx = np.argpartition(distances, closest_count, axis=1)[:, :closest_count]
@@ -80,11 +80,11 @@ def _closest_fibers_per_voxel(pos, virtual_fibers, closest_count):
 
 
 def closest_fibers_per_voxel(synapse_counts, virtual_fibers, closest_count):
-    """for each occupied voxel in `synapse_counts`, find the `closest_count` number
+    """For each occupied voxel in `synapse_counts`, find the `closest_count` number
     of virtual fibers to it
 
     Returns:
-        dict(tuple(i, j, k) voxel -> idx into virtual_fibers
+        pd.DataFrame: dataframe with the indices of closest fibers per voxel and the voxel positions
     """
     L.debug("closest_fibers_per_voxel...")
     ijks = np.transpose(np.nonzero(synapse_counts.raw))
@@ -130,7 +130,8 @@ def candidate_fibers_per_synapse(synapse_position_xyz, synapses_indices, closest
     """
     L.debug("Joining the synapses with their potential fibers")
     candidates = pd.merge(synapses_indices, closest_fibers_per_vox, how="left", on=IJK).fillna(-1)
-    # Pandas bug: merging change dtypes to float.
+    # TODO: Check if still the case
+    # Pandas bug: merging change `dtypes` to float.
     # Should be solved soon:
     # http://pandas-docs.github.io/pandas-docs-travis/whatsnew.html#merging-changes
     cols = candidates.columns.difference(IJK)
@@ -155,7 +156,7 @@ def assign_synapse_fiber(
     the synapse and the fiber
 
     Args:
-        candidates(np.arraya of Nx3): xyz positions of synapses
+        candidates(np.arrays of Nx3): xyz positions of synapses
         virtual_fibers(np.array Nx6): point and direction vectors of virtual_fibers
         sigma(float): used for normal distribution
     """

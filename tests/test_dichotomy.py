@@ -1,7 +1,7 @@
 import json
 
 import pytest
-from luigi import FloatParameter, LocalTarget, Parameter, Task, build
+from luigi import FloatParameter, LocalTarget, PathParameter, Task, build
 
 import projectionizer.dichotomy as test_module
 
@@ -9,7 +9,7 @@ import projectionizer.dichotomy as test_module
 class LinearTask(Task):
     """Test class"""
 
-    folder = Parameter()
+    folder = PathParameter(absolute=True)
     param = FloatParameter()
 
     def run(self):
@@ -30,7 +30,7 @@ def test_simple(tmp_confdir):
 class MismatchLinearTask(Task):
     """The task whose value must be minimized"""
 
-    folder = Parameter()
+    folder = PathParameter(absolute=True)
     target = FloatParameter()
     param = FloatParameter(default=0)
 

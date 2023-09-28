@@ -57,14 +57,14 @@ def test_WriteSonata(MockTask):
         edge_file_name = "edges.h5"
 
         def input(self):
-            sonata_path = self._get_full_path_output(self.edge_file_name)
-            node_path = self._get_full_path_output(self.node_file_name)
-            edge_path = self.clone(test_module.WriteSonataEdges).output().path
+            edge_path = self.folder / self.edge_file_name
+            node_path = self.folder / self.node_file_name
+            nonparameterized_edge_path = self.clone(test_module.WriteSonataEdges).output().path
             return (
-                Mock(path=sonata_path),
+                Mock(path=edge_path),
                 Mock(path=syns_path),
                 Mock(path=node_path),
-                Mock(path=edge_path),
+                Mock(path=nonparameterized_edge_path),
             )
 
     test = TestWriteSonata()

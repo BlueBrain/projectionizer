@@ -1,4 +1,4 @@
-"""Functions for picking synpases"""
+"""Functions for picking synapses"""
 import logging
 import os
 from functools import partial
@@ -8,7 +8,7 @@ import pandas as pd
 import spatial_index
 import spatial_index.experimental
 from bluepy import Segment
-from neurom import NeuriteType
+from morphio import SectionType
 from tqdm import tqdm
 
 from projectionizer.utils import (
@@ -58,7 +58,7 @@ def segment_pref_length(df):
     multiplied by the length of the segment
     this will be normalized by the caller
     """
-    return df["segment_length"] * (df["section_type"] != NeuriteType.axon).astype(float)
+    return df["segment_length"] * (df["section_type"] != SectionType.axon).astype(float)
 
 
 def build_synapses_default(height, synapse_density, oversampling):
@@ -98,7 +98,7 @@ def _sample_with_spatial_index(index, min_xyz, max_xyz):  # pragma: no cover
     segs_df[SEGMENT_START_COLS] = starts
     segs_df[SEGMENT_END_COLS] = ends
 
-    # .dropna() is used to get rid of somas (will be allowed in NSETM-2010)
+    # `.dropna()` is used to get rid of somas (will be allowed in NSETM-2010)
     return segs_df.dropna().sort_values(segs_df.columns.tolist(), ignore_index=True)
 
 
@@ -137,7 +137,7 @@ def get_segment_limits_within_sphere(starts, ends, pos, radius):
     starts[segment_mask] = np.nan
     ends[segment_mask] = np.nan
 
-    # the radius is the hypothenuse of a triangle defined by three points:
+    # the radius is the hypotenuse of a triangle defined by three points:
     # center of the sphere, point where the line (on which the segment lies) is closest to the
     # center and the point where the line intersects with the surface
     closest_point = magnitude_start_to_pos[:, None] * direction + starts
@@ -160,7 +160,7 @@ def spherical_sampling(pos_sgid, index_path, radius):
 
     Args:
         pos_sgid(tuple): a tuple with XYZ-position of a synapse and its sgid
-        index_path(str): path to the circuit directory
+        index_path(Path): path to the circuit directory
         radius(float): maximum radius of the volume_transmission
     """
     # TODO: check functionality that can be combined w/ pick_synapses_voxel
@@ -175,7 +175,7 @@ def spherical_sampling(pos_sgid, index_path, radius):
 
     mask_nonzero_length = np.any(starts != ends, axis=1)
 
-    # .copy() to avoid pandas.core.common.SettingWithCopyWarning
+    # .copy() to avoid `pandas.core.common.SettingWithCopyWarning`
     segs_df = segs_df[mask_nonzero_length].copy()
     starts = starts[mask_nonzero_length]
     ends = ends[mask_nonzero_length]
@@ -184,7 +184,7 @@ def spherical_sampling(pos_sgid, index_path, radius):
     # https://bbpteam.epfl.ch/project/issues/browse/NSETM-1482#comment-153675
     segment_start, segment_end = get_segment_limits_within_sphere(starts, ends, position, radius)
 
-    # NOTE by herttuai on 09/06/2021:
+    # NOTE:
     # Storing WANTED_COLS, source position, sgid and distance
     # Probably better to store the index in the reduce-prune.feather than the original position.
     alpha = np.random.random(segment_start.shape[0])
@@ -204,7 +204,7 @@ def pick_synapses_voxel(xyz_counts, index, segment_pref, dataframe_cleanup):
 
     Args:
         xyz_counts(tuple of min_xyz, max_xyz, count): bounding box and count of synapses desired
-        index_path(str): absolute path to circuit path, where a SEGMENT exists
+        index_path(Path): absolute path to circuit path, where a SEGMENT exists
         segment_pref(callable (df -> floats)): function to assign probabilities per segment
         dataframe_cleanup(callable (df -> df)): function to remove any unnecessary columns
         and do other processing, *must do all operations in place*, None if not needed
@@ -219,7 +219,7 @@ def pick_synapses_voxel(xyz_counts, index, segment_pref, dataframe_cleanup):
     # Drop axons early to save some CPU cycles (would be dropped in segment_pref_length anyway).
     # We'll keep segment_pref_length and the code that uses it for reference for now.
     if segment_pref is segment_pref_length:
-        segs_df = segs_df[segs_df["section_type"] != NeuriteType.axon].reset_index(drop=True)
+        segs_df = segs_df[segs_df["section_type"] != SectionType.axon].reset_index(drop=True)
 
     if segs_df is None:
         return None
@@ -304,7 +304,7 @@ def pick_synapses(
 ):
     """Sample segments from circuit
     Args:
-        index_path: absolute path to circuit path, where a SEGMENT exists
+        index_path(Path): absolute path to circuit path, where a SEGMENT exists
         synapse_counts(VoxelData):
             A VoxelData containing the number of segment to be sampled in each voxel
 
@@ -341,7 +341,9 @@ def pick_synapses(
 
 
 def organize_indices(synapses):
-    """*inplace* reorganize the synapses indices"""
+    """Reorganize the synapses indices
+
+    Change is done in place, i.e., the input dataframe is modified."""
     synapses.set_index(["tgid", "sgid"], inplace=True)
     synapses.sort_index(inplace=True)
     synapses.reset_index(inplace=True)

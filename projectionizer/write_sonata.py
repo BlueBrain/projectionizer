@@ -4,7 +4,7 @@ import numpy as np
 from morphio import SectionType
 
 # Assume the source cell types to be axons
-EFFERENT_SECTION_TYPE = SectionType.axon.value
+EFFERENT_SECTION_TYPE = SectionType.axon
 
 
 def write_nodes(syns, path, population_name, mtype):

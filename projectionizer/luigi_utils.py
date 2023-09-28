@@ -1,9 +1,17 @@
 """Luigi related utils"""
-import os
 import re
+from pathlib import Path
 
 import importlib_resources
-from luigi import Config, FloatParameter, IntParameter, ListParameter, Parameter, Task
+from luigi import (
+    Config,
+    FloatParameter,
+    IntParameter,
+    ListParameter,
+    Parameter,
+    PathParameter,
+    Task,
+)
 from luigi.contrib.simulate import RunAnywayTarget
 from luigi.local_target import LocalTarget
 
@@ -15,7 +23,7 @@ from projectionizer.utils import (
 from projectionizer.version import VERSION
 
 REGEX_VERSION = re.compile(r"^\d+\.\d+\.\d+")
-TEMPLATES_PATH = str(importlib_resources.files(__package__) / "templates")
+TEMPLATES_PATH = importlib_resources.files(__package__) / "templates"
 
 
 def _check_version_compatibility(version):
@@ -46,34 +54,35 @@ def camel2spinal_case(name):
 def resolve_morphology_config(blueconfig):
     """Resolve morphology configuration from circuit config."""
     run = blueconfig.Run
+    morphology_path = Path(run.MorphologyPath)
 
     if hasattr(run, "MorphologyType"):
-        return run.MorphologyPath, run.MorphologyType
+        return morphology_path, run.MorphologyType
 
     # If morphology type not defined, append 'ascii' to path and assume type as 'ascii'
-    return os.path.join(run.MorphologyPath, "ascii"), "asc"
+    return morphology_path / "ascii", "asc"
 
 
 class FolderTask(Task):
     """Simple dependency task to create missing folders"""
 
-    folder = Parameter()
+    folder = PathParameter(absolute=True)
 
     def run(self):
-        os.makedirs(self.folder)
+        self.folder.mkdir(parents=True, exist_ok=True)  # pylint: disable=no-member
 
     def output(self):
         return LocalTarget(self.folder)
 
 
 class CommonParams(Config):
-    """Paramaters that must be passed to all Task"""
+    """Parameters that must be passed to all Tasks"""
 
     projectionizer_version = Parameter()
-    circuit_config = Parameter()
-    physiology_path = Parameter()
-    segment_index_path = Parameter()
-    folder = Parameter()
+    circuit_config = PathParameter(absolute=True, exists=True)
+    physiology_path = PathParameter(absolute=True, exists=True)
+    segment_index_path = PathParameter(absolute=True, exists=True)
+    folder = PathParameter(absolute=True)
     n_total_chunks = IntParameter()
     oversampling = FloatParameter()
     layers = ListParameter()  # list of pairs of (layer name, thickness), starting at 'bottom'
@@ -87,7 +96,11 @@ class CommonParams(Config):
     regions = ListParameter(default=[])
 
     # path to CSV with six columns; x,y,z,u,v,w: location and direction of fibers
-    fiber_locations_path = Parameter(default="rat_fibers.csv")
+    fiber_locations_path = PathParameter(
+        absolute=True,
+        exists=True,
+        default=TEMPLATES_PATH / "rat_fibers.csv",
+    )
 
     # module archive from which to load spykfunc, parquet-converters
     module_archive = Parameter(default="archive/2022-01")
@@ -130,7 +143,7 @@ class CommonParams(Config):
         if "/" in path:
             return path
         else:
-            return os.path.join(TEMPLATES_PATH, path)
+            return TEMPLATES_PATH / path
 
     def get_regions(self):
         """Get region from config or parse it from MANIFEST.
@@ -182,5 +195,5 @@ class RunAnywayTargetTempDir(RunAnywayTarget):
     """
 
     def __init__(self, task_obj, base_dir):
-        self.temp_dir = os.path.join(base_dir, "luigi-tmp")
+        self.temp_dir = base_dir / "luigi-tmp"
         super().__init__(task_obj)

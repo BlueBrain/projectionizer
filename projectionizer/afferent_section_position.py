@@ -39,7 +39,7 @@ def compute_afferent_section_pos(row, morph):
     """Computes the afferent_section_pos
 
     Args:
-        row (namedtuples): row of the synapse dataframe containing the orig_index column
+        row (namedtuple): row of the synapse dataframe containing the orig_index column
         morph(morphio.Morphology): A morphio immutable morphology
 
     Returns:
@@ -92,7 +92,7 @@ def compute_positions(synapses, morphs):
     columns = ["tgid", "section_id", "segment_id", "synapse_offset"]
     syns = synapses[columns].reset_index().rename(columns={"index": "orig_index"})
 
-    # Fetching morph names with libsonata in the worker slows down the parallel process
+    # Fetching morph names with `libsonata` in the worker slows down the parallel process
     # significantly. Getting the morphs here and then grouping by them later.
     syns = syns.join(morphs, on="tgid").drop("tgid", axis="columns")
 

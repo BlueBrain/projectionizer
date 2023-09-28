@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pandas as pd
 from bluepy import Segment
-from neurom import NeuriteType
+from morphio import SectionType
 from voxcell import VoxelData
 
 import projectionizer
@@ -78,7 +78,7 @@ def test__full_sample_worker_segments_axons(mock_sample):
     min_xyz = np.array([0, 0, 0])
 
     segments = fake_segments(min_xyz, min_xyz + VOXEL_DIMENSIONS, count)
-    segments["section_type"] = NeuriteType.axon
+    segments["section_type"] = SectionType.axon
     mock_sample.return_value = segments
 
     res = _run_full_sample_worker(min_xyz)
@@ -115,10 +115,7 @@ def test_full_sample_parallel(mock_sample, tmp_confdir):
     # test that normally, file is created an it has expected data
     test_module.full_sample_parallel(brain_regions, REGION, REGION_ID, circuit_path, tmp_confdir)
 
-    sample_path = tmp_confdir / test_module.SAMPLE_PATH
-    assert sample_path.is_dir()
-
-    feather_path = sample_path / f"{REGION}_{REGION_ID}_000.feather"
+    feather_path = tmp_confdir / f"{REGION}_{REGION_ID}_000.feather"
     assert feather_path.is_file()
     segs_df = pd.read_feather(feather_path)
 
@@ -140,14 +137,12 @@ def test_full_sample_parallel_skip(mock_worker, tmp_confdir):
     # if region is not in brain_regions, test no file is created nor sampling is done
     test_module.full_sample_parallel(brain_regions, REGION, FAKE_ID, circuit_path, tmp_confdir)
 
-    sample_path = tmp_confdir / test_module.SAMPLE_PATH
-    fake_feather_path = sample_path / f"{REGION}_{FAKE_ID}_000.feather"
-    assert sample_path.is_dir()
+    fake_feather_path = tmp_confdir / f"{REGION}_{FAKE_ID}_000.feather"
     assert not fake_feather_path.exists()
     mock_worker.assert_not_called()
 
     # assert that no sampling is done if file exists
-    feather_path = sample_path / f"{REGION}_{REGION_ID}_000.feather"
+    feather_path = tmp_confdir / f"{REGION}_{REGION_ID}_000.feather"
     feather_path.write_text("")
     test_module.full_sample_parallel(brain_regions, REGION, REGION_ID, circuit_path, tmp_confdir)
     mock_worker.assert_not_called()

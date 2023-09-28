@@ -23,8 +23,8 @@ L = logging.getLogger(__name__)
 XZ = list("xz")
 XYZ = list("xyz")
 UVW = list("uvw")
-# Failback distance (in microns) in case the average distance can't be calculated
-FAILBACK_AVG_DISTANCE = 10
+# Fallback distance (in microns) in case the average distance can't be calculated
+FALLBACK_AVG_DISTANCE = 10
 
 
 class GenerateFibers(Config):  # pragma: no cover
@@ -140,10 +140,10 @@ def ray_tracing(atlas, target_mask, fiber_positions, fiber_directions):
 
     Args:
         atlas (voxcell.Atlas): atlas instance for the circuit
-        target_mask (numpy.array): 3D array masking the potential startpoints (e.g. bottom of L4)
-        fiber_positions (numpy.array): fiber positions to trace back from (e.g., L4/L5 boundary
+        target_mask (np.array): 3D array masking the potential start points (e.g. bottom of L4)
+        fiber_positions (np.array): fiber positions to trace back from (e.g., L4/L5 boundary
                                        voxel positions)
-        fiber_directions (numpy.array): directions of the fibers at the positions given at fiber_pos
+        fiber_directions (np.array): directions of the fibers at the positions given at fiber_pos
 
     Return:
         (pandas.DataFrame): virtual fibers found
@@ -238,7 +238,7 @@ def get_orthonormal_basis_plane(vector):
     # Computing basis vectors for the plane. Solving the plane equation for Z
     # Z = -(aX + bY) / c
     # [X, Y, Z] = [X, Y, -(aX+bY)/c] = X[1, 0, -a/c] + Y[0, 1, -b/c]
-    # constructing two lin. independent vectors by letting
+    # constructing two linearly independent vectors by letting
     #   [X, Y] = [1, 0] => [X, Y, Z] = 1[1, 0 -a/c] + 0[0, 1, -b/c] = [1, 0, -a/c]
     #   [X, Y] = [0, 1] => [X, Y, Z] = 0[1, 0 -a/c] + 1[0, 1, -b/c] = [0, 1, -b/c]
     if np.abs(c) > 0.05:
@@ -276,7 +276,7 @@ def increase_fibers(fibers, n_fibers):
     distance = average_distance_to_nearest_neighbor(fibers[XYZ].to_numpy())
 
     if not np.isfinite(distance):  # Happens e.g., when len(fibers)==1
-        distance = FAILBACK_AVG_DISTANCE
+        distance = FALLBACK_AVG_DISTANCE
 
     new_fibers = []
     for _, fiber in fibers.iterrows():

@@ -30,7 +30,12 @@ def get_fibers_in_region(mask, height, locations_path):
 
 
 def get_minicol_virtual_fibers(apron_bounding_box, height, region_mask, locations_path):
-    """returns Nx6 matrix: first 3 columns are XYZ pos of fibers, last 3 are direction vector"""
+    """Get fibers for a column.
+
+    Returns:
+        pd.Dataframe: Fibers in a dataframe. Columns are position and direction vectors of the
+            fibers as well as a boolean denoting whether or not the fiber lays on the apron.
+    """
     fibers = set(tuple(loc) for loc in get_fibers_in_region(region_mask, height, locations_path))
     extra_fibers = set(
         tuple(loc)

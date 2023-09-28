@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from bluepy import Segment
-from neurom import NeuriteType
+from morphio import SectionType
 
 from projectionizer.utils import MANIFEST_FILE
 
@@ -43,8 +43,7 @@ def fake_segments(min_xyz, max_xyz, count):
     df[[Segment.R1, Segment.R2]] = (RADIUS * np.random.random((2, count))).T
 
     df[["section_id", "segment_id", "gid"]] = np.random.randint(100, size=(3, count)).T
-
-    df["section_type"] = NeuriteType.apical_dendrite
+    df["section_type"] = SectionType.apical_dendrite
 
     return df.copy()
 
@@ -55,17 +54,19 @@ def fake_manifest(path):
 
 
 def fake_circuit_config(path):
+    # Point everything to the given path.
+    # Otherwise `bluepy_configfile` logs warnings cluttering the output.
     config = (
         "Run Default {\n"
-        "    CircuitPath fake\n"
-        "    nrnPath fake\n"
+        f"    CircuitPath {path}\n"
+        f"    nrnPath {path}\n"
         f"    MorphologyPath {path}\n"
         "    MorphologyType fake\n"
-        "    METypePath fake\n"
-        "    MEComboInfoFile fake\n"
-        "    CellLibraryFile fake\n"
+        f"    METypePath {path}\n"
+        f"    MEComboInfoFile {path}\n"
+        f"    CellLibraryFile {path}\n"
         f"    BioName {path}\n"
-        "    Atlas fake\n"
+        f"    Atlas {path}\n"
         "}"
     )
     (path / CIRCUIT_CONFIG_FILE).write_text(config)

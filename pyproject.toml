@@ -9,6 +9,7 @@ include = '''
     | setup\.py$
     | apps/projectionizer
     | tests\/.*\.py$
+    | examples/hippocampus/hippocampus.py$
 '''
 
 [tool.isort]

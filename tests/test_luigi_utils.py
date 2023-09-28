@@ -1,7 +1,8 @@
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-from luigi import Parameter, Task, build
+from luigi import PathParameter, Task, build
 from luigi.local_target import LocalTarget
 from numpy.testing import assert_array_equal
 
@@ -35,7 +36,7 @@ def test_resolve_morphology_config():
     config = Mock(Run=Run())
     res = test_module.resolve_morphology_config(config)
 
-    assert res == ("/fake_path/ascii", "asc")
+    assert res == (Path("/fake_path/ascii"), "asc")
 
 
 def test_FolderTask(tmp_confdir):
@@ -74,7 +75,7 @@ def test_common_params(MockTask):
 
     # returns path to templates when no '/' in path
     path = "file_name.txt"
-    assert task.load_data(path) is not path
+    assert task.load_data(path) == test_module.TEMPLATES_PATH / path
 
 
 @pytest.mark.MockTask(cls=test_module.CommonParams)
@@ -107,7 +108,7 @@ def test_RunAnywayTargetTempDir(tmp_confdir):
     class DoAll(Task):
         """Launch the full projectionizer pipeline"""
 
-        folder = Parameter()
+        folder = PathParameter()
 
         def requires(self):
             return Test()

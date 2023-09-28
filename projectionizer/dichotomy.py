@@ -1,6 +1,5 @@
 """Correct oversampling binary search module"""
 import json
-import os
 
 from luigi import FloatParameter, IntParameter, Parameter, TaskParameter
 from luigi.local_target import LocalTarget
@@ -59,7 +58,7 @@ class Dichotomy(JsonTask):
 
 def sub_folder(base_folder, param):
     """Return the directory for the given param"""
-    return os.path.join(base_folder, f"param_{param}")
+    return base_folder / f"param_{param}"
 
 
 class TargetMismatch(JsonTask):

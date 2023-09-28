@@ -54,8 +54,8 @@ def write_feather(path, df):
 
 def read_feather(path, columns=None):
     """Read a feather from disk, with specified columns"""
-    # this turns off mmap, and makes the read *much* (>10x) faster on GPFS
-    source = pyarrow.OSFile(path)
+    # this turns off `mmap`, and makes the read *much* (>10x) faster on GPFS
+    source = pyarrow.OSFile(str(path))
     return feather.read_feather(source, columns=columns)
 
 
@@ -73,9 +73,10 @@ def read_json(path):
 
 def load(filename):
     """Load a Pandas/Nrrd file based on the extension"""
+    filename = Path(filename)
+    extension = filename.suffix
     filename = str(filename)
 
-    extension = os.path.splitext(filename)[1]
     try:
         return {
             ".feather": lambda: read_feather(filename),
@@ -94,7 +95,7 @@ def load_all(inputs):
 
 
 def map_parallelize(func, it, jobs=None, chunksize=None, maxtasksperchild=None):
-    """apply func to all items in it, using a process pool"""
+    """Apply given `func` to all items in `it`, using a process pool"""
     if os.environ.get("PARALLEL_VERBOSE", False):
         from multiprocessing import util  # pylint:disable=import-outside-toplevel
 
@@ -141,7 +142,7 @@ def in_bounding_box(min_xyz, max_xyz, df):
 
 def choice(probabilities):
     """Given an array of shape (N, M) of probabilities (not necessarily normalized)
-    returns an array of shape (N), with one element choosen from every rows according
+    returns an array of shape (N), with one element chosen from every rows according
     to the probabilities normalized on this row
     """
     cum_distances = np.cumsum(probabilities, axis=1)
@@ -222,7 +223,7 @@ def read_manifest(circuit_config):
     """Read the MANIFEST.yaml"""
     bc = read_blueconfig(circuit_config)
 
-    return load(os.path.join(bc.Run.BioName, MANIFEST_FILE))
+    return load(Path(bc.Run.BioName) / MANIFEST_FILE)
 
 
 def read_regions_from_manifest(circuit_config):
@@ -251,7 +252,7 @@ def convert_to_smallest_allowed_int_type(data):
 def convert_layer_to_PH_format(layer_name):
     """Convert layer to format used in '[PH]' files.
 
-    Currently only used due to layers LX (L1,L2,...) having files named [PH]X.nrrd.
+    Currently only used due to layers `LX` (L1,L2,...) having files named [PH]X.nrrd.
     """
     match = re.match(r"^L(\d)$", layer_name)
     return match.group(1) if match else layer_name
@@ -260,11 +261,12 @@ def convert_layer_to_PH_format(layer_name):
 @contextmanager
 def delete_file_on_exception(path):
     """Delete the file on given path if an exception is thrown in the body"""
+    path = Path(path)
     try:
         yield
     except:  # noqa pylint: disable=bare-except
-        if os.path.exists(path):
-            os.unlink(path)
+        if path.exists():
+            path.unlink()
         raise
 
 

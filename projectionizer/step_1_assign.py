@@ -22,7 +22,7 @@ class VirtualFibers(CsvTask):
     """writes a DataFrame with columns ['sgid', 'x', 'y', 'z', 'u', 'v', 'w', 'apron']
     containing the starting position and direction of each fiber
 
-    Note: apron is a bool indicating if the fiber is in the apron or not
+    Note: apron is a boolean indicating if the fiber is in the apron or not
     """
 
     def requires(self):  # pragma: no cover

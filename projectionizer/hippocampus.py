@@ -1,13 +1,12 @@
 """sampling utils"""
 import logging
-import os
 from functools import partial
 
 import numpy as np
 import pandas as pd
 import spatial_index
 import spatial_index.experimental
-from neurom import NeuriteType
+from morphio import SectionType
 
 from projectionizer import utils
 from projectionizer.synapses import CACHE_SIZE_MB, _sample_with_spatial_index
@@ -19,8 +18,6 @@ from projectionizer.utils import (
 )
 
 L = logging.getLogger(__name__)
-
-SAMPLE_PATH = "SAMPLED"
 
 SEGMENT_START_COLS = [
     "segment_x1",
@@ -72,7 +69,7 @@ def _full_sample_worker(min_xyzs, index_path, voxel_dimensions):
         df.columns = map(str, df.columns)
 
         # pylint:disable=unsubscriptable-object
-        df = df[df["section_type"] != NeuriteType.axon].copy()
+        df = df[df["section_type"] != SectionType.axon].copy()
         # pylint:enable=unsubscriptable-object
 
         if df is None or len(df) == 0:
@@ -136,12 +133,8 @@ def full_sample_parallel(brain_regions, region, region_id, index_path, output):
         region(str): name of the region to sample
         region_id(int): single region id to sample
         index_path(str): directory where FLATIndex can find SEGMENT_*
-        output(str): directory where to save the data
+        output(Path): directory where to save the data
     """
-    output = os.path.join(output, SAMPLE_PATH)
-    if not os.path.exists(output):
-        os.makedirs(output)
-
     nz = np.array(np.nonzero(brain_regions.raw == region_id)).T
     if len(nz) == 0:
         return None
@@ -157,9 +150,9 @@ def full_sample_parallel(brain_regions, region, region_id, index_path, output):
         _full_sample_worker, index_path=index_path, voxel_dimensions=brain_regions.voxel_dimensions
     )
     for i, xyzs in enumerate(np.array_split(positions, chunks, axis=0)):
-        path = os.path.join(output, f"{region}_{region_id}_{i:03d}.feather")
+        path = output / f"{region}_{region_id}_{i:03d}.feather"
 
-        if os.path.exists(path):
+        if path.exists():
             L.info("Already did: %s", path)
             continue
 

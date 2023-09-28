@@ -80,7 +80,7 @@ class VolumeSample(FeatherTask):
     """Spherical sampling for Volume Transmission projections."""
 
     radius = FloatParameter(MAX_VOLUME_TRANSMISSION_DISTANCE)
-    # NOTE by herttuai on 26/08/2021:
+    # NOTE:
     # Maybe should be combined with PruneChunk['additive_path_distance']
     additive_path_distance = FloatParameter(DEFAULT_ADDITIVE_PATH_DISTANCE)
 
@@ -189,7 +189,7 @@ class VolumeRunSpykfunc(step_3_write.RunSpykfunc):  # pragma: no cover
         return self.clone(VolumeWriteSonataEdges), self.clone(VolumeWriteSonataNodes)
 
     def output(self):
-        return LocalTarget(self._get_full_path_output("volume-spykfunc"))
+        return LocalTarget(self.folder / "volume-spykfunc")
 
 
 class VolumeRunParquetConverter(step_3_write.RunParquetConverter):  # pragma: no cover
