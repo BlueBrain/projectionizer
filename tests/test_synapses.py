@@ -3,7 +3,6 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
-from bluepy import Segment
 from morphio import SectionType
 from numpy.testing import (
     assert_approx_equal,
@@ -134,13 +133,13 @@ def test_spherical_sampling_prune_zero_length_segments(mock_sample):
     min_xyz = np.array([10, 10, 10])
     segments = fake_segments(min_xyz, min_xyz + 1, 5)
 
-    start_pos = [Segment.X1, Segment.Y1, Segment.Z1]
-    end_pos = [Segment.X2, Segment.Y2, Segment.Z2]
+    start_pos = test_module.SEGMENT_START_COLS
+    end_pos = test_module.SEGMENT_END_COLS
 
     # Segment starts == Segment ends except for one entry:
     segments[end_pos] = np.full((np.shape(segments)[0], 3), 1)
     segments[start_pos] = segments[end_pos]
-    segments.loc[segments.index[1], Segment.X1] += 1
+    segments.loc[segments.index[1], "segment_x1"] += 1
     segments.loc[segments.index[1], "gid"] = 666
 
     mock_sample.return_value = segments
@@ -151,83 +150,123 @@ def test_spherical_sampling_prune_zero_length_segments(mock_sample):
 
 @patch.object(test_module, "_sample_with_spatial_index")
 @patch.object(test_module.spatial_index, "open_index", new=Mock())
-def test_pick_synapses_voxel(mock_sample):
-    count = 10
+def test_pick_segments_voxel(mock_sample):
     min_xyz = np.array([0, 0, 0])
     max_xyz = np.array([1, 1, 1])
     circuit_path = "foo/bar/baz"
 
-    mock_sample.return_value = fake_segments(min_xyz, max_xyz, 2 * count)
-
-    def mock_segment_pref(segs_df):
-        return np.ones(len(segs_df))
-
-    # ask for duplicates, to make sure locations are different, even though
-    # the same segment is being used
-    count *= 10
-
-    xyz_count = min_xyz, max_xyz, count
-    segs_df = test_module.pick_synapses_voxel(
-        xyz_count,
-        circuit_path,
-        mock_segment_pref,
-        dataframe_cleanup=None,
-    )
-    assert count == len(segs_df)
-    assert "x" in segs_df.columns
-    assert "segment_length" in segs_df.columns
-
-    # make sure locations are different
-    assert len(segs_df) == len(segs_df.drop_duplicates())
-
-    # no segments with their midpoint in the voxel
-    xyz_count = np.array([10, 10, 10]), np.array([11, 11, 11]), count
-    segs_df = test_module.pick_synapses_voxel(
-        xyz_count, circuit_path, mock_segment_pref, dataframe_cleanup=None
-    )
+    # return None if Spatial Index finds nothing
+    mock_sample.return_value = pd.DataFrame([])
+    segs_df = test_module.pick_segments_voxel(circuit_path, min_xyz, max_xyz)
     assert segs_df is None
 
-    # single segment with its midpoint in the voxel
+    # all segments are axons
+    count = 10
+    min_xyz = np.array([0, 0, 0])
+    max_xyz = np.array([1, 1, 1])
+
     segments = fake_segments(min_xyz, max_xyz, 2 * count)
-    segments.loc[
-        segments.index[0],
-        [Segment.X1, Segment.Y1, Segment.Z1, Segment.X2, Segment.Y2, Segment.Z2],
-    ] = [10, 10, 10, 11, 11, 11]
-
+    segments["section_type"] = SectionType.axon
     mock_sample.return_value = segments
-
-    segs_df = test_module.pick_synapses_voxel(
-        xyz_count,
-        circuit_path,
-        mock_segment_pref,
-        dataframe_cleanup=None,
-    )
-    assert count == len(segs_df)
-    assert "x" in segs_df.columns
-    assert "segment_length" in segs_df.columns
-    assert len(segs_df) == len(segs_df.drop_duplicates())
-
-    # all get the same section/segment/gid, since only a single segment lies in the voxel
-    assert len(segs_df[["section_id", "segment_id", "gid"]].drop_duplicates()) == 1
-
-    # segment_pref picks no test_module
-    segs_df = test_module.pick_synapses_voxel(
-        xyz_count,
-        circuit_path,
-        lambda x: 0,
-        dataframe_cleanup=None,
-    )
+    segs_df = test_module.pick_segments_voxel(circuit_path, min_xyz, max_xyz)
+    assert len(segs_df) == 2 * count
+    segs_df = test_module.pick_segments_voxel(circuit_path, min_xyz, max_xyz, drop_axons=True)
     assert segs_df is None
 
-    # return None if libFLATindex finds nothing
-    mock_sample.return_value = None
-    segs_df = test_module.pick_synapses_voxel(
-        xyz_count,
-        circuit_path,
-        mock_segment_pref,
-        dataframe_cleanup=None,
-    )
+    # No segment with midpoint in voxel
+    segments = fake_segments(min_xyz, max_xyz, 2 * count)
+    mock_sample.return_value = segments
+    segs_df = test_module.pick_segments_voxel(circuit_path, 10 + min_xyz, 10 + max_xyz)
     assert segs_df is None
+
+    # Single segment with midpoint in voxel
+    mock_sample.return_value.loc[
+        segments.index[0],
+        [*test_module.SEGMENT_START_COLS, *test_module.SEGMENT_END_COLS],
+    ] = [10, 10, 10, 11, 11, 11]
+    segs_df = test_module.pick_segments_voxel(circuit_path, 10 + min_xyz, 10 + max_xyz)
+    assert len(segs_df) == 1
+    assert {"segment_length", "section_type"} - set(segs_df.columns) == set()
+
+    # check that we have the correct segment
+    common_cols = list(set(segments.columns).intersection(segs_df.columns))
+    assert all(segs_df[common_cols] == segments.loc[0][common_cols])
+
+    # check that dataframe_cleanup is called if given
+    mock_cleanup = Mock(return_value=None)
+    segs_df = test_module.pick_segments_voxel(
+        circuit_path, min_xyz, max_xyz, dataframe_cleanup=mock_cleanup
+    )
+    mock_cleanup.assert_called_once_with(segs_df)
+
+
+def test_pick_synapses_locations():
+    np.random.seed(666)
+    count = 100
+    min_xyz = np.array([0, 0, 0])
+    max_xyz = np.array([1, 1, 1])
+    segments = fake_segments(min_xyz, max_xyz, 2)
+    segments["segment_length"] = 1
+
+    # equal probabilities for each segment
+    mock_segment_pref = lambda x: np.ones(len(x))
+    syns = test_module.pick_synapse_locations(segments, mock_segment_pref, count)
+    assert len(syns) == count
+
+    # check that we have syns from several segments
+    assert len(syns[["section_id", "segment_id", "gid"]].drop_duplicates()) > 1
+
+    # Locations should be different
+    assert len(syns.drop_duplicates()) == count
+
+    # segment_pref assigns prob 1 to one segment
+    mock_segment_pref = lambda x: np.concatenate(([1], np.zeros(len(x) - 1)))
+    syns = test_module.pick_synapse_locations(segments, mock_segment_pref, count)
+
+    # should only have ids syns from one segment
+    assert len(syns[["section_id", "segment_id", "gid"]].drop_duplicates()) == 1
+
+    # segment_pref assigns prob 0 to every segment
+    mock_segment_pref = lambda x: np.zeros(len(x))
+    syns = test_module.pick_synapse_locations(segments, mock_segment_pref, count)
+    assert syns is None
+
+
+@patch.object(test_module, "pick_segments_voxel")
+@patch.object(test_module, "pick_synapse_locations")
+def test_pick_synapses_voxel(mock_pick_synapse_locations, mock_pick_segments_voxel):
+    segments = fake_segments(np.array([0, 0, 0]), np.array([1, 1, 1]), 2)
+    # make sure all wanted columns are present
+    segments[test_module.WANTED_COLS] = 1
+
+    mock_pick_segments_voxel.return_value = "not_none"
+    mock_pick_synapse_locations.return_value = segments
+    xyz_count = (0, 0, 1)
+    circuit_path = "foo/bar/baz"
+
+    res = test_module.pick_synapses_voxel(
+        xyz_count, circuit_path, segment_pref=None, dataframe_cleanup=None
+    )
+
+    assert res is not None
+
+    # check that unnecessary columns are removed
+    assert len(res.columns) < len(segments.columns)
+    assert all(res.eq(res[test_module.WANTED_COLS]))
+
+    # pick_synapse_locations returns None
+    mock_pick_synapse_locations.return_value = None
+    res = test_module.pick_synapses_voxel(
+        xyz_count, circuit_path, segment_pref=None, dataframe_cleanup=None
+    )
+    assert res is None
+
+    # pick_segments_voxel returns None
+    mock_pick_segments_voxel.return_value = None
+    res = test_module.pick_synapses_voxel(
+        xyz_count, circuit_path, segment_pref=None, dataframe_cleanup=None
+    )
+    assert res is None
 
 
 @patch.object(test_module, "map_parallelize", new=lambda *args, **_: map(*args))

@@ -8,6 +8,29 @@ from projectionizer.utils import convert_layer_to_PH_format
 L = logging.getLogger(__name__)
 
 
+def get_mask_bounding_box(distance, mask, bounding_box):
+    """return a mask of the area/volume covered by the bounding box"""
+
+    mask_bb = np.full_like(mask, False, dtype=bool)
+
+    # Add y for the bounding box
+    bb = np.copy(bounding_box)
+    min_xyz = np.insert(bb[0], 1, distance.offset[1])
+    max_xyz = np.insert(bb[1], 1, distance.offset[1])
+
+    # Get x and z indexes for bounding box
+    min_ind = distance.positions_to_indices(min_xyz)
+    max_ind = distance.positions_to_indices(max_xyz) + 1
+
+    # Get y index for bounding box
+    min_ind[1] = np.where(mask)[1].min()
+    max_ind[1] = np.where(mask)[1].max() + 1
+
+    mask_bb[min_ind[0] : max_ind[0], min_ind[1] : max_ind[1], min_ind[2] : max_ind[2]] = True
+
+    return mask_bb
+
+
 def relative_distance_layer(distance, layer_ph):
     """
     Get the relative voxel distance in a layer from the bottom of the layer to the top.

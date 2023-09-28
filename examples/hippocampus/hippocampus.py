@@ -10,7 +10,13 @@ import numpy as np
 import pandas as pd
 from bluepy import Circuit
 
-from projectionizer import afferent_section_position, hippocampus, utils, version
+from projectionizer import (
+    afferent_section_position,
+    hippocampus,
+    synapses,
+    utils,
+    version,
+)
 from projectionizer import write_sonata as sonata
 
 L = logging.getLogger(__name__)
@@ -143,28 +149,6 @@ def full_sample(ctx, region):
         hippocampus.full_sample_parallel(brain_regions, region, id_, index_path, output)
 
 
-def _pick_synapse_locations(segs, dist, count):
-    picked = np.random.choice(len(segs), size=count, replace=True, p=dist)
-    segs = segs.iloc[picked].reset_index(drop=True)
-
-    alpha = np.random.random_sample((len(segs), 1)).astype(np.float32)
-    segs["synapse_offset"] = alpha[:, 0] * segs["segment_length"].values
-
-    starts = segs[hippocampus.SEGMENT_START_COLS].values
-    ends = segs[hippocampus.SEGMENT_END_COLS].values
-
-    locations = (alpha * starts + (1.0 - alpha) * ends).astype(np.float32)
-    locations = pd.DataFrame(locations, columns=utils.XYZ, index=segs.index)
-
-    segs.drop(hippocampus.SEGMENT_START_COLS + hippocampus.SEGMENT_END_COLS, axis=1, inplace=True)
-
-    segs = segs.join(locations)
-
-    L.debug("Subsample: %s", len(segs))
-
-    return segs
-
-
 def _assign_sgid(syns, sgid_start, sgid_count):
     """assign source gids to syns"""
     if sgid_count == 1:
@@ -190,13 +174,17 @@ def _assign(cells, morph_class, count, output, region, sgid_start, sgid_count, c
     if len(segs) == 0:
         return
 
-    dist = utils.normalize_probability(segs.segment_length.values)
-
     for i, size in enumerate([CHUNK_SIZE] * (count // CHUNK_SIZE) + [(count % CHUNK_SIZE)]):
         path = output / f"{region}_{morph_class}_{i:05d}.feather"
         if not _path_exists(path):
             with utils.delete_file_on_exception(path):
-                syns = _pick_synapse_locations(segs, dist, size)
+                syns = synapses.pick_synapse_locations(segs, synapses.segment_pref_length, size)
+                L.debug("Subsample: %s", len(syns))
+                syns.drop(
+                    synapses.SEGMENT_START_COLS + synapses.SEGMENT_END_COLS,
+                    axis="columns",
+                    inplace=True,
+                )
                 syns = _assign_sgid(syns, sgid_start, sgid_count)
                 morphs = utils.get_morphs_for_nodes(
                     config["target_node_path"],

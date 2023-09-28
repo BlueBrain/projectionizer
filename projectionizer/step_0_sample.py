@@ -9,10 +9,10 @@ from luigi import BoolParameter, FloatParameter, IntParameter, ListParameter
 
 from projectionizer.luigi_utils import FeatherTask, JsonTask, NrrdTask
 from projectionizer.sscx import (
+    get_mask_bounding_box,
     recipe_to_relative_height_and_density,
     recipe_to_relative_heights_per_layer,
 )
-from projectionizer.sscx_hex import get_mask_bounding_box
 from projectionizer.synapses import build_synapses_default, pick_synapses
 from projectionizer.utils import load, load_all, mask_by_region, write_feather
 
@@ -67,8 +67,6 @@ class SampleChunk(FeatherTask):
         return self.clone(FullSample)
 
     def run(self):
-        # pylint thinks load() isn't returning a DataFrame
-        # pylint: disable=maybe-no-member
         full_sample = load(self.input().path)
         chunk_size = int((len(full_sample) / self.n_total_chunks) + 1)
         start, end = self.chunk_num * chunk_size, (self.chunk_num + 1) * chunk_size

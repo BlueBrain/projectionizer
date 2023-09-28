@@ -2,6 +2,7 @@ args
 asc
 ascii
 blueconfig
+bool
 boolean
 chunksize
 cls

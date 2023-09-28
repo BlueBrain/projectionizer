@@ -10,6 +10,8 @@ import projectionizer.sscx as test_module
 from mocks import create_candidates, create_virtual_fibers
 from utils import TEST_DATA_DIR
 
+BOUNDING_BOX = np.array([[110, 400], [579.99, 799.99]])
+
 
 def test_assign_synapse_fiber():
     np.random.seed(37)
@@ -17,6 +19,22 @@ def test_assign_synapse_fiber():
     virtual_fibers = create_virtual_fibers()
     ret = projectionizer.step_1_assign.assign_synapse_fiber(candidates, virtual_fibers, sigma=1)
     assert ret.equals(pd.DataFrame({"sgid": [0, 2, 1]}))
+
+
+def test_get_mask_bounding_box():
+    # Create voxel data that resembles BOUNDING_BOX
+    offset = [-230, 0, 0]
+    mask = np.full((120, 10, 120), np.nan)
+    mask[34:81, :, 40:80] = 1
+    height = VoxelData(mask, [10, 10, 10], offset=offset)
+
+    # make one the height mask cover the whole length but for just one xz-coordinate
+    height_mask = np.full_like(mask, 0)
+    height_mask[50, :, 50] = 1
+
+    # res covers the bounding box region == volume of non-nan entries of height.raw
+    res = test_module.get_mask_bounding_box(height, height_mask, BOUNDING_BOX)
+    assert_array_equal(np.isfinite(height.raw), res)
 
 
 def test_relative_recipe_to_height_and_density():

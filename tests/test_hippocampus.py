@@ -2,8 +2,7 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
-from bluepy import Segment
-from morphio import SectionType
+import spatial_index
 from voxcell import VoxelData
 
 import projectionizer
@@ -19,88 +18,37 @@ def _run_full_sample_worker(positions):
     return test_module._full_sample_worker([positions], circuit_path, VOXEL_DIMENSIONS)
 
 
-@patch.object(test_module, "_sample_with_spatial_index")
-@patch.object(test_module.spatial_index, "open_index", new=Mock())
+@patch.object(spatial_index, "open_index", new=Mock())
+@patch.object(projectionizer.synapses, "pick_segments_voxel")
 def test__full_sample_worker(mock_sample):
     count = 10
     min_xyz = np.array([0, 0, 0])
 
-    mock_sample.return_value = fake_segments(min_xyz, min_xyz + VOXEL_DIMENSIONS, count)
+    segs = fake_segments(min_xyz, min_xyz + VOXEL_DIMENSIONS, count)
+    segs["section_type"] = 10
+    segs["segment_length"] = 10
+    mock_sample.return_value = segs[test_module.SEGMENT_COLUMNS]
 
     res = _run_full_sample_worker(min_xyz)
 
     assert count == len(res)
-    for col in test_module.SEGMENT_COLUMNS:
-        assert col in res.columns
-
-    # make sure locations are different
-    assert len(res) == len(res.drop_duplicates())
-
-    # no segments with their midpoint in the voxel
-    position = np.array([10, 10, 10])
-    res = _run_full_sample_worker(position)
-    assert len(res) == 0
+    assert set(res.columns) == set(test_module.SEGMENT_COLUMNS)
 
 
-@patch.object(test_module, "_sample_with_spatial_index")
-@patch.object(test_module.spatial_index, "open_index", new=Mock())
-def test__full_sample_worker_single_segment_in_voxel(mock_sample):
-    count = 10
-    min_xyz = np.array([0, 0, 0])
-
-    # single segment with its midpoint in the voxel
-    segments = fake_segments(min_xyz, min_xyz + VOXEL_DIMENSIONS, count)
-    segments.loc[
-        segments.index[0],
-        [Segment.X1, Segment.Y1, Segment.Z1, Segment.X2, Segment.Y2, Segment.Z2],
-    ] = [10, 10, 10, 11, 11, 11]
-    mock_sample.return_value = segments
-
-    position = np.array([10, 10, 10])
-    res = _run_full_sample_worker(position)
-
-    assert len(res) == 1
-
-    for col in test_module.SEGMENT_COLUMNS:
-        assert col in res.columns
-
-    assert len(res) == len(res.drop_duplicates())
-
-    # all get the same section/segment/gid, since only a single segment lies in the voxel
-    assert len(res[["section_id", "segment_id", "tgid"]].drop_duplicates()) == 1
-
-
-@patch.object(test_module, "_sample_with_spatial_index")
-@patch.object(test_module.spatial_index, "open_index", new=Mock())
-def test__full_sample_worker_segments_axons(mock_sample):
-    # all segments are axons
-    count = 10
-    min_xyz = np.array([0, 0, 0])
-
-    segments = fake_segments(min_xyz, min_xyz + VOXEL_DIMENSIONS, count)
-    segments["section_type"] = SectionType.axon
-    mock_sample.return_value = segments
-
-    res = _run_full_sample_worker(min_xyz)
-
-    assert len(res) == 0
-
-
-@patch.object(test_module, "_sample_with_spatial_index")
-@patch.object(test_module.spatial_index, "open_index", new=Mock())
+@patch.object(spatial_index, "open_index", new=Mock())
+@patch.object(projectionizer.synapses, "pick_segments_voxel")
 def test__full_sample_worker_no_segments_returned(mock_sample):
     min_xyz = np.array([0, 0, 0])
-
-    mock_sample.return_value = fake_segments(min_xyz, min_xyz + VOXEL_DIMENSIONS, 0)
+    mock_sample.return_value = None
     res = _run_full_sample_worker(min_xyz)
-
+    assert set(res.columns) == set(test_module.SEGMENT_COLUMNS)
     assert len(res) == 0
 
 
 # mock with a 'map' that ignores kwargs
+@patch.object(spatial_index, "open_index", new=Mock())
 @patch.object(projectionizer.utils, "map_parallelize", new=lambda *args, **_: map(*args))
-@patch.object(test_module, "_sample_with_spatial_index")
-@patch.object(test_module.spatial_index, "open_index", new=Mock())
+@patch.object(projectionizer.synapses, "pick_segments_voxel")
 def test_full_sample_parallel(mock_sample, tmp_confdir):
     count = 50
     min_xyz = np.array([0, 0, 0])
@@ -110,7 +58,10 @@ def test_full_sample_parallel(mock_sample, tmp_confdir):
     REGION_ID = 1
     brain_regions = VoxelData(np.array([[[REGION_ID, 0], [0, 0]]]), np.array([1, 1, 1]))
 
-    mock_sample.return_value = fake_segments(min_xyz, max_xyz, count)
+    segs = fake_segments(min_xyz, max_xyz, count)
+    segs["section_type"] = 10
+    segs["segment_length"] = 10
+    mock_sample.return_value = segs[test_module.SEGMENT_COLUMNS]
 
     # test that normally, file is created an it has expected data
     test_module.full_sample_parallel(brain_regions, REGION, REGION_ID, circuit_path, tmp_confdir)
@@ -120,8 +71,10 @@ def test_full_sample_parallel(mock_sample, tmp_confdir):
     segs_df = pd.read_feather(feather_path)
 
     assert len(segs_df) == count
-    for col in test_module.SEGMENT_COLUMNS:
-        assert col in segs_df.columns
+
+    # expect `gid` to be renamed to `tgid`
+    expected_cols = (set(test_module.SEGMENT_COLUMNS) - {"gid"}) | {"tgid"}
+    assert set(segs_df.columns) == set(expected_cols)
 
 
 @patch.object(test_module, "_full_sample_worker")

@@ -39,7 +39,7 @@ EDGE_FILE_NAME = "volume-transmission-edges.h5"
 
 def _sample_chunk_spherical(chunk, index_path, radius):
     """Perform spherical sampling on a chunk of positions."""
-    index = spatial_index.open_index(index_path, max_cache_size_mb=CACHE_SIZE_MB)
+    index = spatial_index.open_index(str(index_path), max_cache_size_mb=CACHE_SIZE_MB)
     syns = [spherical_sampling((np.array(pos), int(sgid)), index, radius) for *pos, sgid in chunk]
 
     return pd.concat(syns, ignore_index=True) if syns else None

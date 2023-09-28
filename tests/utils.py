@@ -2,7 +2,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from bluepy import Segment
 from morphio import SectionType
 
 from projectionizer.utils import MANIFEST_FILE
@@ -16,16 +15,13 @@ CIRCUIT_CONFIG_FILE = "CircuitConfig"
 
 
 def fake_segments(min_xyz, max_xyz, count):
-    RADIUS = 10
     COLUMNS = [
-        Segment.X1,
-        Segment.Y1,
-        Segment.Z1,
-        Segment.X2,
-        Segment.Y2,
-        Segment.Z2,
-        Segment.R1,
-        Segment.R2,
+        "segment_x1",
+        "segment_y1",
+        "segment_z1",
+        "segment_x2",
+        "segment_y2",
+        "segment_z2",
         "gid",
         "section_id",
         "segment_id",
@@ -37,10 +33,9 @@ def fake_segments(min_xyz, max_xyz, count):
 
     X, Y, Z = 0, 1, 2
     df = pd.DataFrame(index=np.arange(count), columns=COLUMNS)
-    df[[Segment.X1, Segment.X2]] = samp(X)
-    df[[Segment.Y1, Segment.Y2]] = samp(Y)
-    df[[Segment.Z1, Segment.Z2]] = samp(Z)
-    df[[Segment.R1, Segment.R2]] = (RADIUS * np.random.random((2, count))).T
+    df[["segment_x1", "segment_x2"]] = samp(X)
+    df[["segment_y1", "segment_y2"]] = samp(Y)
+    df[["segment_z1", "segment_z2"]] = samp(Z)
 
     df[["section_id", "segment_id", "gid"]] = np.random.randint(100, size=(3, count)).T
     df["section_type"] = SectionType.apical_dendrite

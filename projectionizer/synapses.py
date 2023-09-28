@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import spatial_index
 import spatial_index.experimental
-from bluepy import Segment
 from morphio import SectionType
 from tqdm import tqdm
 
@@ -24,14 +23,14 @@ from projectionizer.utils import (
 L = logging.getLogger(__name__)
 
 SEGMENT_START_COLS = [
-    Segment.X1,
-    Segment.Y1,
-    Segment.Z1,
+    "segment_x1",
+    "segment_y1",
+    "segment_z1",
 ]
 SEGMENT_END_COLS = [
-    Segment.X2,
-    Segment.Y2,
-    Segment.Z2,
+    "segment_x2",
+    "segment_y2",
+    "segment_z2",
 ]
 
 WANTED_COLS = [
@@ -199,34 +198,32 @@ def spherical_sampling(pos_sgid, index_path, radius):
     return segs_df[VOLUME_TRANSMISSION_COLS].dropna()
 
 
-def pick_synapses_voxel(xyz_counts, index, segment_pref, dataframe_cleanup):
-    """Select `count` synapses from the circuit that lie between `min_xyz` and `max_xyz`
+def pick_segments_voxel(index, min_xyz, max_xyz, dataframe_cleanup=None, drop_axons=False):
+    """Pick all the segments that have their midpoints inside the given voxel.
 
     Args:
-        xyz_counts(tuple of min_xyz, max_xyz, count): bounding box and count of synapses desired
-        index_path(Path): absolute path to circuit path, where a SEGMENT exists
-        segment_pref(callable (df -> floats)): function to assign probabilities per segment
-        dataframe_cleanup(callable (df -> df)): function to remove any unnecessary columns
-        and do other processing, *must do all operations in place*, None if not needed
+        index (spatial_index.MultiIndex): spatial index `MultiIndex` instance
+        min_xyz (np.array): 1x3 array denoting the start of voxel
+        max_xyz (np.array): 1x3 array denoting the end of voxel
+        dataframe_cleanup(callable (df)): function to remove any unnecessary columns and do other
+            processing, *must do all operations in place*, None if not needed
+        drop_axons (bool): whether to drop the axons from the queried segments
 
     Returns:
-        DataFrame with `WANTED_COLS`
+        pd.DataFrame: segments inside the voxel
     """
-    min_xyz, max_xyz, count = xyz_counts
-
     segs_df = _sample_with_spatial_index(index, min_xyz, max_xyz)
 
-    # Drop axons early to save some CPU cycles (would be dropped in segment_pref_length anyway).
-    # We'll keep segment_pref_length and the code that uses it for reference for now.
-    if segment_pref is segment_pref_length:
+    if drop_axons:
+        # Drop axons early to save some CPU cycles
         segs_df = segs_df[segs_df["section_type"] != SectionType.axon].reset_index(drop=True)
 
-    if segs_df is None:
+    if len(segs_df) == 0:
         return None
 
     # pylint: disable=unsubscriptable-object
-    starts = segs_df[SEGMENT_START_COLS].to_numpy().astype(float)
-    ends = segs_df[SEGMENT_END_COLS].to_numpy().astype(float)
+    starts = segs_df[SEGMENT_START_COLS].to_numpy()
+    ends = segs_df[SEGMENT_END_COLS].to_numpy()
     # pylint: enable=unsubscriptable-object
 
     # keep only the segments whose midpoints are in the current voxel
@@ -240,37 +237,66 @@ def pick_synapses_voxel(xyz_counts, index, segment_pref, dataframe_cleanup):
 
     segs_df["segment_length"] = np.linalg.norm(ends[in_bb] - starts[in_bb], axis=1)
     segs_df["segment_length"] = segs_df["segment_length"].astype(np.float32)
-
-    prob_density = segment_pref(segs_df)
-    try:
-        prob_density = normalize_probability(prob_density)
-    except ErrorCloseToZero:
-        return None
-
-    picked = np.random.choice(np.arange(len(segs_df)), size=count, replace=True, p=prob_density)
-    segs_df = segs_df.iloc[picked].reset_index()
-
-    alpha = np.random.random(size=len(segs_df))
-
-    segs_df["synapse_offset"] = alpha * segs_df["segment_length"]
-
-    segs_df = segs_df.join(
-        pd.DataFrame(
-            alpha[:, None] * segs_df[SEGMENT_START_COLS].to_numpy().astype(float)
-            + (1.0 - alpha[:, None]) * segs_df[SEGMENT_END_COLS].to_numpy().astype(float),
-            columns=XYZ,
-            dtype=np.float32,
-            index=segs_df.index,
-        )
-    )
-
-    segs_df["synapse_offset"] = alpha * segs_df["segment_length"]
-    segs_df = segs_df[WANTED_COLS]
+    segs_df["section_type"] = segs_df["section_type"].astype(np.int16)
 
     if dataframe_cleanup is not None:
         dataframe_cleanup(segs_df)
 
     return segs_df
+
+
+def pick_synapse_locations(segments, segment_pref, count):
+    """Probabilistically pick given count of synapse locations for the given segments.
+
+    Args:
+        segments (pd.DataFrame): segments for which to pick synapses
+        segment_pref (callable (df -> floats)): function to assign probabilities per segment
+        count (int): desired count of synapses
+
+    Returns:
+        pd.DataFrame: the picked synapses
+    """
+    try:
+        prob_density = normalize_probability(segment_pref(segments))
+    except ErrorCloseToZero:
+        return None
+
+    picked = np.random.choice(len(segments), size=count, replace=True, p=prob_density)
+    segs = segments.iloc[picked].reset_index(drop=True)
+    starts = segs[SEGMENT_START_COLS].to_numpy()
+    ends = segs[SEGMENT_END_COLS].to_numpy()
+
+    alpha = np.random.random(size=len(segs)).astype(np.float32)
+    segs["synapse_offset"] = alpha * segs["segment_length"]
+
+    locations = alpha[:, np.newaxis] * starts + (1.0 - alpha)[:, np.newaxis] * ends
+    locations = pd.DataFrame(locations.astype(np.float32), columns=XYZ, index=segs.index)
+    return segs.join(locations)
+
+
+def pick_synapses_voxel(xyz_counts, index, segment_pref, dataframe_cleanup):
+    """Select `count` synapses from the circuit that lie between `min_xyz` and `max_xyz`
+
+    Args:
+        xyz_counts(tuple of min_xyz, max_xyz, count): bounding box and count of synapses desired
+        index(Path): index object
+        segment_pref(callable (df -> floats)): function to assign probabilities per segment
+        dataframe_cleanup(callable (df)): function to remove any unnecessary columns and do other
+            processing, *must do all operations in place*, None if not needed
+
+    Returns:
+        pd.DataFrame: picked synapses with columns as defined in WANTED_COLS
+    """
+    min_xyz, max_xyz, count = xyz_counts
+
+    segs_df = pick_segments_voxel(index, min_xyz, max_xyz, dataframe_cleanup)
+
+    if segs_df is None:
+        return None
+
+    segs_df = pick_synapse_locations(segs_df, segment_pref, count)
+
+    return segs_df[WANTED_COLS] if segs_df is not None else None
 
 
 def downcast_int_columns(df):
@@ -281,7 +307,7 @@ def downcast_int_columns(df):
 
 def pick_synapses_chunk(xyz_counts, index_path, segment_pref, dataframe_cleanup):
     """Pick synapses for a chunk of voxels."""
-    index = spatial_index.open_index(index_path, max_cache_size_mb=CACHE_SIZE_MB)
+    index = spatial_index.open_index(str(index_path), max_cache_size_mb=CACHE_SIZE_MB)
     syns = []
 
     for it in xyz_counts:
@@ -304,13 +330,12 @@ def pick_synapses(
 ):
     """Sample segments from circuit
     Args:
-        index_path(Path): absolute path to circuit path, where a SEGMENT exists
+        index_path(Path): absolute path spatial index `MultiIndex`
         synapse_counts(VoxelData):
             A VoxelData containing the number of segment to be sampled in each voxel
 
     Returns:
-        a DataFrame with the following columns:
-            ['tgid', 'Section.ID', 'Segment.ID', 'segment_length', 'x', 'y', 'z']
+        pd.DataFrame: picked synapses with columns as defined in WANTED_COLS
     """
 
     idx = np.nonzero(synapse_counts.raw)

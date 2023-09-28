@@ -87,6 +87,7 @@ known_local_folder = [
         "C0115",  # missing class docstring
         "C0116",  # missing functiondocstring
         "C0411",  # wrong-import-order (handled by isort)
+        "C3001",  # unnecessary-lambda-assignment (for readability)
         "W0201",  # Attribute defined outside __init__
         "W0212",  # protected-access
         "E0401",  # import-error (due to false positives)
