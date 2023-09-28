@@ -18,7 +18,7 @@ from projectionizer.utils import IJK, XYZ, load, load_all, mask_by_region, write
 L = logging.getLogger(__name__)
 
 
-class VirtualFibersNoOffset(CsvTask):
+class VirtualFibers(CsvTask):
     """writes a DataFrame with columns ['sgid', 'x', 'y', 'z', 'u', 'v', 'w', 'apron']
     containing the starting position and direction of each fiber
 
@@ -52,7 +52,7 @@ class ClosestFibersPerVoxel(FeatherTask):
     closest_count = IntParameter()
 
     def requires(self):  # pragma: no cover
-        return self.clone(VoxelSynapseCount), self.clone(VirtualFibersNoOffset)
+        return self.clone(VoxelSynapseCount), self.clone(VirtualFibers)
 
     def run(self):  # pragma: no cover
         voxels, fibers = load_all(self.input())
@@ -102,7 +102,7 @@ class FiberAssignment(FeatherTask):
     sigma = FloatParameter()
 
     def requires(self):  # pragma: no cover
-        return self.clone(CandidateFibersPerSynapse), self.clone(VirtualFibersNoOffset)
+        return self.clone(CandidateFibersPerSynapse), self.clone(VirtualFibers)
 
     def run(self):  # pragma: no cover
         candidates, virtual_fibers = load_all(self.input())

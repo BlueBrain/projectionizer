@@ -12,9 +12,14 @@ Breaking Changes
 ~~~~~~~~~~~~~~~~
 - continueing tasks started with projectionizer < v3.0.0
 - `python` 3.7 no longer supported
+- as the offset is removed, projections are no longer compatible with BlueConfig
+
+  - `user.target` file will no longer be generated
+
 - removed values from config (providing these will cause the workflow to crash)
 
   - `CommonParams: morphology_path`
+  - `CommonParams: sgid_offset`
   - `WriteSonata: target_population`
 
 - new config values (not providing these will raise an error)
@@ -28,12 +33,13 @@ Breaking Changes
 
 New Features
 ~~~~~~~~~~~~
-- `python >= 3.8` support (tested with `v3.8`, `v3.9`)
+- `python >= 3.8` support
 - `afferent_section_pos` is now computed for the synapses
 
 Improvements
 ~~~~~~~~~~~~
-- Everything (other than user.target files) uses 0-based GID indexing
+- ``SGID`` will no longer be offset
+- Everything uses 0-based GID indexing
 - default `module_archive` updated to `archive/2022-01`
 - segment indexing is done with `Spatial Index` and `libFLATIndex` was removed
 - reading more parameters from circuit config instead of the user-provided config file (see :ref:`ver_3_0_0_breaking`)

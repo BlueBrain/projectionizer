@@ -20,12 +20,13 @@ from matplotlib import colors
 from projectionizer.fiber_simulation import get_region_ids
 from projectionizer.luigi_utils import CommonParams, JsonTask, RunAnywayTargetTempDir
 from projectionizer.step_0_sample import FullSample, Height, SynapseDensity
+from projectionizer.step_1_assign import VirtualFibers
 from projectionizer.step_2_prune import (
     ChooseConnectionsToKeep,
     CutoffMeans,
     ReducePrune,
 )
-from projectionizer.step_3_write import VirtualFibers, WriteAll
+from projectionizer.step_3_write import WriteAll
 from projectionizer.utils import (
     convert_layer_to_PH_format,
     load,
@@ -827,7 +828,6 @@ class Analyse(CommonParams):
 
         regions = self.get_regions()
         atlas = Circuit(self.circuit_config).atlas
-        connections.sgid += self.sgid_offset
 
         pruned_no_edge = remove_synapses_with_sgid(pruned, fibers[fibers["apron"]].index)
 

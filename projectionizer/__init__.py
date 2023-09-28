@@ -14,7 +14,7 @@ from projectionizer.step_1_assign import (
     ClosestFibersPerVoxel,
     FiberAssignment,
     SynapseIndices,
-    VirtualFibersNoOffset,
+    VirtualFibers,
 )
 from projectionizer.step_2_prune import (
     ChooseConnectionsToKeep,
@@ -24,12 +24,7 @@ from projectionizer.step_2_prune import (
     ReduceGroupByConnection,
     ReducePrune,
 )
-from projectionizer.step_3_write import (
-    SynapseCountPerConnectionTarget,
-    VirtualFibers,
-    WriteAll,
-    WriteUserTargetTxt,
-)
+from projectionizer.step_3_write import SynapseCountPerConnectionTarget, WriteAll
 from projectionizer.version import VERSION as __version__  # pylint: disable=W0611
 
 # Configure the root logger without touching the LogLevel of it

@@ -28,10 +28,10 @@ def test_write_nodes(tmp_confdir):
 
     path = tmp_confdir / "sscx_nodes.sonata"
     mtype = "fake_type"
-    test_module.write_nodes(df, path, NODE_POPULATION, mtype, keep_offset=True)
+    test_module.write_nodes(df, path, NODE_POPULATION, mtype)
 
     with h5py.File(path, "r") as f:
-        # size should be df.sgid.max() + 1 since keep_offset=True and 0-based index
+        # size should be as follows since indexing starts at 0 and no offset is removed
         expected_size = df.sgid.max() + 1
         sscx_proj = f[f"nodes/{NODE_POPULATION}"]
         assert_equal(sscx_proj["node_type_id"].size, expected_size)
@@ -41,15 +41,6 @@ def test_write_nodes(tmp_confdir):
         for k in keys:
             assert_equal(sscx_proj["0"][k].size, sscx_proj["node_type_id"].size)
             assert_array_equal(sscx_proj["0"][k][:], [0] * expected_size)
-
-    path = tmp_confdir / "sscx_nodes_no_offset.sonata"
-    mtype = "fake_type"
-    test_module.write_nodes(df, path, NODE_POPULATION, mtype, keep_offset=False)
-
-    with h5py.File(path, "r") as f:
-        sscx_proj = f[f"nodes/{NODE_POPULATION}"]
-        # size should be df.sgid.max() - df.sgid.min() + 1 since keep_offset=False
-        assert_equal(sscx_proj["node_type_id"].size, df.sgid.max() - df.sgid.min() + 1)
 
 
 def test_write_edges(tmp_confdir):
@@ -76,13 +67,14 @@ def test_write_edges(tmp_confdir):
     )
 
     path = tmp_confdir / "sscx_edges.sonata"
-    test_module.write_edges(df, path, EDGE_POPULATION, keep_offset=True)
+    test_module.write_edges(df, path, EDGE_POPULATION)
 
     with h5py.File(path, "r") as f:
         sscx_proj = f[f"edges/{EDGE_POPULATION}"]
         assert_equal(sscx_proj["edge_type_id"].size, len(df.sgid))
         assert_array_equal(sscx_proj["edge_type_id"][:], [-1] * len(df.sgid))
-        # should return df.sgid since keep_offset=True
+
+        # the source node id offset should not be removed
         assert_array_equal(sscx_proj["source_node_id"][:], df.sgid)
         assert_array_equal(sscx_proj["target_node_id"][:], df.tgid)
 
@@ -103,13 +95,3 @@ def test_write_edges(tmp_confdir):
         assert_array_equal(
             attributes["distance_volume_transmission"], df.distance_volume_transmission
         )
-
-    path = tmp_confdir / "sscx_edges_no_offset.sonata"
-    test_module.write_edges(df, path, EDGE_POPULATION, keep_offset=False)
-
-    with h5py.File(path, "r") as f:
-        sscx_proj = f[f"edges/{EDGE_POPULATION}"]
-        assert_equal(sscx_proj["edge_type_id"].size, 2)
-        # should return df.sgid-df.sgid.min() (smallest sgid = 0) since keep_offset=False
-        assert_array_equal(sscx_proj["source_node_id"][:], df.sgid - df.sgid.min())
-        assert_array_equal(sscx_proj["target_node_id"][:], df.tgid)

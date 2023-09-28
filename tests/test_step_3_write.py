@@ -1,5 +1,4 @@
 import logging
-import shutil
 import subprocess
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -13,60 +12,10 @@ from luigi import Parameter, Task
 import projectionizer
 import projectionizer.step_3_write as test_module
 
-from utils import EDGE_POPULATION, NODE_POPULATION, TEST_DATA_DIR
+from utils import EDGE_POPULATION, NODE_POPULATION
 
 logging.basicConfig()
 L = logging.getLogger(__name__)
-
-
-@pytest.mark.MockTask(cls=test_module.WriteUserTargetTxt)
-def test_WriteUserTargetTxt(MockTask):
-    mock_path = MockTask.folder / "mock_synapses.feather"
-    data = {
-        "tgid": [1],
-        "sgid": [2],
-        "section_id": [1033],
-        "segment_id": [1033],
-        "section_type": [3],
-        "section_pos": [0.5],
-        "synapse_offset": [128.0],
-        "sgid_path_distance": [0.5],
-    }
-    projectionizer.utils.write_feather(mock_path, pd.DataFrame(data))
-
-    class TestWriteUserTargetTxt(MockTask):
-        def input(self):
-            return Mock(path=mock_path)
-
-    test = TestWriteUserTargetTxt()
-    assert isinstance(test.requires(), Task)
-
-    test.run()
-    output_path = test.folder / "user.target"
-
-    assert output_path.exists()
-
-
-@pytest.mark.MockTask(cls=test_module.VirtualFibers)
-def test_VirtualFibers(MockTask):
-    data = TEST_DATA_DIR / "virtual-fibers-no-offset.csv"
-    mock_path = MockTask.folder / "virtual-fibers-no-offset.csv"
-    shutil.copyfile(data, mock_path)
-
-    class TestVirtualFibers(MockTask):
-        sgid_offset = 10
-
-        def input(self):
-            return Mock(path=mock_path)
-
-    test = TestVirtualFibers()
-    assert isinstance(test.requires(), Task)
-
-    test.run()
-    output_path = test.folder / "test-virtual-fibers.csv"
-    assert output_path.exists()
-    df = pd.read_csv(output_path)
-    assert TestVirtualFibers.sgid_offset == df.sgid.min()
 
 
 @pytest.mark.MockTask(cls=test_module.WriteSonata)
@@ -116,11 +65,10 @@ def test_WriteSonata(MockTask):
                 Mock(path=syns_path),
                 Mock(path=node_path),
                 Mock(path=edge_path),
-                None,
             )
 
     test = TestWriteSonata()
-    assert len(test.requires()) == 5
+    assert len(test.requires()) == 4
     assert all(isinstance(t, Task) for t in test.requires())
     assert test.requires()[0].output().path == test.output().path
 
@@ -193,8 +141,9 @@ def test_WriteSonataNodes(MockTask):
     assert Path(test.output().path).is_file()
 
     with h5py.File(test.output().path, "r") as h5:
-        # size should be max(data['sgid']) + 1 since keep_offset=True by default
-        assert len(h5[f"nodes/{NODE_POPULATION}/node_type_id"]) == max(data["sgid"]) + 1
+        # size should be as follows since indexing starts at 0 and no offset is removed
+        expected_size = max(data["sgid"]) + 1
+        assert len(h5[f"nodes/{NODE_POPULATION}/node_type_id"]) == expected_size
 
 
 @pytest.mark.MockTask(cls=test_module.WriteSonataEdges)
@@ -233,6 +182,7 @@ def test_WriteSonataEdges(MockTask):
     assert Path(test.output().path).is_file()
 
     with h5py.File(test.output().path, "r") as h5:
+        # source and target node ids at[0] should be same as in data as no offset is removed
         assert h5[f"edges/{EDGE_POPULATION}/source_node_id"][0] == data["sgid"][0]
         assert h5[f"edges/{EDGE_POPULATION}/target_node_id"][0] == data["tgid"][0]
 

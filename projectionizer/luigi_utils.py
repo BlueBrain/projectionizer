@@ -75,7 +75,6 @@ class CommonParams(Config):
     segment_index_path = Parameter()
     folder = Parameter()
     n_total_chunks = IntParameter()
-    sgid_offset = IntParameter()
     oversampling = FloatParameter()
     layers = ListParameter()  # list of pairs of (layer name, thickness), starting at 'bottom'
     target_mtypes = ListParameter(

@@ -185,7 +185,7 @@ class PruneChunk(luigi_utils.FeatherTask):
                 ChooseConnectionsToKeep,
                 step_0_sample.SampleChunk,
                 step_1_assign.FiberAssignment,
-                step_1_assign.VirtualFibersNoOffset,
+                step_1_assign.VirtualFibers,
             ]
         )
 
@@ -226,8 +226,6 @@ class ReducePrune(luigi_utils.FeatherTask):
         synapses = pd.concat(load_all(self.input())).rename(
             columns={"Segment.ID": "segment_id", "Section.ID": "section_id"}
         )
-
-        synapses["sgid"] += self.sgid_offset
 
         syns.organize_indices(synapses)
         write_feather(self.output().path, synapses)

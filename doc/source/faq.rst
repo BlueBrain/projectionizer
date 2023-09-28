@@ -61,7 +61,7 @@ However, some of the packages (e.g., libFLATIndex) used by projectionizer were s
 Hence, there was a period of time in which projectionizer had to simultaneously take both formats into account.
 This resulted in minor hiccups (read: total chaos) while trying to make sense which GID refers to which and moreover, in which file.
 
-Starting from projectionizer **v3.0.0**, this is no longer the case: now everything but the `user.target` files is conforming to the 0-based indexing.
+Starting from projectionizer **v3.0.0**, this is no longer the case: now everything is conforming to the 0-based indexing.
 In the table below, we have listed which GID indexing the output files conform to in different projectionizer versions.
 
 .. table::
@@ -78,11 +78,11 @@ In the table below, we have listed which GID indexing the output files conform t
   +------------+------------+------------+----------------------------------------------+
   | h5         | 0-based    | 0-based    | SGID / TGID (node ids) in the SONATA files.  |
   +------------+------------+------------+----------------------------------------------+
-  | user.target| 1-based    | 1-based    | SGID of the virtual fibers.                  |
+  | user.target| 1-based    | N/A        | SGID of the virtual fibers.                  |
   |            |            |            |                                              |
   |            |            |            | - used in BlueConfig (e.g., for simulation)  |
   |            |            |            | - not used by SONATA                         |
-  |            |            |            | - will eventually be removed                 |
+  |            |            |            | - removed in projectionizer v3.0.0           |
   +------------+------------+------------+----------------------------------------------+
 
 

@@ -11,7 +11,7 @@ from bluepy import Section, Segment
 from luigi import FloatParameter, ListParameter, LocalTarget
 from tqdm import tqdm
 
-from projectionizer import analysis, step_2_prune, step_3_write
+from projectionizer import analysis, step_1_assign, step_2_prune, step_3_write
 from projectionizer.luigi_utils import CommonParams, FeatherTask
 from projectionizer.straight_fibers import calc_pathlength_to_fiber_start
 from projectionizer.synapses import (
@@ -69,7 +69,6 @@ class MainSonataWorkflow(CommonParams):  # pragma: no cover
     def requires(self):
         return (
             self.clone(step_3_write.WriteSonata),
-            self.clone(step_3_write.WriteUserTargetTxt),
             self.clone(analysis.Analyse),
         )
 
@@ -86,7 +85,7 @@ class VolumeSample(FeatherTask):
     additive_path_distance = FloatParameter(DEFAULT_ADDITIVE_PATH_DISTANCE)
 
     def requires(self):  # pragma: no cover
-        return self.clone(step_2_prune.ReducePrune), self.clone(step_3_write.VirtualFibers)
+        return self.clone(step_2_prune.ReducePrune), self.clone(step_1_assign.VirtualFibers)
 
     def run(self):
         samples = _get_spherical_samples(

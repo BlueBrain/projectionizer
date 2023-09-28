@@ -13,13 +13,7 @@ from luigi import Parameter
 from luigi.local_target import LocalTarget
 
 from projectionizer import write_sonata
-from projectionizer.luigi_utils import (
-    CommonParams,
-    CsvTask,
-    JsonTask,
-    RunAnywayTargetTempDir,
-)
-from projectionizer.step_1_assign import VirtualFibersNoOffset
+from projectionizer.luigi_utils import CommonParams, JsonTask, RunAnywayTargetTempDir
 from projectionizer.step_2_prune import (
     ChooseConnectionsToKeep,
     ComputeAfferentSectionPos,
@@ -28,35 +22,6 @@ from projectionizer.step_2_prune import (
 from projectionizer.utils import load, load_all
 
 L = logging.getLogger(__name__)
-
-
-def write_user_target(output, synapses, name):
-    """write target file
-
-    Args:
-        output(path): path of file to create
-        synapses(dataframe): synapses
-        name(str): name of target
-    """
-    with open(output, "w", encoding="utf-8") as fd:
-        fd.write(f"Target Cell {name} {{\n")
-        # sgid + 1 added to take into account the 1-based indexing in blueconfig
-        for sgid in sorted(synapses.sgid.unique() + 1):
-            fd.write(f"    a{sgid}\n")
-        fd.write("}\n")
-
-
-class VirtualFibers(CsvTask):
-    """Same as VirtualFibersNoOffset but with the sgid_offset"""
-
-    def requires(self):  # pragma: no cover
-        return self.clone(VirtualFibersNoOffset)
-
-    def run(self):  # pragma: no cover
-        fibers = load(self.input().path)
-        fibers.index += self.sgid_offset  # pylint: disable=maybe-no-member
-        # Saving as csv because feather does not support index offset
-        fibers.to_csv(self.output().path, index_label="sgid")
 
 
 class SynapseCountPerConnectionTarget(JsonTask):  # pragma: no cover
@@ -91,7 +56,6 @@ class WriteSonata(CommonParams):
             self.clone(ReducePrune),
             self.clone(WriteSonataNodes),
             self.clone(WriteSonataEdges),
-            self.clone(WriteUserTargetTxt),
         )
 
     def _get_full_path_output(self, filename):
@@ -129,22 +93,6 @@ class WriteSonata(CommonParams):
 
     def output(self):
         return LocalTarget(self.input()[0].path)
-
-
-class WriteUserTargetTxt(WriteSonata):
-    """write user.target"""
-
-    def requires(self):
-        return self.clone(ReducePrune)
-
-    def run(self):
-        # pylint thinks load() isn't returning a DataFrame
-        # pylint: disable=maybe-no-member
-        synapses = load(self.input().path)
-        write_user_target(self.output().path, synapses, name=self.mtype)
-
-    def output(self):
-        return LocalTarget(f"{self.folder}/user.target")
 
 
 class WriteAll(CommonParams):  # pragma: no cover

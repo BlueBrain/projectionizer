@@ -7,14 +7,9 @@ from morphio import SectionType
 EFFERENT_SECTION_TYPE = SectionType.axon.value
 
 
-def write_nodes(syns, path, population_name, mtype, keep_offset=True):
+def write_nodes(syns, path, population_name, mtype):
     """write the nodes file"""
-    if keep_offset:
-        min_sgid = 0
-    else:
-        min_sgid = syns.sgid.min()
-
-    sgid_count = syns.sgid.max() - min_sgid + 1
+    sgid_count = syns.sgid.max() + 1
 
     with h5py.File(path, "w") as h5:
         population_path = f"/nodes/{population_name}"
@@ -40,18 +35,14 @@ def write_nodes(syns, path, population_name, mtype, keep_offset=True):
         library["region"] = library["model_type"]
 
 
-def write_edges(syns, path, population_name, keep_offset=True):
+def write_edges(syns, path, population_name):
     """write the edges file"""
-    if keep_offset:
-        min_sgid = 0
-    else:
-        min_sgid = syns.sgid.min()
-
     with h5py.File(path, "w") as h5:
         population_path = f"/edges/{population_name}"
         group = h5.create_group(population_path)
 
-        group["source_node_id"] = syns.sgid.to_numpy() - min_sgid
+        # source_node_id indexing starts at 0
+        group["source_node_id"] = syns.sgid.to_numpy()
         group["target_node_id"] = syns.tgid.to_numpy()
         group["edge_type_id"] = np.full(len(syns), -1, dtype=np.int16)
 

@@ -306,14 +306,14 @@ def write_sonata(ctx):
 
         L.debug('Writing %s', node_path)
         with utils.delete_file_on_exception(node_path):
-            sonata.write_nodes(syns, node_path, node_population, 'virtual', keep_offset=True)
+            sonata.write_nodes(syns, node_path, node_population, 'virtual')
 
     if not _path_exists(edge_path):
         edge_population = config.get('edge_population_name', 'projections')
 
         L.debug('Writing %s', edge_path)
         with utils.delete_file_on_exception(edge_path):
-            sonata.write_edges(syns, edge_path, edge_population, keep_offset=True)
+            sonata.write_edges(syns, edge_path, edge_population)
 
 
 if __name__ == '__main__':

@@ -54,7 +54,7 @@ Assigment
 Each of the picked synapses are assigned to a (pre-synaptic) fiber. The assignment is probabilistic and is based on the distance between the segment and fiber. The probability follows a normal law of the distance between the synapse and the fiber. The sigma of the gaussian can be changed in the |Config|.
 
 Tasks related to assignment (in order of appearence in `step_1_assign.py`):
- * **VirtualFibersNoOffset** creates a CSV file of the straight fibers without adding the offset defined in the |Config| to the sgid
+ * **VirtualFibers** creates a CSV file of the straight fibers indexed from ``0`` to ``N-1``, where ``N = number of fibers``
  * **ClosestFibersPerVoxel** selects the defined number (closest_count in the |Config|) of closest fibers for each voxel
  * **SynapseIndices** maps synapse positions to voxel indices
  * **CandidateFibersPerSynapse** combines synapses with their candidate fibers
@@ -82,17 +82,15 @@ Tasks related to pruning (in order of appearence in `step_2_prune.py`):
 
 Write
 -----
-Projectionizer writes edges and nodes in SONATA format. For now, it also outputs the user.target file until node set files are fully supported.
+Projectionizer writes edges and nodes in SONATA format.
  * **projections-nodes.h5**: projection node file in a SONATA format
  * **projections-edges.h5**: projection edge file in a SONATA format
- * **user.target**: target file containing the fiber IDs (sgid)
 
 Volume Transmission
 -------------------
 Volume transmission workflow is run on top of the regular projections workflow to simulate the effects of acetylcholine release into the extrasynaptic space.
 
 The workflow outputs two files:
-
  * **volume-transmission-nodes.h5**: volume transmission node file in a SONATA format
  * **volume-transmission-edges.h5**: volume transmission edge file in a SONATA format
 

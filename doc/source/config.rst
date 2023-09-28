@@ -24,7 +24,6 @@ Lists parameters that are common to all tasks.
   circuit_config         Yes                       The CircuitConfig absolute path.
   physiology_path        Yes                       The path to the XML recipe that is used by Spykfunc
   segment_index_path     Yes                       The path to segment index created with spatial index
-  sgid_offset            Yes                       The offset used for indexing the virtual fibers
   projectionizer_version Yes                       The projectionizer version (X.Y.Z) the config is supposed to be run with
   n_total_chunks         Yes                       In order to prevent RAM from exploding, the computation is split into chunks. This is the number of chunks.
   oversampling           Yes                       The ratio between the number of sampled synapses during the first step and the number of desired synapses. Oversampling is necessary as it allows to remove unwanted synapses with bad connectivity properties while keeping the final number of synapses stable.
@@ -136,7 +135,7 @@ Parameterizes the SONATA files.
   ====================== ========= ====================== =======================================
   Parameter              Mandatory Default                Description
   ====================== ========= ====================== =======================================
-  mtype                  No        projections            The mtype of the nodes, also used as the target name in the user.target file
+  mtype                  No        projections            The mtype of the nodes
   node_population        No        projections            The name of the created node population
   edge_population        No        projections            The name of the created edge population
   node_file_name         No        projections-nodes.h5   File name for the sonata node file
@@ -165,7 +164,7 @@ Scale the conductance of volume transmission projections according to the distan
   ====================== ========= =============== =======================================
   Parameter              Mandatory Default         Description
   ====================== ========= =============== =======================================
-  interval               No        [1.0, 0.1]      A tuple giving the linear scale for conductance scaling
+  interval               No        [1.0, 0.1]      A tuple giving the linear scale for conductance
   ====================== ========= =============== =======================================
 
 .. _Config_ExampleFile:
@@ -201,7 +200,6 @@ Example
       - mc4_Column
       - mc5_Column
       - mc6_Column
-      sgid_offset: 6000000
     FiberAssignment:
       sigma: 50
     PruneChunk:
@@ -240,5 +238,5 @@ Example
       radius: 2
     ScaleConductance:
       interval:
-        - 1.0  # conductance = 1.0 * conductance at distance==0
-        - 0.1  # conductance = 0.1 * conductance at distance==VolumeSample.radius
+        - 1.0  # conductance at distance==0
+        - 0.1  # conductance at distance==VolumeSample.radius
