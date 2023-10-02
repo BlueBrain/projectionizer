@@ -6,14 +6,7 @@ import pandas as pd
 import scipy.ndimage as nd
 import voxcell
 from bluepy import Cell, Circuit
-from luigi import (
-    BoolParameter,
-    Config,
-    FloatParameter,
-    IntParameter,
-    ListParameter,
-    Parameter,
-)
+from luigi import Config, FloatParameter, IntParameter, ListParameter, PathParameter
 from scipy.cluster.vq import kmeans
 from scipy.spatial import cKDTree
 
@@ -30,36 +23,46 @@ FALLBACK_AVG_DISTANCE = 10
 class GenerateFibers(Config):  # pragma: no cover
     """Generate the fibers."""
 
-    circuit_config = Parameter()
-    use_kmeans = BoolParameter()
+    circuit_config = PathParameter()
     n_fibers = IntParameter(default=np.inf)
     regions = ListParameter(default="")
+    out_file = PathParameter()
+
+    def _save_as_csv(self, fibers):
+        L.info("Saving fibers to %s", self.out_file)
+        fibers.to_csv(self.out_file, index=False, sep=",")
+
+    def _generate_fibers(self):
+        circuit = Circuit(self.circuit_config)
+        regions = self.regions
+
+        if not regions:
+            regions = read_regions_from_manifest(self.circuit_config)
+            assert regions, "No regions defined"
+
+        return generate_raycast(circuit.atlas, regions, self.n_fibers)
+
+    def run(self):
+        fibers = self._generate_fibers()
+        self._save_as_csv(fibers)
+
+
+class GenerateFibersHex(GenerateFibers):  # pragma: no cover
+    """Generate the fibers for a column."""
+
     bounding_rectangle = ListParameter(default=[])
-    out_file = Parameter()
     v_direction = FloatParameter(default=1.0)
     y_level = FloatParameter(default=0.0)
 
-    def run(self):
-        circuit = Circuit(self.circuit_config)
-        regions = self.regions
-        if self.use_kmeans:
-            fibers = generate_kmeans(
-                circuit,
-                self.n_fibers,
-                self.v_direction,
-                self.y_level,
-                regions=regions,
-                bounding_rectangle=self.bounding_rectangle,
-            )
-        else:
-            if not regions:
-                regions = read_regions_from_manifest(self.circuit_config)
-                assert regions, "No regions defined"
-
-            fibers = generate_raycast(circuit.atlas, regions, self.n_fibers)
-
-        L.info("Saving fibers to %s", self.out_file)
-        fibers.to_csv(self.out_file, index=False, sep=",")
+    def _generate_fibers(self):
+        return generate_kmeans(
+            Circuit(self.circuit_config),
+            self.n_fibers,
+            self.v_direction,
+            self.y_level,
+            regions=self.regions,
+            bounding_rectangle=self.bounding_rectangle,
+        )
 
 
 # -- K means clustering --
@@ -96,7 +99,7 @@ def _generate_kmeans_fibers(cells, n_fibers, v_dir, y_level):
     fiber_pos["u"] = 0.0
     fiber_pos["w"] = 0.0
 
-    return fiber_pos
+    return fiber_pos[XYZUVW]
 
 
 # -- Ray casting --

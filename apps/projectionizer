@@ -1,388 +1,294 @@
 #!/usr/bin/env python
-from __future__ import print_function
-
-"""
-You can run this example like this:
-    .. code:: console
-            $ luigi --module examples.hello_world examples.HelloWorldTask --local-scheduler
-If that does not work, see :ref:`CommandLine`.
-"""
-import argparse
 import json
 import logging
-import os
+import multiprocessing
+import pathlib
 import shutil
-import sys
-from builtins import input
 
+import click
 import luigi
 import numpy as np
 import yaml
 
-from projectionizer.luigi_utils import TEMPLATES_PATH
+from projectionizer.version import VERSION
 
 L = logging.getLogger(__name__)
 L.setLevel(logging.INFO)
 
+WORKERS = 1
 CONFIG_FILENAME = "config.yaml"
-LUIGI_TARGET = "projectionizer.analysis"
-VOLUME_TRANSMISSION_TASKS = {"ScaleConductance", "VolumeSample"}
-WORKERS = "1"
+CLICK_PATH_KWARGS = {"resolve_path": True, "readable": True, "path_type": pathlib.Path}
+
+CONFIG_OPTION = click.option(
+    "-c",
+    "--config",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False, **CLICK_PATH_KWARGS),
+    help=(
+        "The projectionizer YAML config file. Must be passed when running the analysis for "
+        "the first time. See templates/ path for some examples"
+    ),
+)
 
 
-def common_parser():
-    """return the argument parser"""
+OUTDIR_OPTION = click.option(
+    "-o",
+    "--output",
+    type=click.Path(writable=True, file_okay=False, **CLICK_PATH_KWARGS),
+    help="Output directory",
+    required=True,
+)
 
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog='Location of "templates/" path: %s' % TEMPLATES_PATH,
-    )
-    subparsers = parser.add_subparsers(help="sub-command help", dest="sub-command", required=True)
+PROJECTIONS_OPTIONS = [
+    CONFIG_OPTION,
+    OUTDIR_OPTION,
+    click.option(
+        "--resume",
+        is_flag=True,
+        help="Resume the execution of the workflow (if output directory exists).",
+    ),
+    click.option(
+        "--overwrite",
+        is_flag=True,
+        help="Remove existing data (if output directory exists) and restart the workflow.",
+    ),
+]
 
-    def set_scheduler_arg(_parser):
-        _parser.add_argument(
-            "-l",
-            "--no-local-scheduler",
-            action="store_true",
-            help="Do not use the luigi local scheduler " "(luigi daemon (luigid) must be running)",
-        )
-
-    def set_common_args(_parser):
-        set_scheduler_arg(_parser)
-        _parser.add_argument("-o", "--output", help="Output directory", required=True)
-
-    def set_config_args(_parser):
-        set_common_args(_parser)
-        _parser.add_argument(
-            "-p", "--circuit-config", default=None, help="Override the circuit config path"
-        )
-        _parser.add_argument(
-            "-c",
-            "--config",
-            help=(
-                "The projectionizer YAML config file. "
-                "Must be passed when running the analysis for "
-                "the first time. See templates/ path for "
-                "some examples"
-            ),
-        )
-        _parser.add_argument(
-            "--resume",
-            action="store_true",
-            help=(
-                f"Resume the execution of the workflow "
-                f"(if output directory exists). Requires a {CONFIG_FILENAME} "
-                f"to be present in the output diretory"
-            ),
-        )
-        _parser.add_argument(
-            "--overwrite",
-            action="store_true",
-            help=("Remove existing data and restart the workflow " "(if output directory exists)"),
-        )
-
-    def set_fiber_args(_parser):
-        set_scheduler_arg(_parser)
-        _parser.add_argument(
-            "-c", "--config", required=True, help="The projectionizer YAML config file"
-        )
-        _parser.add_argument("-n", "--n-fibers", help="Count of fibers to create")
-        _parser.add_argument(
-            "-o",
-            "--out-file",
-            default="fibers.csv",
-            help="File name for the CSV containing fiber positions.",
-        )
-
-    parser_start = subparsers.add_parser("start", help="Generate new projections from scratch")
-    parser_start.set_defaults(which="start")
-    set_config_args(parser_start)
-
-    parser_resume = subparsers.add_parser(
-        "resume",
-        help=(
-            (
-                f"Resume a projection job (requires a {CONFIG_FILENAME} "
-                f"file to be present in the output directory)"
-            )
-        ),
-    )
-
-    parser_resume.set_defaults(which="resume")
-    set_common_args(parser_resume)
-
-    parser_dichotomy = subparsers.add_parser(
-        "dichotomy",
-        help=(
-            "Run the dichotomy algorithm that will generate projections until "
-            "they match the target mean connectivity "
-            "(number of synapses per connections) for L4 PC cells"
-        ),
-    )
-    parser_dichotomy.set_defaults(which="dichotomy")
-    set_config_args(parser_dichotomy)
-    parser_dichotomy.add_argument(
+DICHOTOMY_OPTIONS = [
+    CONFIG_OPTION,
+    OUTDIR_OPTION,
+    click.option(
         "-t",
         "--connectivity-target",
+        type=float,
         required=True,
         help="Number of synapses per connection to reach with the dichotomy",
-    )
-    parser_dichotomy.add_argument(
-        "-s", "--min-param", required=True, help="Starting range of the dichotomy"
-    )
-    parser_dichotomy.add_argument(
-        "-e", "--max-param", required=True, help="End range of the dichotomy"
-    )
-    parser_dichotomy.add_argument(
-        "-m", "--target-margin", required=True, help="Tolerance of the dichotomy"
-    )
+    ),
+    click.option(
+        "-s", "--min-param", type=float, required=True, help="Starting range of the dichotomy"
+    ),
+    click.option("-e", "--max-param", type=float, required=True, help="End range of the dichotomy"),
+    click.option(
+        "-m", "--target-margin", type=float, required=True, help="Tolerance of the dichotomy"
+    ),
+]
 
-    parser_fibers = subparsers.add_parser(
-        "generate-fibers", help="Generate the fiber locations CSV file."
-    )
-    parser_fibers.set_defaults(which="generate-fibers")
-    set_fiber_args(parser_fibers)
+FIBER_OPTIONS = [
+    CONFIG_OPTION,
+    click.option("-n", "--n-fibers", type=int, required=True, help="Count of fibers to create"),
+    click.option(
+        "-o",
+        "--out-file",
+        type=click.Path(**CLICK_PATH_KWARGS),
+        default="fibers.csv",
+        help="File name for the CSV containing fiber positions.",
+        show_default=True,
+    ),
+]
 
-    parser_hex_fibers = subparsers.add_parser(
-        "generate-fibers-hex", help="Generate the fiber locations CSV file for microcolumns."
-    )
-    parser_hex_fibers.set_defaults(which="generate-fibers-hex")
-    set_fiber_args(parser_hex_fibers)
-
-    parser_hex_fibers.add_argument(
-        "-v", "--v_direction", default="1.0", help="Direction for v, either 1.0 or -1.0."
-    )
-    parser_hex_fibers.add_argument(
-        "-y", "--y_level", default="0.0", help="y plane in which to place fiber positions"
-    )
-
-    parser_volume_transmission = subparsers.add_parser(
-        "volume-transmission",
-        help=("Run a volume transmission projections job. This will also run the main workflow."),
-    )
-    parser_volume_transmission.set_defaults(which="volume-transmission")
-    set_config_args(parser_volume_transmission)
-
-    return parser
+FIBER_HEX_OPTIONS = [
+    *FIBER_OPTIONS,
+    click.option(
+        "-v",
+        "--v_direction",
+        type=float,
+        default=1.0,
+        help="Y-wise direction of the fiber, either 1.0 or -1.0.",
+        show_default=True,
+    ),
+    click.option(
+        "-y",
+        "--y_level",
+        type=float,
+        default=0.0,
+        help="y plane in which to place fiber positions",
+        show_default=True,
+    ),
+]
 
 
 def load_config(path):
-    """load a yaml config"""
-    with open(path) as input_config:
-        config = yaml.load(input_config, Loader=yaml.FullLoader)
-    return config
+    """Loads a yaml config"""
+    return yaml.load(path.read_text(), Loader=yaml.FullLoader)
 
 
-def luigi_params(args, skip_vt_tasks=True):
-    """Prepare the list of parameters to be passed to luigi.run command"""
-    cmd = ["--log-level", "INFO"]
+def setup_luigi_config(config):
+    """Updates the task parameters to the luigi workflow configuration."""
+    # This is required as luigi expects the task parameter values to be in json format
+    jsonfied_config = {
+        task: {param: json.dumps(value) for param, value in task_dict.items()}
+        for task, task_dict in config.items()
+    }
 
-    if not args.no_local_scheduler:
-        cmd.append("--local-scheduler")
-    config = load_config(os.path.join(args.output, CONFIG_FILENAME))
-
-    for task, options in config.items():
-        if skip_vt_tasks and task in VOLUME_TRANSMISSION_TASKS:
-            continue
-        for option, value in options.items():
-            prefix = task + "-" if task != "CommonParams" else ""
-            if isinstance(value, (dict, list)):
-                value = json.dumps(value)
-            else:
-                value = str(value)
-
-            cmd += ["--" + prefix + option.replace("_", "-"), value]
-
-    return cmd
+    luigi.configuration.get_config().update(jsonfied_config)
 
 
-def _copy_config(args):
-    """Prepare and write config in the output directory"""
-    config_path = os.path.join(args.output, CONFIG_FILENAME)
+def setup_projection_workflow(output, config, resume=False, overwrite=False, **_):
+    """Prepare a workflow that is expected to produce projections.
 
-    assert not os.path.exists(
-        config_path
-    ), "Output folder already contains a file named {}. Delete it first.".format(CONFIG_FILENAME)
+    Performs some checks on the commandline arguments, creates the output directory, copies the
+    config file to it, and sets up the luigi configuration.
+    """
+    if resume and overwrite:
+        raise click.UsageError("Options '--resume' and '--overwrite' are mutually exclusive.")
 
-    try:
-        os.makedirs(args.output)
-    except:
-        pass
+    if output.exists():
+        if overwrite:
+            shutil.rmtree(output)
+        elif not resume:
+            raise click.UsageError(f"Output folder {output} already exists.")
 
-    config = load_config(args.config)
+    output.mkdir(parents=True, exist_ok=True)
 
-    if args.circuit_config:
-        config["CommonParams"]["circuit_config"] = args.circuit_config
+    out_config_path = output / CONFIG_FILENAME
+    new_config = load_config(config)
 
-    L.debug("Copying the config in the output directory: %s", args.output)
-    with open(config_path, "w") as output_configfile:
-        yaml.dump(config, output_configfile, default_flow_style=False)
+    if not out_config_path.exists():
+        L.debug("Copying the config in the output directory: %s", output)
+        out_config_path.write_text(yaml.dump(new_config, default_flow_style=False))
+    elif load_config(out_config_path) != new_config:
+        raise click.UsageError(
+            f"Configuration file {new_config_path} differs from {out_config_path}. "
+            "Please start a new run or overwrite the existing one."
+        )
 
-    return config_path
-
-
-def _check_outdir(args):
-    """Check for existance of ouput directory and ask what to do"""
-    if os.path.exists(args.output):
-        if ARGS.resume:
-            return
-        elif ARGS.overwrite:
-            shutil.rmtree(args.output)
-        else:
-            L.critical(
-                (
-                    "\nerror: Output folder already exists.\n\n"
-                    "Tip: use --overwrite or --resume (for more info, see -h/--help)"
-                )
-            )
-            sys.exit(0)
-
-    _copy_config(args)
+    setup_luigi_config(new_config)
 
 
-def _cmd_start(args):
-    """Luigi argument list for the "start" command"""
-    _check_outdir(args)
-    return [
-        "DoAll",
-        "--folder",
-        args.output,
-        "--module",
-        LUIGI_TARGET,
-        "--workers",
-        WORKERS,
-    ] + luigi_params(args)
+def check_fiber_task_args(out_file, v_direction=None, **_):
+    if v_direction is not None and abs(v_direction) != 1:
+        raise click.UsageError(f"'v_direction' must be either -1.0 or 1.0, given: {v_direction}")
+    if out_file.exists():
+        raise click.UsageError(f"Output file {out_file} already exists.")
 
 
-def _cmd_resume(args):
-    """Luigi argument list for the "resume" command"""
-    return [
-        "DoAll",
-        "--folder",
-        args.output,
-        "--module",
-        LUIGI_TARGET,
-        "--workers",
-        WORKERS,
-    ] + luigi_params(args)
+def get_projection_task_params(cmd_opts):
+    """Gets task parameters for a task generating projections."""
+    output_path = cmd_opts["output"]
+    config_file = load_config(output_path / CONFIG_FILENAME)
+    return {"folder": output_path, **config_file["CommonParams"]}
 
 
-def _cmd_dichotomy(args):
-    """Luigi argument list for the "dichotomy" command"""
-    load_config(_copy_config(args))
-    return [
-        "SynapseCountMeanMinimizer",
-        "--folder",
-        args.output,
-        "--module",
-        "projectionizer.dichotomy",
-        "--workers",
-        WORKERS,
-        "--SynapseCountMeanMinimizer-target",
-        args.connectivity_target,
-        "--SynapseCountMeanMinimizer-min-param",
-        args.min_param,
-        "--SynapseCountMeanMinimizer-max-param",
-        args.max_param,
-        "--SynapseCountMeanMinimizer-target-margin",
-        args.target_margin,
-    ] + luigi_params(args)
+def get_dichotomy_task_params(cmd_opts):
+    """Gets task parameters for a dichotomy task."""
+    task_params = get_projection_task_params(cmd_opts)
+    task_params["target"] = cmd_opts["connectivity_target"]
+    task_params["min_param"] = cmd_opts["min_param"]
+    task_params["max_param"] = cmd_opts["max_param"]
+    task_params["target_margin"] = cmd_opts["target_margin"]
+
+    return task_params
 
 
-def _cmd_generate_fibers(args):
-    """Luigi argument list for the "generate-fibers" command"""
-    config = load_config(args.config)
-    cmd = [
-        "GenerateFibers",
-        "--out-file",
-        args.out_file,
-        "--circuit-config",
-        config["CommonParams"]["circuit_config"],
-        "--regions",
-        json.dumps(config["CommonParams"]["regions"]),
-        "--module",
-        "projectionizer.fiber_simulation",
-        "--workers",
-        WORKERS,
-    ]
+def get_fiber_task_params(cmd_opts):
+    """Gets task parameters for a task generating fiber locations."""
+    config_file = load_config(cmd_opts["config"])
+    task_params = {k: v for k, v in cmd_opts.items() if k != "config"}
+    task_params["circuit_config"] = config_file["CommonParams"]["circuit_config"]
+    task_params["regions"] = config_file["CommonParams"]["regions"]
 
-    if args.n_fibers:
-        cmd.extend(["--n-fibers", args.n_fibers])
-
-    if not args.no_local_scheduler:
-        cmd.append("--local-scheduler")
-
-    return cmd
+    return task_params
 
 
-def _cmd_generate_fibers_hex(args):
-    """Luigi argument list for the "generate-fibers-hex" command"""
-    config = load_config(args.config)
-    cmd = _cmd_generate_fibers(args)
-    cmd.extend(
-        [
-            "--use-kmeans",
-            "--bounding-rectangle",
-            json.dumps(config["CommonParams"].get("bounding_rectangle", [])),
-        ]
-    )
+def add_click_options(options):
+    """Adds commandline options to click."""
 
-    if args.y_level:
-        cmd.extend(["--y-level", args.y_level])
+    def _add_options(func):
+        for option in reversed(options):
+            func = option(func)
+        return func
 
-    if args.y_level:
-        cmd.extend(["--v-direction", args.v_direction])
-
-    return cmd
+    return _add_options
 
 
-def _cmd_volume_transmission(args):
-    """Luigi argument list for the "volume-transmission" command."""
-    _check_outdir(args)
-    return [
-        "VolumeWriteAll",
-        "--folder",
-        args.output,
-        "--module",
-        "projectionizer.volume_transmission",
-        "--workers",
-        WORKERS,
-    ] + luigi_params(args, skip_vt_tasks=False)
+@click.group()
+@click.version_option(VERSION)
+@click.option("-v", "--verbose", default=1, count=True)
+@click.option("-l", "--no-local-scheduler", is_flag=True, help="Do not use a local luigi scheduler")
+@click.pass_context
+def cli(ctx, verbose, no_local_scheduler):
+    L.setLevel((logging.WARNING, logging.INFO, logging.DEBUG)[min(verbose, 2)])
+    if verbose > 3:
+        import multiprocessing.util  # pylint: disable=import-outside-toplevel
+
+        multiprocessing.util.log_to_stderr(logging.DEBUG)
+
+    ctx.obj["local_scheduler"] = not no_local_scheduler
+
+    def _task_runner(task):
+        np.random.seed(0)
+        return luigi.build(
+            [task],
+            workers=WORKERS,
+            local_scheduler=ctx.obj["local_scheduler"],
+            log_level="INFO",
+        )
+
+    ctx.obj["workflow_runner"] = _task_runner
+
+
+@cli.command()
+@add_click_options(FIBER_OPTIONS)
+@click.pass_context
+def generate_fibers(ctx, **cmd_opts):
+    """Generate the fiber locations CSV file."""
+    from projectionizer.fiber_simulation import GenerateFibers
+
+    check_fiber_task_args(**cmd_opts)
+    task = GenerateFibers(**get_fiber_task_params(cmd_opts))
+    ctx.obj["workflow_runner"](task)
+
+
+@cli.command()
+@add_click_options(FIBER_HEX_OPTIONS)
+@click.pass_context
+def generate_fibers_hex(ctx, **cmd_opts):
+    """Generate the fiber locations for a microcolumn."""
+    from projectionizer.fiber_simulation import GenerateFibersHex
+
+    check_fiber_task_args(**cmd_opts)
+    task = GenerateFibersHex(**get_fiber_task_params(cmd_opts))
+    ctx.obj["workflow_runner"](task)
+
+
+@cli.command()
+@add_click_options(DICHOTOMY_OPTIONS)
+@click.pass_context
+def dichotomy(ctx, **cmd_opts):
+    """
+    Run the dichotomy algorithm that will generate projections until they match the target mean
+    connectivity (number of synapses per connections) for L4 PC cells
+    """
+    from projectionizer.dichotomy import SynapseCountMeanMinimizer
+
+    setup_projection_workflow(**cmd_opts)
+    task = SynapseCountMeanMinimizer(**get_dichotomy_task_params(cmd_opts))
+    ctx.obj["workflow_runner"](task)
+
+
+@cli.command()
+@add_click_options(PROJECTIONS_OPTIONS)
+@click.pass_context
+def create_projections(ctx, **cmd_opts):
+    """Generate new projections from scratch."""
+    from projectionizer.analysis import DoAll
+
+    setup_projection_workflow(**cmd_opts)
+    task = DoAll(**get_projection_task_params(cmd_opts))
+    ctx.obj["workflow_runner"](task)
+
+
+@cli.command()
+@add_click_options(PROJECTIONS_OPTIONS)
+@click.pass_context
+def volume_transmission(ctx, **cmd_opts):
+    """Run a volume transmission projections job. This will also run the main workflow."""
+    from projectionizer.volume_transmission import VolumeWriteAll
+
+    setup_projection_workflow(**cmd_opts)
+    task = VolumeWriteAll(**get_projection_task_params(cmd_opts))
+    ctx.obj["workflow_runner"](task)
 
 
 if __name__ == "__main__":
-    parser = common_parser()
-    ARGS = parser.parse_args()
-    if ARGS.which not in ("resume", "generate-fibers", "generate-fibers-hex"):
-        if not (ARGS.config or ARGS.resume):
-            L.critical(
-                "\nerror: argument -c/--config is required\n\nTip: example "
-                "templates configuration files can be found in:\n\t%s",
-                TEMPLATES_PATH,
-            )
-            sys.exit(-1)
-        if hasattr(ARGS, "config") and ARGS.resume and ARGS.overwrite:
-            L.critical("\nerror: arguments --overwrite and --resume are mutually exclusive")
-            sys.exit(-1)
-
-    cmd = {
-        "start": _cmd_start,
-        "resume": _cmd_resume,
-        "dichotomy": _cmd_dichotomy,
-        "generate-fibers": _cmd_generate_fibers,
-        "generate-fibers-hex": _cmd_generate_fibers_hex,
-        "volume-transmission": _cmd_volume_transmission,
-    }[ARGS.which](ARGS)
-
-    msg = "You can also start the job with the following command:\nluigi "
-    for line in cmd:
-        line = line.strip()
-        if line.startswith("--"):
-            msg += " \\\n    "
-        else:
-            line = '"{}"'.format(str(line))
-        msg += "    " + line
-    L.info(f"{msg}\n")
-
-    np.random.seed(0)
-    luigi.run(cmd)
+    cli(obj={})
