@@ -24,6 +24,16 @@ from projectionizer.version import VERSION
 
 REGEX_VERSION = re.compile(r"^\d+\.\d+\.\d+")
 TEMPLATES_PATH = importlib_resources.files(__package__) / "templates"
+MINIMUM_ARCHIVE = "archive/2023-06"
+
+
+def _check_module_archive(archive):
+    m = re.match(r"^archive/\d{4}-\d{2}$", archive)
+    if archive != "unstable" and (m is None or archive < MINIMUM_ARCHIVE):
+        raise ValueError(
+            f"Invalid module archive: '{archive}'. "
+            f"Expected 'unstable' or 'archive/YYYY-MM' >= '{MINIMUM_ARCHIVE}'"
+        )
 
 
 def _check_version_compatibility(version):
@@ -103,7 +113,7 @@ class CommonParams(Config):
     )
 
     # module archive from which to load spykfunc, parquet-converters
-    module_archive = Parameter(default="archive/2022-01")
+    module_archive = Parameter(default=MINIMUM_ARCHIVE)
 
     # hex parameters
     # bounding box for apron around the hexagon, so that there aren't edge effects when assigning
@@ -119,6 +129,8 @@ class CommonParams(Config):
         blueconfig = read_blueconfig(self.circuit_config)
         manifest = read_manifest(self.circuit_config)
         path, type_ = resolve_morphology_config(blueconfig)
+
+        _check_module_archive(self.module_archive)
 
         self.target_nodes = blueconfig.Run.CellLibraryFile
         self.target_population = manifest["common"]["node_population_name"]

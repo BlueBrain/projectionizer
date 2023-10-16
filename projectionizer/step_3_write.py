@@ -2,7 +2,6 @@
 """
 import json
 import logging
-import re
 import subprocess
 from pathlib import Path
 
@@ -139,18 +138,6 @@ class WriteSonataEdges(WriteSonata):
         return LocalTarget(self.folder / ("nonparameterized-" + self.edge_file_name))
 
 
-def _check_if_old_syntax(archive):
-    """Check if old command format needs to be used with spykfunc and parquet-converters.
-
-    New format is expected starting from archive/2021-07."""
-    m = re.match(r"archive/(?P<year>\d+)-(?P<month>\d+)", archive)
-    if m is None:
-        return False
-    year = m.group("year")
-    month = m.group("month")
-    return year < "2021" or (year == "2021" and month < "07")
-
-
 class RunSpykfunc(WriteSonata):
     """Run spykfunc for the projections."""
 
@@ -162,31 +149,19 @@ class RunSpykfunc(WriteSonata):
         edges = self.input()[0].path
         from_nodes = self.input()[1].path
         to_nodes = self.target_nodes
-        cluster_dir = self.folder / "_sm_cluster"
-        command = (
+        cluster_dir = self.folder / "_hadoop_cluster"
+        return (
             f"module purge; module load {self.module_archive} spykfunc; "
-            f"unset SLURM_MEM_PER_NODE; unset SLURM_MEM_PER_GPU; unset SLURM_MEM_PER_CPU; "
-            f"sm_run -m 0 -w {cluster_dir} spykfunc --output-dir={spykfunc_dir} "
-            f"-p spark.master=spark://$(hostname):7077 "
+            "unset SLURM_MEM_PER_NODE; unset SLURM_MEM_PER_GPU; unset SLURM_MEM_PER_CPU; "
+            f"srun dplace functionalizer --work-dir {cluster_dir} "
+            f"--output-dir={spykfunc_dir} "
             f"--from {from_nodes} {self.node_population} "
             f"--to {to_nodes} {self.target_population} "
-            f"--filters AddID,SynapseProperties "
+            "--filters AddID,SynapseProperties "
+            f"--recipe {self.physiology_path} "
+            f"--morphologies {self.morphology_path} "
+            f"-- {edges} {self.edge_population} "
         )
-
-        if _check_if_old_syntax(self.module_archive):
-            command += (
-                f"--touches {edges} {self.edge_population} "
-                f"{self.physiology_path} "
-                f"{self.morphology_path} "
-            )
-        else:
-            command += (
-                f"'--recipe' {self.physiology_path} "
-                f"'--morphologies' {self.morphology_path} "
-                f"{edges} {self.edge_population} "
-            )
-
-        return command
 
     def run(self):
         try:
@@ -207,30 +182,13 @@ class RunParquetConverter(WriteSonata):
         return self.clone(RunSpykfunc), self.clone(WriteSonataNodes)
 
     def _parse_command(self):
-        from_nodes = self.input()[1].path
         parquet_dir = Path(self.input()[0].path) / "circuit.parquet"
-        parquet_glob = str(parquet_dir / "*.parquet")
-        to_nodes = self.target_nodes
         edge_file_name = self.output().path
-        command = (
-            f"module purge; "
+        return (
+            "module purge; "
             f"module load {self.module_archive} parquet-converters; "
-            f"parquet2hdf5 "
+            f"parquet2hdf5 {parquet_dir} {edge_file_name} {self.edge_population}"
         )
-
-        if _check_if_old_syntax(self.module_archive):
-            command += (
-                f"--format SONATA "
-                f"--from {from_nodes} {self.node_population} "
-                f"--to {to_nodes} {self.target_population} "
-                f"'-o' {edge_file_name} "
-                f"'-p' {self.edge_population} "
-                f"{parquet_glob} "
-            )
-        else:
-            command += f"{parquet_dir} {edge_file_name} {self.edge_population}"
-
-        return command
 
     def run(self):
         subprocess.run(self._parse_command(), shell=True, check=True)

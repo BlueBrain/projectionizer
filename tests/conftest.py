@@ -57,6 +57,8 @@ def fixture_MockTask(tmp_confdir, request):
             return tmp_confdir / CIRCUIT_CONFIG_FILE
         if param_name == "projectionizer_version":
             return VERSION
+        if param_name == "module_archive":
+            return "unstable"
 
         param = getattr(cls, param_name)
         return MOCK_PARAMS[param.__class__.__name__]

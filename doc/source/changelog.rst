@@ -42,6 +42,8 @@ Breaking Changes
 
   - ``WriteSonata: module_archive``
 
+- minimum ``module_archive`` version is ``archive/2023-06``
+
 New Features
 ~~~~~~~~~~~~
 - ``python >= 3.8`` support
@@ -51,7 +53,7 @@ Improvements
 ~~~~~~~~~~~~
 - ``SGID`` will no longer be offset
 - Everything uses 0-based GID indexing
-- default ``module_archive`` updated to ``archive/2022-01``
+- default ``module_archive`` updated to ``archive/2023-06``
 - segment indexing is done with ``SpatialIndex`` and ``libFLATIndex`` was removed
 - reading more parameters from circuit config instead of the user-provided config file (see :ref:`ver_3_0_0_breaking`)
 - using ``click`` to handle the commandline interface

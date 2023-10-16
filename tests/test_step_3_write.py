@@ -187,13 +187,6 @@ def test_WriteSonataEdges(MockTask):
         assert h5[f"edges/{EDGE_POPULATION}/target_node_id"][0] == data["tgid"][0]
 
 
-def test_check_if_old_syntax():
-    assert not test_module._check_if_old_syntax("fake_archive")
-    assert not test_module._check_if_old_syntax("archive/2021-07")
-    assert test_module._check_if_old_syntax("archive/2021-06")
-    assert test_module._check_if_old_syntax("archive/2020-12")
-
-
 @patch.object(test_module.subprocess, "run")
 @pytest.mark.MockTask(cls=test_module.RunSpykfunc)
 def test_RunSpykfunc(mock_subp_run, MockTask):
@@ -205,10 +198,6 @@ def test_RunSpykfunc(mock_subp_run, MockTask):
             super().run()
 
     test = TestRunSpykfunc(module_archive="unstable")
-    assert "--touches" not in test._parse_command()
-
-    test = TestRunSpykfunc(module_archive="archive/2020-12")
-    assert "--touches" in test._parse_command()
 
     assert len(test.requires()) == 2
     assert all(isinstance(t, Task) for t in test.requires())
@@ -235,9 +224,6 @@ def test_RunParquetConverter(MockTask):
 
     test = TestRunParquetConverter(module_archive="unstable")
     assert "--format" not in test._parse_command()
-
-    test = TestRunParquetConverter(module_archive="archive/2020-12")
-    assert "--format" in test._parse_command()
 
     assert len(test.requires()) == 2
     assert all(isinstance(t, Task) for t in test.requires())

@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -8,6 +9,30 @@ from numpy.testing import assert_array_equal
 
 import projectionizer.luigi_utils as test_module
 from projectionizer.version import VERSION
+
+
+@pytest.mark.parametrize(
+    "archive,raises",
+    [
+        ("unstable", False),
+        ("archive/2024-01", False),
+        ("archive/2023-06", False),
+        ("random", True),
+        ("archive/2021-12", True),
+        ("archive/2023-05", True),
+        ("arhive/2024-01", True),
+        ("arc-hive/2024-01", True),
+        ("archive/24-01", True),
+        ("archive/2024-1", True),
+        ("archive/2024-012", True),
+    ],
+)
+def test__check_module_archive(archive, raises):
+    if raises:
+        with pytest.raises(ValueError, match=re.escape(f"Invalid module archive: '{archive}'.")):
+            test_module._check_module_archive(archive)
+    else:
+        assert test_module._check_module_archive(archive) is None
 
 
 def test__check_version_compatibility():
