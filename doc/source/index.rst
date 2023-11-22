@@ -210,4 +210,4 @@ You can use this example to base your sbatch file on:
 
     source $VENV/bin/activate
 
-    projectionizer start -c $CONFIG -o $OUTDIR
+    projectionizer create-fibers -c $CONFIG -o $OUTDIR

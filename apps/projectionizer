@@ -148,7 +148,7 @@ def setup_projection_workflow(output, config, resume=False, overwrite=False, **_
         out_config_path.write_text(yaml.dump(new_config, default_flow_style=False))
     elif load_config(out_config_path) != new_config:
         raise click.UsageError(
-            f"Configuration file {new_config_path} differs from {out_config_path}. "
+            f"Configuration file {config} differs from {out_config_path}. "
             "Please start a new run or overwrite the existing one."
         )
 

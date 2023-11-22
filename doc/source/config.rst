@@ -184,6 +184,7 @@ Example
       fiber_locations_path: /gpfs/bbp.cscs.ch/project/proj87/scratch/projections/SSCX-O1/dopamine/dopamine_fibers.csv
       physiology_path: /gpfs/bbp.cscs.ch/project/proj87/scratch/projections/SSCX-O1/dopamine/DA_proj_recipe.xml
       segment_index_path: /path/to/spatial/index/multi/index
+      projectionizer_version: 3.0.0
       layers:
       - L6
       - L5

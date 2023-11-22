@@ -5,7 +5,6 @@ import luigi
 import numpy as np
 import pandas as pd
 import pytest
-from bluepy import Section, Segment
 from luigi import Task
 from numpy.testing import assert_array_equal
 
@@ -103,7 +102,7 @@ def test_VolumeSample(MockTask):
             )
 
     samples = pd.DataFrame(
-        np.ones((2, 7)), columns=list("xyz") + ["gid", "sgid", Section.ID, Segment.ID]
+        np.ones((2, 7)), columns=list("xyz") + ["gid", "sgid", "section_id", "segment_id"]
     )
     samples.sgid = [0, 1]
     fibers = pd.DataFrame(np.ones((2, 6)), columns=list("xyzuvw"))

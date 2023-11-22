@@ -7,7 +7,6 @@ import h5py
 import numpy as np
 import pandas as pd
 import spatial_index.experimental
-from bluepy import Section, Segment
 from luigi import FloatParameter, ListParameter, LocalTarget
 from tqdm import tqdm
 
@@ -78,10 +77,7 @@ class VolumeSample(FeatherTask):
         samples = _get_spherical_samples(
             load(self.input()[0].path), self.segment_index_path, self.radius
         )
-        samples.rename(
-            columns={"gid": "tgid", Section.ID: "section_id", Segment.ID: "segment_id"},
-            inplace=True,
-        )
+        samples.rename(columns={"gid": "tgid"}, inplace=True)
 
         fibers = load(self.input()[1].path)
         distances = calc_pathlength_to_fiber_start(

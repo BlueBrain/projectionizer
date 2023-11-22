@@ -223,9 +223,7 @@ class ReducePrune(luigi_utils.FeatherTask):
         return [self.clone(PruneChunk, chunk_num=i) for i in range(self.n_total_chunks)]
 
     def run(self):  # pragma: no cover
-        synapses = pd.concat(load_all(self.input())).rename(
-            columns={"Segment.ID": "segment_id", "Section.ID": "section_id"}
-        )
+        synapses = pd.concat(load_all(self.input()))
 
         syns.organize_indices(synapses)
         write_feather(self.output().path, synapses)
