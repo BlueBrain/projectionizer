@@ -209,3 +209,14 @@ class RunAnywayTargetTempDir(RunAnywayTarget):
     def __init__(self, task_obj, base_dir):
         self.temp_dir = base_dir / "luigi-tmp"
         super().__init__(task_obj)
+
+
+# NOTE: Keeping the name WriteSonata to have smaller impact on the old configs.
+class WriteSonata(CommonParams):
+    """A common place of inheritance for different projectionizer tasks."""
+
+    mtype = Parameter("projections")
+    node_population = Parameter("projections")
+    edge_population = Parameter("projections")
+    node_file_name = Parameter("projections-nodes.h5")
+    edge_file_name = Parameter("projections-edges.h5")

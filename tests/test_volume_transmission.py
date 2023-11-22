@@ -1,6 +1,7 @@
 from unittest.mock import Mock, patch
 
 import h5py
+import luigi
 import numpy as np
 import pandas as pd
 import pytest
@@ -9,6 +10,74 @@ from luigi import Task
 from numpy.testing import assert_array_equal
 
 import projectionizer.volume_transmission as test_module
+from projectionizer import step_3_write
+
+from utils import as_iterable
+
+
+@pytest.mark.MockTask(cls=test_module.VolumeRunAll)
+def test_parameter_sharing(MockTask):
+    """Test that the shared SONATA parameters are correctly shared and passed forward.
+
+    I.e., check that shared parameter values are actually shared and those that should differ,
+    actually differ between different projectionizer tasks.
+    """
+    original_config = {
+        "mtype": "test_mtype",
+        "node_file_name": "fake_nodes.h5",
+        "edge_file_name": "fake_edges.h5",
+        "node_population": "test_node_pop",
+        "edge_population": "test_edge_pop",
+    }
+
+    for param, value in original_config.items():
+        setattr(MockTask, param, value)
+
+    def _check_params(task, expected_config):
+        if isinstance(task, test_module.VolumeCheckSonataOutput):
+            # `edge_population`, `edge_file_name` hard-coded for the task (and its sub-tasks)
+            expected_config = {
+                **expected_config,
+                "edge_population": test_module.VolumeCheckSonataOutput.edge_population,
+                "edge_file_name": test_module.VolumeCheckSonataOutput.edge_file_name,
+            }
+        elif isinstance(task, test_module.VolumeRunParquetConverter):
+            # `edge_file_name` hard-coded for the task (and its sub-tasks)
+            expected_config = {
+                **expected_config,
+                "edge_file_name": test_module.VolumeRunParquetConverter.edge_file_name,
+            }
+        elif isinstance(task, step_3_write.WriteSonataEdges) and not isinstance(
+            task, test_module.VolumeWriteSonataEdges
+        ):
+            # superfluous sanity check; step_3_write tasks not affected by `VT` values
+            assert task.edge_population == original_config["edge_population"]
+            assert task.edge_file_name == original_config["edge_file_name"]
+
+        for param, expected_value in expected_config.items():
+            if hasattr(task, param):
+                assert getattr(task, param) == expected_value
+
+        try:
+            for subtask in as_iterable(task.requires()):
+                _check_params(subtask, expected_config)
+        except luigi.parameter.MissingParameterException:
+            # At this point we are wandering off from SONATA related tasks
+            pass
+
+    _check_params(MockTask(), original_config)
+
+    # If MockVolumeCheckSonataOutput step_3_write.WriteSonataEdges, above should fail:
+    class MockVolumeCheckSonataOutput(test_module.VolumeCheckSonataOutput):
+        def requires(self):
+            return self.clone(step_3_write.WriteSonataEdges)
+
+    with patch.object(test_module, "VolumeCheckSonataOutput", MockVolumeCheckSonataOutput):
+        expected = original_config["edge_population"]
+        actual = test_module.VolumeCheckSonataOutput.edge_population
+
+        with pytest.raises(AssertionError, match=f"assert '{actual}' == '{expected}'"):
+            _check_params(MockTask(), original_config)
 
 
 @patch.object(test_module, "map_parallelize", new=lambda *args, **_: map(*args))

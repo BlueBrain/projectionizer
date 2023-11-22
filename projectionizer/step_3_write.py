@@ -7,11 +7,16 @@ from pathlib import Path
 
 import h5py
 import numpy as np
-from luigi import Parameter
-from luigi.local_target import LocalTarget
+from luigi import LocalTarget, Parameter
 
-from projectionizer import write_sonata
-from projectionizer.luigi_utils import CommonParams, JsonTask, RunAnywayTargetTempDir
+from projectionizer import analysis, write_sonata
+from projectionizer.luigi_utils import (
+    CommonParams,
+    JsonTask,
+    RunAnywayTargetTempDir,
+    WriteSonata,
+)
+from projectionizer.step_1_assign import VirtualFibers
 from projectionizer.step_2_prune import (
     ChooseConnectionsToKeep,
     ComputeAfferentSectionPos,
@@ -39,14 +44,8 @@ class SynapseCountPerConnectionTarget(JsonTask):  # pragma: no cover
             json.dump({"result": mean}, outputf)
 
 
-class WriteSonata(CommonParams):
-    """Write projections in SONATA format."""
-
-    mtype = Parameter("projections")
-    node_population = Parameter("projections")
-    edge_population = Parameter("projections")
-    node_file_name = Parameter("projections-nodes.h5")
-    edge_file_name = Parameter("projections-edges.h5")
+class CheckSonataOutput(WriteSonata):
+    """Runs some sanity checks on the output files."""
 
     def requires(self):
         return (
@@ -83,17 +82,20 @@ class WriteSonata(CommonParams):
         with h5py.File(node_file, "r") as h5:
             population = h5[f"nodes/{self.node_population}"]
             len_nodes = len(population["node_type_id"])
-            assert len_nodes == (syns.sgid.max() + 1), "Node count mismatch (feather -> h5)"
+            # Might be longer if last fibers weren't picked to `syns`. Never shorter.
+            assert len_nodes >= (syns.sgid.max() + 1), "Node count mismatch (feather -> h5)"
+
+        self.output().done()
 
     def output(self):
-        return LocalTarget(self.input()[0].path)
+        return RunAnywayTargetTempDir(self, base_dir=self.folder)
 
 
-class WriteAll(CommonParams):  # pragma: no cover
+class RunAll(WriteSonata):  # pragma: no cover
     """Run all write tasks"""
 
     def requires(self):
-        return self.clone(WriteSonata)
+        return self.clone(CheckSonataOutput), self.clone(analysis.Analyse)
 
     def run(self):
         self.output().done()
@@ -102,15 +104,19 @@ class WriteAll(CommonParams):  # pragma: no cover
         return RunAnywayTargetTempDir(self, base_dir=self.folder)
 
 
-class WriteSonataNodes(WriteSonata):
+class WriteSonataNodes(CommonParams):
     """Write Sonata nodes file to be parameterized with Spykfunc."""
 
+    mtype = Parameter()
+    node_population = Parameter()
+    node_file_name = Parameter()
+
     def requires(self):
-        return self.clone(ReducePrune)
+        return self.clone(VirtualFibers)
 
     def run(self):
         write_sonata.write_nodes(
-            load(self.input().path),
+            load(self.input().path).reset_index(),  # reset index to have `sgid` as a column
             self.output().path,
             self.node_population,
             self.mtype,
@@ -120,8 +126,11 @@ class WriteSonataNodes(WriteSonata):
         return LocalTarget(self.folder / self.node_file_name)
 
 
-class WriteSonataEdges(WriteSonata):
+class WriteSonataEdges(CommonParams):
     """Write Sonata edges file to be parameterized with Spykfunc."""
+
+    edge_population = Parameter()
+    edge_file_name = Parameter()
 
     def requires(self):
         return self.clone(ReducePrune), self.clone(ComputeAfferentSectionPos)

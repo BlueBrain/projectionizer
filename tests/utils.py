@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from pathlib import Path
 
 import numpy as np
@@ -12,6 +13,12 @@ TEST_DATA_DIR = TEST_DIR / "data"
 NODE_POPULATION = "fake_node"
 EDGE_POPULATION = "fake_edge"
 CIRCUIT_CONFIG_FILE = "CircuitConfig"
+
+
+def as_iterable(item):
+    if not item:
+        return []
+    return item if isinstance(item, Iterable) else [item]
 
 
 def fake_segments(min_xyz, max_xyz, count):

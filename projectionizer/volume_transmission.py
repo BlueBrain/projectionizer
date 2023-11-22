@@ -11,8 +11,8 @@ from bluepy import Section, Segment
 from luigi import FloatParameter, ListParameter, LocalTarget
 from tqdm import tqdm
 
-from projectionizer import analysis, step_1_assign, step_2_prune, step_3_write
-from projectionizer.luigi_utils import CommonParams, FeatherTask
+from projectionizer import step_1_assign, step_2_prune, step_3_write
+from projectionizer.luigi_utils import FeatherTask, WriteSonata
 from projectionizer.straight_fibers import calc_pathlength_to_fiber_start
 from projectionizer.synapses import (
     CACHE_SIZE_MB,
@@ -63,19 +63,6 @@ def _get_spherical_samples(syns, index_path, radius):
     return pd.concat(samples, ignore_index=True)
 
 
-class MainSonataWorkflow(CommonParams):  # pragma: no cover
-    """Task to run the tasks regarding "normal" SONATA projections."""
-
-    def requires(self):
-        return (
-            self.clone(step_3_write.WriteSonata),
-            self.clone(analysis.Analyse),
-        )
-
-    def output(self):
-        return LocalTarget(self.input()[0].path)
-
-
 class VolumeSample(FeatherTask):
     """Spherical sampling for Volume Transmission projections."""
 
@@ -113,13 +100,13 @@ class VolumeComputeAfferentSectionPos(step_2_prune.ComputeAfferentSectionPos):
         return self.clone(VolumeSample)
 
 
-class ScaleConductance(CommonParams):
+class ScaleConductance(WriteSonata):
     """Scale the conductance."""
 
     interval = ListParameter([1.0, 0.1])
 
     def requires(self):  # pragma: no cover
-        return (self.clone(VolumeWriteSonata), self.clone(VolumeSample))
+        return (self.clone(VolumeRunParquetConverter), self.clone(VolumeSample))
 
     def run(self):
         L.info("Scaling conductance according to distance...")
@@ -150,43 +137,34 @@ class VolumeWriteSonataEdges(step_3_write.WriteSonataEdges):  # pragma: no cover
         return self.clone(VolumeSample), self.clone(VolumeComputeAfferentSectionPos)
 
 
-class VolumeWriteSonataNodes(step_3_write.WriteSonataNodes):  # pragma: no cover
-    """Adapter class to step_3_write.WriteSonataNodes"""
+class VolumeCheckSonataOutput(step_3_write.CheckSonataOutput):  # pragma: no cover
+    """Adapter class to step_3_write.CheckSonataOutput"""
 
-    def requires(self):
-        return self.clone(VolumeSample)
-
-
-class VolumeWriteSonata(step_3_write.WriteSonata):  # pragma: no cover
-    """Adapter class to step_3_write.WriteSonata"""
-
-    node_file_name = "volume-transmission-nodes.h5"
-    edge_file_name = "nonscaled-" + EDGE_FILE_NAME
-    mtype = "volume_projections"
-    node_population = "volume_projections"
+    edge_file_name = EDGE_FILE_NAME
     edge_population = "volume_projections"
 
     def requires(self):
         return (
-            self.clone(VolumeRunParquetConverter),
+            self.clone(ScaleConductance),
             self.clone(VolumeSample),
-            self.clone(VolumeWriteSonataNodes),
+            self.clone(step_3_write.WriteSonataNodes),
             self.clone(VolumeWriteSonataEdges),
         )
 
 
-class VolumeWriteAll(step_3_write.WriteAll):  # pragma: no cover
-    """Adapter class to step_3_write.WriteAll"""
+class VolumeRunAll(step_3_write.RunAll):  # pragma: no cover
+    """Adapter class to step_3_write.RunAll"""
 
     def requires(self):
-        return self.clone(ScaleConductance), self.clone(MainSonataWorkflow)
+        # Also run the main workflow (step_3_write.RunAll)
+        return self.clone(VolumeCheckSonataOutput), self.clone(step_3_write.RunAll)
 
 
 class VolumeRunSpykfunc(step_3_write.RunSpykfunc):  # pragma: no cover
     """Adapter class to step_3_write.RunSpykfunc"""
 
     def requires(self):
-        return self.clone(VolumeWriteSonataEdges), self.clone(VolumeWriteSonataNodes)
+        return self.clone(VolumeWriteSonataEdges), self.clone(step_3_write.WriteSonataNodes)
 
     def output(self):
         return LocalTarget(self.folder / "volume-spykfunc")
@@ -195,5 +173,7 @@ class VolumeRunSpykfunc(step_3_write.RunSpykfunc):  # pragma: no cover
 class VolumeRunParquetConverter(step_3_write.RunParquetConverter):  # pragma: no cover
     """Adapter class to step_3_write.RunParquetConverter"""
 
+    edge_file_name = "nonscaled-" + EDGE_FILE_NAME
+
     def requires(self):
-        return self.clone(VolumeRunSpykfunc), self.clone(VolumeWriteSonataNodes)
+        return self.clone(VolumeRunSpykfunc), self.clone(step_3_write.WriteSonataNodes)

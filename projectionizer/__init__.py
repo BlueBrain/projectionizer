@@ -24,7 +24,7 @@ from projectionizer.step_2_prune import (
     ReduceGroupByConnection,
     ReducePrune,
 )
-from projectionizer.step_3_write import SynapseCountPerConnectionTarget, WriteAll
+from projectionizer.step_3_write import RunAll, SynapseCountPerConnectionTarget
 from projectionizer.version import VERSION as __version__  # pylint: disable=W0611
 
 # Configure the root logger without touching the LogLevel of it

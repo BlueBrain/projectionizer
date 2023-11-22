@@ -1,9 +1,13 @@
 import json
 
+import luigi
 import pytest
 from luigi import FloatParameter, LocalTarget, PathParameter, Task, build
 
 import projectionizer.dichotomy as test_module
+from projectionizer import step_3_write
+
+from utils import as_iterable
 
 
 class LinearTask(Task):
@@ -25,6 +29,42 @@ def test_simple(tmp_confdir):
     task.run()
     with task.output().open() as inputf:
         assert json.load(inputf)["result"] == 15
+
+
+@pytest.mark.MockTask(cls=test_module.SynapseCountMeanMinimizer)
+def test_parameter_sharing(MockTask):
+    """Test that the shared SONATA parameters are correctly shared and passed forward.
+
+    I.e., check that shared parameter values are actually shared and those that should differ,
+    actually differ between different projectionizer tasks.
+    """
+    config = {
+        "mtype": "test_mtype",
+        "node_file_name": "fake_nodes.h5",
+        "edge_file_name": "fake_edges.h5",
+        "node_population": "test_node_pop",
+        "edge_population": "test_edge_pop",
+    }
+    for param, value in config.items():
+        setattr(MockTask, param, value)
+
+    def _check_params(task):
+        for param, expected_value in config.items():
+            if hasattr(task, param):
+                assert getattr(task, param) == expected_value
+
+        try:
+            for subtask in as_iterable(task.requires()):
+                _check_params(subtask)
+        except luigi.parameter.MissingParameterException:
+            # At this point we are wandering off from SONATA related tasks
+            pass
+
+    class MockSynapseCountMeanMinimizer(MockTask):
+        def requires(self):
+            return self.clone(step_3_write.RunAll)
+
+    _check_params(MockSynapseCountMeanMinimizer())
 
 
 class MismatchLinearTask(Task):

@@ -7,9 +7,16 @@ from morphio import SectionType
 EFFERENT_SECTION_TYPE = SectionType.axon
 
 
-def write_nodes(syns, path, population_name, mtype):
-    """write the nodes file"""
-    sgid_count = syns.sgid.max() + 1
+def write_nodes(syns_fibers, path, population_name, mtype):
+    """Write the nodes file.
+
+    Args:
+        syns_fibers (pd.DataFrame): synapses/fibers dataframe
+        path (Path): nodes file path
+        population_name(str): node population
+        mtype (str): mtype for the nodes
+    """
+    sgid_count = syns_fibers.sgid.max() + 1
 
     with h5py.File(path, "w") as h5:
         population_path = f"/nodes/{population_name}"
@@ -36,7 +43,13 @@ def write_nodes(syns, path, population_name, mtype):
 
 
 def write_edges(syns, path, population_name):
-    """write the edges file"""
+    """Write the edges file.
+
+    Args:
+        syns (pd.DataFrame): synapses dataframe
+        path (Path): edges file path
+        population_name(str): edge population
+    """
     with h5py.File(path, "w") as h5:
         population_path = f"/edges/{population_name}"
         group = h5.create_group(population_path)

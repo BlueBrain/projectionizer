@@ -57,6 +57,7 @@ Improvements
 - segment indexing is done with ``SpatialIndex`` and ``libFLATIndex`` was removed
 - reading more parameters from circuit config instead of the user-provided config file (see :ref:`ver_3_0_0_breaking`)
 - using ``click`` to handle the commandline interface
+- normal and volume transmission pipelines now share the source node file
 
 
 Version v2.0.2

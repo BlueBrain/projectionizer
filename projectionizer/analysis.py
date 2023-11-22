@@ -23,7 +23,6 @@ from projectionizer.step_2_prune import (
     CutoffMeans,
     ReducePrune,
 )
-from projectionizer.step_3_write import WriteAll
 from projectionizer.utils import (
     convert_layer_to_PH_format,
     load,
@@ -854,19 +853,6 @@ class Analyse(CommonParams):
 
         create_report(coverage, density_areas, self.folder)
 
-        self.output().done()
-
-    def output(self):
-        return RunAnywayTargetTempDir(self, base_dir=self.folder)
-
-
-class DoAll(CommonParams):
-    """Launch the full projectionizer pipeline"""
-
-    def requires(self):
-        return self.clone(ReducePrune), self.clone(Analyse), self.clone(WriteAll)
-
-    def run(self):  # pragma: no cover
         self.output().done()
 
     def output(self):

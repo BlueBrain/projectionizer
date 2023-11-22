@@ -166,7 +166,11 @@ def get_projection_task_params(cmd_opts):
     """Gets task parameters for a task generating projections."""
     output_path = cmd_opts["output"]
     config_file = load_config(output_path / CONFIG_FILENAME)
-    return {"folder": output_path, **config_file["CommonParams"]}
+    return {
+        "folder": output_path,
+        **config_file["CommonParams"],
+        **config_file.get("WriteSonata", {}),
+    }
 
 
 def get_dichotomy_task_params(cmd_opts):
@@ -271,10 +275,10 @@ def dichotomy(ctx, **cmd_opts):
 @click.pass_context
 def create_projections(ctx, **cmd_opts):
     """Generate new projections from scratch."""
-    from projectionizer.analysis import DoAll
+    from projectionizer.step_3_write import RunAll
 
     setup_projection_workflow(**cmd_opts)
-    task = DoAll(**get_projection_task_params(cmd_opts))
+    task = RunAll(**get_projection_task_params(cmd_opts))
     ctx.obj["workflow_runner"](task)
 
 
@@ -283,10 +287,11 @@ def create_projections(ctx, **cmd_opts):
 @click.pass_context
 def volume_transmission(ctx, **cmd_opts):
     """Run a volume transmission projections job. This will also run the main workflow."""
-    from projectionizer.volume_transmission import VolumeWriteAll
+    from projectionizer.volume_transmission import VolumeRunAll
 
     setup_projection_workflow(**cmd_opts)
-    task = VolumeWriteAll(**get_projection_task_params(cmd_opts))
+    task = VolumeRunAll(**get_projection_task_params(cmd_opts))
+
     ctx.obj["workflow_runner"](task)
 
 

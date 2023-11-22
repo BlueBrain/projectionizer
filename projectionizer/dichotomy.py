@@ -4,15 +4,14 @@ import json
 from luigi import FloatParameter, IntParameter, Parameter, TaskParameter
 from luigi.local_target import LocalTarget
 
-from projectionizer.analysis import DoAll
 from projectionizer.luigi_utils import (
-    CommonParams,
     FolderTask,
     JsonTask,
+    WriteSonata,
     camel2spinal_case,
 )
 from projectionizer.step_0_sample import FullSample, SampleChunk
-from projectionizer.step_3_write import SynapseCountPerConnectionTarget
+from projectionizer.step_3_write import RunAll, SynapseCountPerConnectionTarget
 
 
 class Dichotomy(JsonTask):
@@ -75,7 +74,7 @@ class TargetMismatch(JsonTask):
             json.dump({"error": last_target - self.target}, fd)
 
 
-class SynapseCountMeanMinimizer(CommonParams):
+class SynapseCountMeanMinimizer(WriteSonata):
     """Dichotomy applied to approaching the correct number of synapses per connection
     in target_mtype cells"""
 
@@ -106,4 +105,4 @@ class SynapseCountMeanMinimizer(CommonParams):
 
         folder = sub_folder(self.folder, param)
         yield self.clone(FullSample, from_chunks=True, folder=folder)
-        yield self.clone(DoAll, oversampling=param, folder=folder)
+        yield self.clone(RunAll, oversampling=param, folder=folder)

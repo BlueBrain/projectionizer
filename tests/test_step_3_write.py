@@ -18,8 +18,8 @@ logging.basicConfig()
 L = logging.getLogger(__name__)
 
 
-@pytest.mark.MockTask(cls=test_module.WriteSonata)
-def test_WriteSonata(MockTask):
+@pytest.mark.MockTask(cls=test_module.CheckSonataOutput)
+def test_CheckSonataOutput(MockTask):
     syns_path = MockTask.folder / "mock_synapses.feather"
     df = pd.DataFrame(
         {
@@ -50,7 +50,7 @@ def test_WriteSonata(MockTask):
             group["source_node_id"] = df.sgid.to_numpy()
             group["target_node_id"] = df.tgid.to_numpy()
 
-    class TestWriteSonata(MockTask):
+    class TestCheckSonataOutput(MockTask):
         node_population = NODE_POPULATION
         edge_population = EDGE_POPULATION
         node_file_name = "nodes.h5"
@@ -67,10 +67,9 @@ def test_WriteSonata(MockTask):
                 Mock(path=nonparameterized_edge_path),
             )
 
-    test = TestWriteSonata()
+    test = TestCheckSonataOutput()
     assert len(test.requires()) == 4
     assert all(isinstance(t, Task) for t in test.requires())
-    assert test.requires()[0].output().path == test.output().path
 
     sonata_path = test.input()[0].path
     node_path = test.input()[2].path
@@ -90,7 +89,7 @@ def test_WriteSonata(MockTask):
     create_h5_files(sonata_path, node_path, edge_path)
     with h5py.File(node_path, "r+") as h5:
         del h5[f"nodes/{NODE_POPULATION}/node_type_id"]
-        h5[f"nodes/{NODE_POPULATION}/node_type_id"] = np.full(df.sgid.max() + 10, -1)
+        h5[f"nodes/{NODE_POPULATION}/node_type_id"] = np.full(df.sgid.max() - 2, -1)
     pytest.raises(AssertionError, test.run)
 
     # SGIDs are off
