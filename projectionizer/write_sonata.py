@@ -5,6 +5,14 @@ from morphio import SectionType
 
 # Assume the source cell types to be axons
 EFFERENT_SECTION_TYPE = SectionType.axon
+FIBER_COLS = [
+    "fiber_start_x",
+    "fiber_start_y",
+    "fiber_start_z",
+    "fiber_direction_x",
+    "fiber_direction_y",
+    "fiber_direction_z",
+]
 
 
 def write_nodes(syns_fibers, path, population_name, mtype):
@@ -30,6 +38,10 @@ def write_nodes(syns_fibers, path, population_name, mtype):
         attributes["etype"] = attributes["mtype"]
         attributes["morphology"] = attributes["mtype"]
         attributes["region"] = attributes["mtype"]
+
+        if all(col in syns_fibers.columns for col in FIBER_COLS):
+            for c in FIBER_COLS:
+                attributes.create_dataset(c, data=syns_fibers[c].to_numpy(), dtype=np.float32)
 
         str_dt = h5py.string_dtype(encoding="utf-8")
         library = attributes.create_group("@library")

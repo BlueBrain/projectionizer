@@ -22,7 +22,7 @@ from projectionizer.step_2_prune import (
     ComputeAfferentSectionPos,
     ReducePrune,
 )
-from projectionizer.utils import load, load_all
+from projectionizer.utils import XYZUVW, load, load_all
 
 L = logging.getLogger(__name__)
 
@@ -115,8 +115,11 @@ class WriteSonataNodes(CommonParams):
         return self.clone(VirtualFibers)
 
     def run(self):
+        fibers = load(self.input().path).reset_index()  # reset index to have `sgid` as a column
+        fibers.rename(columns=dict(zip(XYZUVW, write_sonata.FIBER_COLS)), inplace=True)
+
         write_sonata.write_nodes(
-            load(self.input().path).reset_index(),  # reset index to have `sgid` as a column
+            fibers,
             self.output().path,
             self.node_population,
             self.mtype,

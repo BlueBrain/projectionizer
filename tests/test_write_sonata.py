@@ -8,7 +8,8 @@ import projectionizer.write_sonata as test_module
 from utils import EDGE_POPULATION, NODE_POPULATION
 
 
-def test_write_nodes(tmp_confdir):
+def test_write_nodes_with_syns(tmp_confdir):
+    """Old way (used by hippocampus) of writing from synapses."""
     df = pd.DataFrame(
         {
             "tgid": [10, 15],
@@ -41,6 +42,52 @@ def test_write_nodes(tmp_confdir):
         for k in keys:
             assert_equal(sscx_proj["0"][k].size, sscx_proj["node_type_id"].size)
             assert_array_equal(sscx_proj["0"][k][:], [0] * expected_size)
+
+
+def test_write_nodes_with_fibers(tmp_confdir):
+    df = pd.DataFrame(
+        {
+            "sgid": [20, 13],
+            "fiber_start_x": [0.45] * 2,
+            "fiber_start_y": [0.33] * 2,
+            "fiber_start_z": [0.11] * 2,
+            "fiber_direction_x": [0.15] * 2,
+            "fiber_direction_y": [0.23] * 2,
+            "fiber_direction_z": [0.31] * 2,
+        }
+    )
+    path = tmp_confdir / "nodes_fiber_info.h5"
+    mtype = "fake_type"
+
+    test_module.write_nodes(df, path, NODE_POPULATION, mtype)
+
+    with h5py.File(path, "r") as f:
+        expected_size = df.sgid.max() + 1
+        pop = f[f"nodes/{NODE_POPULATION}"]
+        assert_array_equal(pop["node_type_id"][:], [-1] * expected_size)
+
+        # Check that the fiber fields are in h5 and they're correct
+        pop_0 = pop["0"]
+        assert all(col in pop_0.keys() for col in test_module.FIBER_COLS)
+
+        for col in test_module.FIBER_COLS:
+            assert_array_equal(df[col].to_numpy(dtype=np.float32), np.array(pop_0[col]))
+
+    # if a single fiber field is missing, none of them should be written
+    del df["fiber_direction_y"]
+    path = tmp_confdir / "nodes_no_fiber_info.h5"
+    mtype = "fake_type"
+
+    test_module.write_nodes(df, path, NODE_POPULATION, mtype)
+
+    with h5py.File(path, "r") as f:
+        expected_size = df.sgid.max() + 1
+        pop = f[f"nodes/{NODE_POPULATION}"]
+        assert_array_equal(pop["node_type_id"][:], [-1] * expected_size)
+
+        # Check that none of the fiber fields are in h5
+        pop_0 = pop["0"]
+        assert not any(col in pop_0.keys() for col in test_module.FIBER_COLS)
 
 
 def test_write_edges(tmp_confdir):

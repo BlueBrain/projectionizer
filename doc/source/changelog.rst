@@ -58,6 +58,7 @@ Improvements
 - reading more parameters from circuit config instead of the user-provided config file (see :ref:`ver_3_0_0_breaking`)
 - using ``click`` to handle the commandline interface
 - normal and volume transmission pipelines now share the source node file
+- All the fibers and their information (start point, direction) are now included in the output nodes file
 
 
 Version v2.0.2
