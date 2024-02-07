@@ -1,4 +1,5 @@
 """tools for writing sonata files"""
+
 import h5py
 import numpy as np
 from morphio import SectionType

@@ -1,4 +1,5 @@
 """Correct oversampling binary search module"""
+
 import json
 
 from luigi import FloatParameter, IntParameter, Parameter, TaskParameter

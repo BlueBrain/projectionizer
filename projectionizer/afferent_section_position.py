@@ -1,4 +1,5 @@
 """Functions to compute afferent section positions for the synapses"""
+
 import logging
 from functools import partial
 

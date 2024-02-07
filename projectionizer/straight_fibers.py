@@ -2,6 +2,7 @@
 Functions related to calculating distances to straight fibers, like the ones used in the SSCX
 hex and S1
 """
+
 import logging
 from functools import partial
 

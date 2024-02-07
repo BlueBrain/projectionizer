@@ -1,5 +1,6 @@
 """Step 0; sample segments from circuit to be used as potential synapses
 """
+
 import json
 
 import numpy as np

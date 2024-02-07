@@ -1,4 +1,5 @@
 """Luigi tasks that given segments, assign them to the fibers"""
+
 import logging
 
 import numpy as np

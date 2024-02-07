@@ -1,5 +1,6 @@
 """Step 3: write sonata files
 """
+
 import json
 import logging
 import subprocess

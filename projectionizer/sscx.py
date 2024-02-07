@@ -1,4 +1,5 @@
 """Data and geometry related to somatosensory cortex"""
+
 import logging
 
 import numpy as np
