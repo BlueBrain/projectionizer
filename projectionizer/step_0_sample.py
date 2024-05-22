@@ -5,8 +5,9 @@ import json
 
 import numpy as np
 import pandas as pd
+import spatial_index.experimental
 from bluepy import Circuit
-from luigi import BoolParameter, FloatParameter, IntParameter, ListParameter
+from luigi import FloatParameter, IntParameter, ListParameter
 
 from projectionizer.luigi_utils import FeatherTask, JsonTask, NrrdTask
 from projectionizer.sscx import (
@@ -15,7 +16,7 @@ from projectionizer.sscx import (
     recipe_to_relative_heights_per_layer,
 )
 from projectionizer.synapses import build_synapses_default, pick_synapses
-from projectionizer.utils import load, load_all, mask_by_region, write_feather
+from projectionizer.utils import XYZ, load, load_all, mask_by_region, write_feather
 
 
 class VoxelSynapseCount(NrrdTask):  # pragma: no cover
@@ -59,44 +60,67 @@ class Height(NrrdTask):  # pragma: no cover
         distance.save_nrrd(self.output().path)
 
 
+class VoxelOrder(FeatherTask):
+    """Reorganize voxel order optimally for SpatialIndex."""
+
+    def requires(self):  # pragma: no cover
+        return self.clone(VoxelSynapseCount)
+
+    def run(self):
+        voxels = load(self.input().path)
+        idx = np.transpose(np.nonzero(voxels.raw))
+        xyzs = voxels.indices_to_positions(idx)
+        order = spatial_index.experimental.space_filling_order(xyzs)
+        voxel_indices = pd.DataFrame(idx[order], columns=XYZ)
+
+        write_feather(self.output().path, voxel_indices)
+
+
 class SampleChunk(FeatherTask):
     """Split the big sample into chunks"""
 
     chunk_num = IntParameter()
 
-    def requires(self):
-        return self.clone(FullSample)
+    def requires(self):  # pragma: no cover
+        return self.clone(VoxelOrder), self.clone(VoxelSynapseCount)
 
-    def run(self):
-        full_sample = load(self.input().path)
-        chunk_size = int((len(full_sample) / self.n_total_chunks) + 1)
-        start, end = self.chunk_num * chunk_size, (self.chunk_num + 1) * chunk_size
-        chunk_df = full_sample.iloc[start:end]
-        write_feather(self.output().path, chunk_df)
+    def _get_voxel_indices(self):
+        """Helper function to get voxels' indices."""
+        voxel_order = load(self.input()[0].path)
+        chunk_size = int((len(voxel_order) / self.n_total_chunks) + 1)
+        start = self.chunk_num * chunk_size
+        end = start + chunk_size
+        return voxel_order[XYZ].to_numpy()[start:end]
+
+    def _get_xyzs_count(self):
+        """Helper function to get voxels' positions and synapse counts."""
+        voxels = load(self.input()[1].path)
+        indices = self._get_voxel_indices()
+        min_xyzs = voxels.indices_to_positions(indices)
+        max_xyzs = min_xyzs + voxels.voxel_dimensions
+        counts = voxels.raw[tuple(indices.T)]
+
+        return np.hstack((min_xyzs, max_xyzs, counts[:, np.newaxis]))
+
+    def run(self):  # pragma: no cover
+        xyzs_count = self._get_xyzs_count()
+
+        synapses = pick_synapses(self.segment_index_path, xyzs_count)
+        synapses.rename(columns={"gid": "tgid"}, inplace=True)
+
+        write_feather(self.output().path, synapses)
 
 
 class FullSample(FeatherTask):  # pragma: no cover
     """Sample segments from circuit"""
 
-    from_chunks = BoolParameter(default=False)
-
     def requires(self):
-        if self.from_chunks:
-            return [self.clone(SampleChunk, chunk_num=i) for i in range(self.n_total_chunks)]
-        return self.clone(VoxelSynapseCount)
+        return [self.clone(SampleChunk, chunk_num=i) for i in range(self.n_total_chunks)]
 
     def run(self):
-        if self.from_chunks:
-            # pylint: disable=maybe-no-member
-            chunks = load(self.input().path)
-            write_feather(self.output().path, pd.concat(chunks))
-        else:
-            # pylint: disable=maybe-no-member
-            voxels = load(self.input().path)
-            synapses = pick_synapses(self.segment_index_path, voxels)
-
-            synapses.rename(columns={"gid": "tgid"}, inplace=True)
-            write_feather(self.output().path, synapses)
+        # pylint: disable=maybe-no-member
+        chunks = load_all(self.input())
+        write_feather(self.output().path, pd.concat(chunks))
 
 
 class SynapseDensity(JsonTask):  # pragma: no cover

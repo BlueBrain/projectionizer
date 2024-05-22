@@ -99,7 +99,8 @@ def _sample_with_spatial_index(index, min_xyz, max_xyz):  # pragma: no cover
     segs_df[SEGMENT_END_COLS] = ends
 
     # `.dropna()` is used to get rid of somas (will be allowed in NSETM-2010)
-    return segs_df.dropna().sort_values(segs_df.columns.tolist(), ignore_index=True)
+    # `columns` need to be sorted to ensure the order of the segments is always the same.
+    return segs_df.dropna().sort_values(sorted(segs_df.columns), ignore_index=True)
 
 
 def get_segment_limits_within_sphere(starts, ends, pos, radius):
@@ -325,7 +326,7 @@ def pick_synapses_chunk(xyz_counts, index_path, segment_pref, dataframe_cleanup)
 
 def pick_synapses(
     index_path,
-    synapse_counts,
+    xyzs_count,
     segment_pref=segment_pref_length,
     dataframe_cleanup=downcast_int_columns,
 ):
@@ -338,15 +339,7 @@ def pick_synapses(
     Returns:
         pd.DataFrame: picked synapses with columns as defined in WANTED_COLS
     """
-
-    idx = np.nonzero(synapse_counts.raw)
-
-    min_xyzs = synapse_counts.indices_to_positions(np.transpose(idx))
-    max_xyzs = min_xyzs + synapse_counts.voxel_dimensions
-    xyzs_count = np.hstack((min_xyzs, max_xyzs, synapse_counts.raw[idx][:, np.newaxis]))
-
-    order = spatial_index.experimental.space_filling_order(min_xyzs)
-    chunks = np.array_split(xyzs_count[order], PARALLEL_JOBS)
+    chunks = np.array_split(xyzs_count, PARALLEL_JOBS)
 
     func = partial(
         pick_synapses_chunk,
@@ -360,7 +353,7 @@ def pick_synapses(
     L.debug("Picking finished. Now concatenating...")
     synapses = pd.concat(synapses, ignore_index=True)
 
-    if (percentage := 100 * len(synapses) / sum(synapse_counts.raw[idx])) < 90:
+    if (percentage := 100 * len(synapses) / sum(xyzs_count[:, -1])) < 90:
         L.warning("Could only pick %.2f %% of the intended synapses", percentage)
 
     return synapses

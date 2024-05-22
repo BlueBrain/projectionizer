@@ -1,3 +1,4 @@
+import itertools
 import logging
 from unittest.mock import Mock, patch
 
@@ -14,11 +15,6 @@ from voxcell import VoxelData
 import projectionizer.synapses as test_module
 
 from utils import fake_segments
-
-
-def _fake_voxel_synapse_count(shape, voxel_size=10):
-    raw = np.zeros(shape=shape, dtype=int)
-    return VoxelData(raw, [voxel_size] * 3, (0, 0, 0))
 
 
 def test_spatial_index_cache_size_env():
@@ -275,19 +271,22 @@ def test_pick_synapses_voxel(mock_pick_synapse_locations, mock_pick_segments_vox
 def test_pick_synapses(mock_sample):
     count = 1250  # need many random test_module so sampling successfully finds enough
     min_xyz = np.array([0, 0, 0])
-    max_xyz = np.array([1, 1, 1])
-    circuit_path = "foo/bar/baz"
+    max_xyz = np.array([10, 10, 10])
 
     np.random.seed(0)
     mock_sample.return_value = fake_segments(min_xyz, max_xyz, 2 * count)
-    voxel_synapse_count = _fake_voxel_synapse_count(shape=(10, 10, 10), voxel_size=0.1)
-    # total count 4x4x4x5 = 320
-    voxel_synapse_count.raw[3:7, 3:7, 3:7] = 5
-    segs_df = test_module.pick_synapses(circuit_path, voxel_synapse_count)
 
-    assert np.sum(voxel_synapse_count.raw) == len(segs_df) == 320
-    assert "x" in segs_df.columns
-    assert "segment_length" in segs_df.columns
+    # Fill xyz coordinates 3:7 with synapses. Each has 5.
+    starts = np.array([*itertools.product(range(3, 7), repeat=3)])
+    ends = starts + 1
+    counts = np.full(len(starts), 5)
+    xyzs_counts = np.hstack((starts, ends, counts[:, np.newaxis]))
+
+    segs_df = test_module.pick_synapses("fake_path", xyzs_counts)
+
+    # total count 4x4x4x5 = 320
+    assert xyzs_counts[:, -1].sum() == len(segs_df) == 320
+    assert set(segs_df.columns) == set(test_module.WANTED_COLS)
 
 
 @patch.object(
@@ -297,11 +296,13 @@ def test_pick_synapses(mock_sample):
 )
 def test_pick_synapses_low_count(caplog):
     # total count 20x10x5 = 1000
-    voxel_synapse_count = _fake_voxel_synapse_count(shape=(20, 10, 1))
-    voxel_synapse_count.raw[:, :, :] = 5
+    starts = np.array([*itertools.product(range(20), range(10), range(5))])
+    ends = starts + 1
+    counts = np.ones(len(starts))
+    xyzs_counts = np.hstack((starts, ends, counts[:, np.newaxis]))
 
     with caplog.at_level(logging.WARNING):
-        syns = test_module.pick_synapses("fake_path", voxel_synapse_count)
+        syns = test_module.pick_synapses("fake_path", xyzs_counts)
         assert len(syns) == 666
         assert "Could only pick 66.60 % of the intended synapses" in caplog.text
 

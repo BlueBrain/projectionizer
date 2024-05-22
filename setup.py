@@ -28,7 +28,7 @@ setup(
         "pyarrow>=0.11.1",
         "pyyaml<7.0",
         "scipy<2.0.0",
-        "spatial-index>=1.2.0,<2.0.0",
+        "spatial-index>=2.0,<3.0",
         "tqdm<5.0.0",
         "voxcell>=3",
     ],
