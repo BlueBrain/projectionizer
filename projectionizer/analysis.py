@@ -3,12 +3,10 @@
 import json
 import logging
 import re
+import traceback
 from itertools import chain, repeat
 
 import matplotlib
-
-matplotlib.use("Agg")  # pylint: disable=wrong-import-position
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -30,6 +28,9 @@ from projectionizer.utils import (
     load_all,
     read_feather,
 )
+
+matplotlib.use("Agg")  # pylint: disable=wrong-import-position
+
 
 L = logging.getLogger(__name__)
 L.setLevel(logging.DEBUG)
@@ -810,49 +811,58 @@ class Analyse(CommonParams):
 
     def run(self):  # pragma: no cover
         # pylint: disable=too-many-locals
-        (
-            pruned,
-            sampled,
-            connections,
-            cutoffs,
-            distmap,
-            fibers,
-            height,
-            layer_thickness,
-        ) = load_all(self.input())
 
-        regions = self.get_regions()
-        atlas = Circuit(self.circuit_config).atlas
+        try:
+            (
+                pruned,
+                sampled,
+                connections,
+                cutoffs,
+                distmap,
+                fibers,
+                height,
+                layer_thickness,
+            ) = load_all(self.input())
 
-        pruned_no_edge = remove_synapses_with_sgid(pruned, fibers[fibers["apron"]].index)
+            regions = self.get_regions()
+            atlas = Circuit(self.circuit_config).atlas
 
-        fraction_pruned_vs_height(self.folder, self.n_total_chunks)
-        innervation_width(pruned, self.circuit_config, self.folder)
+            pruned_no_edge = remove_synapses_with_sgid(pruned, fibers[fibers["apron"]].index)
 
-        synapse_density_per_voxel(
-            self.folder, sampled, layer_thickness, distmap, self.oversampling, "sampled"
-        )
-        synapse_density_per_voxel(
-            self.folder, pruned_no_edge, layer_thickness, distmap, self.oversampling, "pruned"
-        )
-        synapse_density(pruned_no_edge, distmap, layer_thickness, folder=self.folder)
-        density_areas = synapse_density_profiles_region(
-            atlas, height, pruned, distmap, regions, layer_thickness, self.folder
-        )
-        synapse_heights(pruned_no_edge, atlas, folder=self.folder)
+            fraction_pruned_vs_height(self.folder, self.n_total_chunks)
+            innervation_width(pruned, self.circuit_config, self.folder)
 
-        thalamo_cortical_cells_per_fiber(pruned, self.folder)
-        distribution_synapses_per_connection(pruned, self.folder)
-        distribution_synapses_per_connection_per_layer(
-            pruned, regions, self.layers, self.circuit_config, self.folder
-        )
-        syns_per_connection(connections, cutoffs, self.folder, self.target_mtypes)
+            synapse_density_per_voxel(
+                self.folder, sampled, layer_thickness, distmap, self.oversampling, "sampled"
+            )
+            synapse_density_per_voxel(
+                self.folder, pruned_no_edge, layer_thickness, distmap, self.oversampling, "pruned"
+            )
+            synapse_density(pruned_no_edge, distmap, layer_thickness, folder=self.folder)
+            density_areas = synapse_density_profiles_region(
+                atlas, height, pruned, distmap, regions, layer_thickness, self.folder
+            )
+            synapse_heights(pruned_no_edge, atlas, folder=self.folder)
 
-        efferent_neuron_per_fiber(pruned, fibers, self.folder)
+            thalamo_cortical_cells_per_fiber(pruned, self.folder)
+            distribution_synapses_per_connection(pruned, self.folder)
+            distribution_synapses_per_connection_per_layer(
+                pruned, regions, self.layers, self.circuit_config, self.folder
+            )
+            syns_per_connection(connections, cutoffs, self.folder, self.target_mtypes)
 
-        coverage = fiber_coverage(pruned, fibers, self.folder)
+            efferent_neuron_per_fiber(pruned, fibers, self.folder)
 
-        create_report(coverage, density_areas, self.folder)
+            coverage = fiber_coverage(pruned, fibers, self.folder)
+
+            create_report(coverage, density_areas, self.folder)
+
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # Since `Analyse` was mostly developed for a certain SSCx circuits, it often fails.
+            # To not cause the workflow to seem as failed if this extra step fails, let's catch
+            # all the exceptions and not re-raise any of them.
+            L.warning("Skipping Analysis due to an error")
+            L.debug(traceback.format_exception(e))
 
         self.output().done()
 
