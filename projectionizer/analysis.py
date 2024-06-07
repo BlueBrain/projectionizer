@@ -10,8 +10,11 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from bluepy import Cell, Circuit
+from bluepysnap import Circuit
+from bluepysnap.bbp import Cell
+from bluepysnap.sonata_constants import Node
 from matplotlib import colors
+from voxcell.nexus.voxelbrain import Atlas
 
 from projectionizer.fiber_simulation import get_region_ids
 from projectionizer.luigi_utils import CommonParams, JsonTask, RunAnywayTargetTempDir
@@ -157,7 +160,7 @@ def relative_height_to_absolute(height, layer_thickness):
 def distmap_with_heights(distmap, layer_thickness):
     """Append and return the `distmap` with absolute heights"""
     heights = []
-    for dist in np.array(distmap):
+    for dist in distmap:
         dist = np.array(dist)
         absolute_heights = relative_height_to_absolute(dist[:, 0], layer_thickness)
         heights.append(np.transpose([absolute_heights, dist[:, 1]]))
@@ -195,7 +198,7 @@ def synapse_density(keep_syn, distmap, layer_thickness, bin_width=25, oversampli
     fig, ax = _get_ax()
 
     dmap = distmap_with_heights(distmap, layer_thickness)
-    draw_distmap(ax, np.array(dmap), oversampling)
+    draw_distmap(ax, dmap, oversampling)
     draw_layer_boundaries(ax, layer_thickness)
 
     bins = np.arange(keep_syn.y.min(), keep_syn.y.max(), bin_width)
@@ -332,16 +335,15 @@ def efferent_neuron_per_fiber(df, fibers, folder):
     fig.savefig(folder / "efferent_count_2d.png")
 
 
-def innervation_width(pruned, circuit_config, folder):
+def innervation_width(pruned, node_population, folder):
     """Innervation width
 
     mean distance between synapse and connected fiber
     """
-    c = Circuit(circuit_config)
     fig, ax = _get_ax()
-    pruned.groupby("sgid").tgid.apply(lambda tgid: c.cells.get(tgid).x).groupby("sgid").std().hist(
-        bins=40
-    )
+    pruned.groupby("sgid").tgid.apply(lambda tgid: node_population.get(tgid).x).groupby(
+        "sgid"
+    ).std().hist(bins=40)
     ax.set_title("Innervation width (along X axis)")
     fig.savefig(f"{folder}/innervation_x_width.png")
 
@@ -449,12 +451,13 @@ def _synapses_per_connection_stats(pruned, cells, reg, sclass, lay):
     return [], np.nan, np.nan
 
 
-def distribution_synapses_per_connection_per_layer(pruned, regions, layers, circuit_config, folder):
+def distribution_synapses_per_connection_per_layer(
+    pruned, regions, layers, node_population, folder
+):
     """Plots histograms of synapses per connection for each layer, region and synapse class."""
     # pylint: disable=too-many-locals
-    c = Circuit(circuit_config)
-    cells = c.cells.get(
-        properties={Cell.REGION, Cell.X, Cell.Y, Cell.Z, Cell.LAYER, Cell.SYNAPSE_CLASS}
+    cells = node_population.get(
+        properties={Cell.REGION, Node.X, Node.Y, Node.Z, Cell.LAYER, Cell.SYNAPSE_CLASS}
     )
     syn_classes = cells.synapse_class.unique().tolist()
     syn_classes.sort()
@@ -783,7 +786,7 @@ class LayerThickness(JsonTask):
 
     def run(self):  # pragma: no cover
         res = []
-        atlas = Circuit(self.circuit_config).atlas
+        atlas = Atlas.open(str(self.atlas_path))
         for layer in self.layers:  # pylint: disable=not-an-iterable
             ph = atlas.load_data(f"[PH]{convert_layer_to_PH_format(layer)}")
             thickness = ph.raw[..., 1] - ph.raw[..., 0]
@@ -824,13 +827,13 @@ class Analyse(CommonParams):
                 layer_thickness,
             ) = load_all(self.input())
 
-            regions = self.get_regions()
-            atlas = Circuit(self.circuit_config).atlas
+            atlas = Atlas.open(str(self.atlas_path))
+            node_population = Circuit(self.circuit_config).nodes[self.target_population]
 
             pruned_no_edge = remove_synapses_with_sgid(pruned, fibers[fibers["apron"]].index)
 
             fraction_pruned_vs_height(self.folder, self.n_total_chunks)
-            innervation_width(pruned, self.circuit_config, self.folder)
+            innervation_width(pruned, node_population, self.folder)
 
             synapse_density_per_voxel(
                 self.folder, sampled, layer_thickness, distmap, self.oversampling, "sampled"
@@ -840,14 +843,14 @@ class Analyse(CommonParams):
             )
             synapse_density(pruned_no_edge, distmap, layer_thickness, folder=self.folder)
             density_areas = synapse_density_profiles_region(
-                atlas, height, pruned, distmap, regions, layer_thickness, self.folder
+                atlas, height, pruned, distmap, self.regions, layer_thickness, self.folder
             )
             synapse_heights(pruned_no_edge, atlas, folder=self.folder)
 
             thalamo_cortical_cells_per_fiber(pruned, self.folder)
             distribution_synapses_per_connection(pruned, self.folder)
             distribution_synapses_per_connection_per_layer(
-                pruned, regions, self.layers, self.circuit_config, self.folder
+                pruned, self.regions, self.layers, node_population, self.folder
             )
             syns_per_connection(connections, cutoffs, self.folder, self.target_mtypes)
 

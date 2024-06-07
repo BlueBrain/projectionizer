@@ -4,10 +4,10 @@ import logging
 import os
 from functools import partial
 
+import brain_indexer
+import brain_indexer.experimental
 import numpy as np
 import pandas as pd
-import spatial_index
-import spatial_index.experimental
 from morphio import SectionType
 from tqdm import tqdm
 
@@ -49,8 +49,8 @@ XYZ = list("xyz")
 SOURCE_XYZ = ["source_x", "source_y", "source_z"]
 VOLUME_TRANSMISSION_COLS = ["sgid"] + WANTED_COLS + SOURCE_XYZ + ["distance_volume_transmission"]
 INT_COLS = ["gid", "section_id", "segment_id"]
-# per-process max cache size for spatial-index
-CACHE_SIZE_MB = int(os.environ.get("SPATIAL_INDEX_CACHE_SIZE_MB", 4000))
+# per-process max cache size for brain-indexer
+CACHE_SIZE_MB = int(os.environ.get("BRAIN_INDEXER_CACHE_SIZE_MB", 4000))
 
 
 def segment_pref_length(df):
@@ -86,8 +86,8 @@ def build_synapses_default(height, synapse_density, oversampling):
     return height.with_data(raw)
 
 
-def _sample_with_spatial_index(index, min_xyz, max_xyz):  # pragma: no cover
-    """use spatial index to get segments within min_xyz, max_xyz"""
+def _sample_with_brain_indexer(index, min_xyz, max_xyz):  # pragma: no cover
+    """use brain-indexer to get segments within min_xyz, max_xyz"""
     res = index.box_query(
         min_xyz, max_xyz, fields={"gid", "endpoints", "section_id", "segment_id", "section_type"}
     )
@@ -170,7 +170,7 @@ def spherical_sampling(pos_sgid, index_path, radius):
     min_xyz = position - radius
     max_xyz = position + radius
 
-    segs_df = _sample_with_spatial_index(index_path, min_xyz, max_xyz)
+    segs_df = _sample_with_brain_indexer(index_path, min_xyz, max_xyz)
     starts = segs_df[SEGMENT_START_COLS].to_numpy().astype(float)
     ends = segs_df[SEGMENT_END_COLS].to_numpy().astype(float)
 
@@ -204,7 +204,7 @@ def pick_segments_voxel(index, min_xyz, max_xyz, dataframe_cleanup=None, drop_ax
     """Pick all the segments that have their midpoints inside the given voxel.
 
     Args:
-        index (spatial_index.MultiIndex): spatial index `MultiIndex` instance
+        index (brain_indexer.MultiIndex): brain-indexer `MultiIndex` instance
         min_xyz (np.array): 1x3 array denoting the start of voxel
         max_xyz (np.array): 1x3 array denoting the end of voxel
         dataframe_cleanup(callable (df)): function to remove any unnecessary columns and do other
@@ -214,7 +214,7 @@ def pick_segments_voxel(index, min_xyz, max_xyz, dataframe_cleanup=None, drop_ax
     Returns:
         pd.DataFrame: segments inside the voxel
     """
-    segs_df = _sample_with_spatial_index(index, min_xyz, max_xyz)
+    segs_df = _sample_with_brain_indexer(index, min_xyz, max_xyz)
 
     if drop_axons:
         # Drop axons early to save some CPU cycles
@@ -309,7 +309,7 @@ def downcast_int_columns(df):
 
 def pick_synapses_chunk(xyz_counts, index_path, segment_pref, dataframe_cleanup):
     """Pick synapses for a chunk of voxels."""
-    index = spatial_index.open_index(str(index_path), max_cache_size_mb=CACHE_SIZE_MB)
+    index = brain_indexer.open_index(str(index_path), max_cache_size_mb=CACHE_SIZE_MB)
     syns = []
 
     for it in xyz_counts:
@@ -332,7 +332,7 @@ def pick_synapses(
 ):
     """Sample segments from circuit
     Args:
-        index_path(Path): absolute path spatial index `MultiIndex`
+        index_path(Path): absolute path brain-indexer `MultiIndex`
         synapse_counts(VoxelData):
             A VoxelData containing the number of segment to be sampled in each voxel
 

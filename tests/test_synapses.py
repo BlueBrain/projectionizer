@@ -17,7 +17,7 @@ import projectionizer.synapses as test_module
 from utils import fake_segments
 
 
-def test_spatial_index_cache_size_env():
+def test_brain_indexer_cache_size_env():
     assert isinstance(test_module.CACHE_SIZE_MB, int)
     assert test_module.CACHE_SIZE_MB == 666
 
@@ -104,7 +104,7 @@ def test_get_segment_limits_within_sphere():
     assert_array_almost_equal(rev_end, expected_start)
 
 
-@patch.object(test_module, "_sample_with_spatial_index")
+@patch.object(test_module, "_sample_with_brain_indexer")
 @patch.object(test_module, "get_segment_limits_within_sphere")
 def test_spherical_sampling(mock_get_limits, mock_sample):
     min_xyz = np.array([10, 10, 10])
@@ -123,7 +123,7 @@ def test_spherical_sampling(mock_get_limits, mock_sample):
     assert {*res.columns} == {*test_module.VOLUME_TRANSMISSION_COLS}
 
 
-@patch.object(test_module, "_sample_with_spatial_index")
+@patch.object(test_module, "_sample_with_brain_indexer")
 def test_spherical_sampling_prune_zero_length_segments(mock_sample):
     # Test pruning of zero length segments
     min_xyz = np.array([10, 10, 10])
@@ -144,14 +144,14 @@ def test_spherical_sampling_prune_zero_length_segments(mock_sample):
     assert_array_equal(res.gid, segments.iloc[1].gid)
 
 
-@patch.object(test_module, "_sample_with_spatial_index")
-@patch.object(test_module.spatial_index, "open_index", new=Mock())
+@patch.object(test_module, "_sample_with_brain_indexer")
+@patch.object(test_module.brain_indexer, "open_index", new=Mock())
 def test_pick_segments_voxel(mock_sample):
     min_xyz = np.array([0, 0, 0])
     max_xyz = np.array([1, 1, 1])
     circuit_path = "foo/bar/baz"
 
-    # return None if Spatial Index finds nothing
+    # return None if brain-indexer finds nothing
     mock_sample.return_value = pd.DataFrame([])
     segs_df = test_module.pick_segments_voxel(circuit_path, min_xyz, max_xyz)
     assert segs_df is None
@@ -266,8 +266,8 @@ def test_pick_synapses_voxel(mock_pick_synapse_locations, mock_pick_segments_vox
 
 
 @patch.object(test_module, "map_parallelize", new=lambda *args, **_: map(*args))
-@patch.object(test_module, "_sample_with_spatial_index")
-@patch.object(test_module.spatial_index, "open_index", new=Mock())
+@patch.object(test_module, "_sample_with_brain_indexer")
+@patch.object(test_module.brain_indexer, "open_index", new=Mock())
 def test_pick_synapses(mock_sample):
     count = 1250  # need many random test_module so sampling successfully finds enough
     min_xyz = np.array([0, 0, 0])
@@ -308,7 +308,7 @@ def test_pick_synapses_low_count(caplog):
 
 
 @patch.object(test_module, "pick_synapses_voxel", new=Mock(return_value=None))
-@patch.object(test_module.spatial_index, "open_index", new=Mock())
+@patch.object(test_module.brain_indexer, "open_index", new=Mock())
 def test_pick_synapses_chunk_all_return_none():
     xyz_counts = np.zeros((10, 7))
     index_path = "fake"

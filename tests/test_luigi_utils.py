@@ -1,11 +1,8 @@
 import re
-from pathlib import Path
-from unittest.mock import Mock, patch
 
 import pytest
 from luigi import PathParameter, Task, build
 from luigi.local_target import LocalTarget
-from numpy.testing import assert_array_equal
 
 import projectionizer.luigi_utils as test_module
 from projectionizer.version import VERSION
@@ -53,17 +50,6 @@ def test_camel2spinal_case():
     assert test_module.camel2spinal_case("CamelCase") == "camel-case"
 
 
-def test_resolve_morphology_config():
-    class Run:
-        # has no MorphologyType, expect to fall back to ASCII
-        MorphologyPath = "/fake_path/"
-
-    config = Mock(Run=Run())
-    res = test_module.resolve_morphology_config(config)
-
-    assert res == (Path("/fake_path/ascii"), "asc")
-
-
 def test_FolderTask(tmp_confdir):
     temp_name = tmp_confdir / "test_folder"
     assert not temp_name.exists()
@@ -75,25 +61,16 @@ def test_FolderTask(tmp_confdir):
     assert isinstance(task.output(), LocalTarget)
 
 
-@patch.object(test_module, "read_regions_from_manifest", new=Mock(return_value=[]))
 @pytest.mark.MockTask(cls=test_module.CommonParams)
 def test_common_params(MockTask):
-    target_regions = ["region_1", "region_2"]
-
     class TestCommonParams(MockTask):
         extension = "out"
-        regions = target_regions
 
     task = TestCommonParams()
 
     assert task.output().path == str(task.folder / "test-common-params.out")
-    assert_array_equal(target_regions, task.get_regions())
 
     assert isinstance(task.requires(), test_module.FolderTask)
-
-    # Should raise when no regions are found
-    task.regions = []
-    pytest.raises(AssertionError, task.get_regions)
 
     path = "./relative_path"
     assert task.load_data(path) is path
@@ -101,6 +78,15 @@ def test_common_params(MockTask):
     # returns path to templates when no '/' in path
     path = "file_name.txt"
     assert task.load_data(path) == test_module.TEMPLATES_PATH / path
+
+
+@pytest.mark.MockTask(cls=test_module.CommonParams)
+def test_common_params_wrong_morph_type(MockTask):
+    class TestCommonParamsWrongMorphType(MockTask):
+        morphology_type = "fake"
+
+    with pytest.raises(ValueError, match=re.escape("morphology_type 'fake' is not one of")):
+        TestCommonParamsWrongMorphType()
 
 
 @pytest.mark.MockTask(cls=test_module.CommonParams)

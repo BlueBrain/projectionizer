@@ -4,7 +4,7 @@ import pytest
 
 from projectionizer.version import VERSION
 
-from utils import CIRCUIT_CONFIG_FILE, fake_circuit_config, fake_manifest
+from utils import CIRCUIT_CONFIG_FILE, fake_circuit_config
 
 MOCK_PARAMS = {
     "FloatParameter": 1.0,
@@ -19,9 +19,8 @@ MOCK_PARAMS = {
 
 @pytest.fixture(name="tmp_confdir")
 def fixture_tmp_confdir(tmp_path):
-    """Set up a temporary config directory with circuit config and manifest files."""
+    """Set up a temporary config directory with a circuit config file."""
     fake_circuit_config(tmp_path)
-    fake_manifest(tmp_path)
     return tmp_path
 
 
@@ -59,6 +58,8 @@ def fixture_MockTask(tmp_confdir, request):
             return VERSION
         if param_name == "module_archive":
             return "unstable"
+        if param_name == "morphology_type":
+            return "asc"
 
         param = getattr(cls, param_name)
         return MOCK_PARAMS[param.__class__.__name__]

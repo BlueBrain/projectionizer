@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 import importlib_resources
+from bluepysnap import Circuit
 from luigi import (
     Config,
     FloatParameter,
@@ -16,16 +17,12 @@ from luigi import (
 from luigi.contrib.simulate import RunAnywayTarget
 from luigi.local_target import LocalTarget
 
-from projectionizer.utils import (
-    read_blueconfig,
-    read_manifest,
-    read_regions_from_manifest,
-)
 from projectionizer.version import VERSION
 
 REGEX_VERSION = re.compile(r"^\d+\.\d+\.\d+")
 TEMPLATES_PATH = importlib_resources.files(__package__) / "templates"
 MINIMUM_ARCHIVE = "archive/2023-06"
+MORPH_TYPES = {"h5", "asc", "swc"}
 
 
 def _check_module_archive(archive):
@@ -62,18 +59,6 @@ def camel2spinal_case(name):
     return re.sub("([a-z0-9])([A-Z])", r"\1-\2", s1).lower()
 
 
-def resolve_morphology_config(blueconfig):
-    """Resolve morphology configuration from circuit config."""
-    run = blueconfig.Run
-    morphology_path = Path(run.MorphologyPath)
-
-    if hasattr(run, "MorphologyType"):
-        return morphology_path, run.MorphologyType
-
-    # If morphology type not defined, append 'ascii' to path and assume type as 'ascii'
-    return morphology_path / "ascii", "asc"
-
-
 class FolderTask(Task):
     """Simple dependency task to create missing folders"""
 
@@ -89,14 +74,17 @@ class FolderTask(Task):
 class CommonParams(Config):
     """Parameters that must be passed to all Tasks"""
 
+    atlas_path = PathParameter(absolute=True, exists=True)
     projectionizer_version = Parameter()
     circuit_config = PathParameter(absolute=True, exists=True)
     physiology_path = PathParameter(absolute=True, exists=True)
+    morphology_type = Parameter(default="asc")
     segment_index_path = PathParameter(absolute=True, exists=True)
     folder = PathParameter(absolute=True)
     n_total_chunks = IntParameter()
     oversampling = FloatParameter()
     layers = ListParameter()  # list of pairs of (layer name, thickness), starting at 'bottom'
+    target_population = Parameter()
     target_mtypes = ListParameter(
         default=[
             "L4_PC",
@@ -104,7 +92,7 @@ class CommonParams(Config):
             "L4_TPC",
         ]
     )  # list of mtypes
-    regions = ListParameter(default=[])
+    regions = ListParameter()
 
     # path to CSV with six columns; x,y,z,u,v,w: location and direction of fibers
     fiber_locations_path = PathParameter(
@@ -127,16 +115,18 @@ class CommonParams(Config):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        blueconfig = read_blueconfig(self.circuit_config)
-        manifest = read_manifest(self.circuit_config)
-        path, type_ = resolve_morphology_config(blueconfig)
+        node_population = Circuit(self.circuit_config).nodes[self.target_population]
+
+        if self.morphology_type not in MORPH_TYPES:
+            raise ValueError(
+                f"morphology_type '{self.morphology_type}' is not "
+                f"one of {' / '.join(sorted(MORPH_TYPES))}"
+            )
 
         _check_module_archive(self.module_archive)
 
-        self.target_nodes = blueconfig.Run.CellLibraryFile
-        self.target_population = manifest["common"]["node_population_name"]
-        self.morphology_path = path
-        self.morphology_type = type_
+        self.morphology_path = Path(node_population.morph.get_morphology_dir(self.morphology_type))
+        self.target_nodes = Path(node_population.h5_filepath)
 
         _check_version_compatibility(self.projectionizer_version)
 
@@ -157,21 +147,6 @@ class CommonParams(Config):
             return path
         else:
             return TEMPLATES_PATH / path
-
-    def get_regions(self):
-        """Get region from config or parse it from MANIFEST.
-
-        If regions are defined in recipe, the MANIFEST is omitted."""
-        res = None
-
-        if self.regions:
-            res = self.regions
-        else:
-            res = read_regions_from_manifest(self.circuit_config)
-
-        assert res, "No regions defined"
-
-        return res
 
 
 class CsvTask(CommonParams):

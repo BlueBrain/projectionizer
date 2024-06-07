@@ -190,6 +190,8 @@ def get_fiber_task_params(cmd_opts):
     task_params = {k: v for k, v in cmd_opts.items() if k != "config"}
     task_params["circuit_config"] = config_file["CommonParams"]["circuit_config"]
     task_params["regions"] = config_file["CommonParams"]["regions"]
+    task_params["atlas_path"] = config_file["CommonParams"]["atlas_path"]
+    task_params["target_population"] = config_file["CommonParams"]["target_population"]
 
     return task_params
 

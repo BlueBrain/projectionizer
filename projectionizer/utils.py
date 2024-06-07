@@ -14,12 +14,10 @@ import numpy as np
 import pandas as pd
 import pyarrow
 import yaml
-from bluepy_configfile.configfile import BlueConfig
 from pyarrow import feather
 from voxcell import VoxelData
 
 PARALLEL_JOBS = int(os.environ.get("PARALLEL_COUNT", 36))
-MANIFEST_FILE = "MANIFEST.yaml"
 X, Y, Z = 0, 1, 2
 XYZUVW = list("xyzuvw")
 IJK = list("ijk")
@@ -206,35 +204,6 @@ def calculate_conductance_scaling_factor(distance, max_radius, interval):
     factor = interval[0] + interval_diff * distance / max_radius
     factor[distance > max_radius] = 0
     return factor
-
-
-def _regex_to_regions(region_str):
-    """Convert the region regex string in manifest to list of regions"""
-    # Replace @, ^, $, (, ), \ with and empty string and split on |
-    return re.sub(r"[\@\^\$\(\)\\]", "", region_str).split("|")
-
-
-def read_blueconfig(path):
-    """Read a file in BlueConfig format"""
-    with open(path, "r", encoding="utf-8") as fd:
-        return BlueConfig(fd)
-
-
-def read_manifest(circuit_config):
-    """Read the MANIFEST.yaml"""
-    bc = read_blueconfig(circuit_config)
-
-    return load(Path(bc.Run.BioName) / MANIFEST_FILE)
-
-
-def read_regions_from_manifest(circuit_config):
-    """Read the regions from the MANIFEST.yaml"""
-    manifest = read_manifest(circuit_config)
-
-    if ("common" in manifest) and ("region" in manifest["common"]):
-        return _regex_to_regions(manifest["common"]["region"])
-
-    return []
 
 
 def convert_to_smallest_allowed_int_type(data):

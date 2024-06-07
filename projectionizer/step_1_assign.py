@@ -4,8 +4,8 @@ import logging
 
 import numpy as np
 import pandas as pd
-from bluepy import Circuit
 from luigi import FloatParameter, IntParameter
+from voxcell.nexus.voxelbrain import Atlas
 
 from projectionizer.luigi_utils import CsvTask, FeatherTask
 from projectionizer.step_0_sample import Height, SampleChunk, VoxelSynapseCount
@@ -38,11 +38,16 @@ class VirtualFibers(CsvTask):
             idx = height.positions_to_indices(df[XYZ].to_numpy())
             return np.invert(mask_xz[tuple(idx[:, [0, 2]].T)])
 
-        atlas = Circuit(self.circuit_config).atlas
+        atlas = Atlas.open(str(self.atlas_path))
         fibers = load(self.fiber_locations_path)
         fibers = fibers.reset_index()
-        mask = mask_by_region(self.get_regions(), atlas)
-        fibers["apron"] = is_fiber_outside_region(fibers, mask)
+        mask = mask_by_region(self.regions, atlas)
+
+        # Only consider apron if bounding box was defined
+        if len(self.hex_apron_bounding_box):
+            fibers["apron"] = is_fiber_outside_region(fibers, mask)
+        else:
+            fibers["apron"] = False
 
         fibers.to_csv(self.output().path, index_label="sgid")
 

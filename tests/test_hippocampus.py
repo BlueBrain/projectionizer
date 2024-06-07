@@ -1,8 +1,8 @@
 from unittest.mock import Mock, patch
 
+import brain_indexer
 import numpy as np
 import pandas as pd
-import spatial_index
 from voxcell import VoxelData
 
 import projectionizer
@@ -18,7 +18,7 @@ def _run_full_sample_worker(positions):
     return test_module._full_sample_worker([positions], circuit_path, VOXEL_DIMENSIONS)
 
 
-@patch.object(spatial_index, "open_index", new=Mock())
+@patch.object(brain_indexer, "open_index", new=Mock())
 @patch.object(projectionizer.synapses, "pick_segments_voxel")
 def test__full_sample_worker(mock_sample):
     count = 10
@@ -35,7 +35,7 @@ def test__full_sample_worker(mock_sample):
     assert set(res.columns) == set(test_module.SEGMENT_COLUMNS)
 
 
-@patch.object(spatial_index, "open_index", new=Mock())
+@patch.object(brain_indexer, "open_index", new=Mock())
 @patch.object(projectionizer.synapses, "pick_segments_voxel")
 def test__full_sample_worker_no_segments_returned(mock_sample):
     min_xyz = np.array([0, 0, 0])
@@ -46,7 +46,7 @@ def test__full_sample_worker_no_segments_returned(mock_sample):
 
 
 # mock with a 'map' that ignores kwargs
-@patch.object(spatial_index, "open_index", new=Mock())
+@patch.object(brain_indexer, "open_index", new=Mock())
 @patch.object(projectionizer.utils, "map_parallelize", new=lambda *args, **_: map(*args))
 @patch.object(projectionizer.synapses, "pick_segments_voxel")
 def test_full_sample_parallel(mock_sample, tmp_confdir):

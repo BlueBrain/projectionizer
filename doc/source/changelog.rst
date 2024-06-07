@@ -11,10 +11,12 @@ Version v3.0.0
 Breaking Changes
 ~~~~~~~~~~~~~~~~
 - continueing tasks started with projectionizer < v3.0.0
-- ``python`` 3.7 no longer supported
+- ``python < 3.9`` no longer supported
 - as the offset is removed, projections are no longer compatible with BlueConfig
 
   - ``user.target`` file will no longer be generated
+
+- ``bluepy`` and ``BlueConfig`` files are no longer supported
 
 - commandline interface changes:
 
@@ -27,34 +29,46 @@ Breaking Changes
 
     - raises an error if not given or if its contents differ from those of the one in the output folder
 
-- removed values from config (providing these will cause the workflow to crash)
+- config file changes:
 
-  - ``CommonParams``: ``morphology_path``
-  - ``CommonParams``: ``sgid_offset``
-  - ``WriteSonata``: ``target_population``
+  - removed parameters:
 
-- new config values (not providing these will raise an error)
+    - ``CommonParams``: ``morphology_path``
+    - ``CommonParams``: ``sgid_offset``
 
-  - ``CommonParams``: ``segment_index_path``
-  - ``CommonParams``: ``projectionizer_version``
+  - new mandatory parameters
 
-- config values moved to ``CommonParams``:
+    - ``CommonParams``: ``atlas_path``
+    - ``CommonParams``: ``segment_index_path``
+    - ``CommonParams``: ``projectionizer_version``
 
-  - ``WriteSonata: module_archive``
+  - new optional parameters
 
-- minimum ``module_archive`` version is ``archive/2023-06``
+    - ``CommonParams``: ``morphology_type``, one of [``asc``, ``swc``, ``h5``] (Default: ``asc``)
+
+  - following config parameters were moved to ``CommonParams``:
+
+    - ``WriteSonata``: ``module_archive``
+    - ``WriteSonata``: ``target_population``
+
+  - other changes:
+
+    - ``CommonParams``: ``regions`` is now mandatory
+    - ``CommonParams``: ``circuit_path`` is expected to be in ``SONATA`` format
+    - ``CommonParams``:``module_archive`` minimum version is ``archive/2023-06``
 
 New Features
 ~~~~~~~~~~~~
-- ``python >= 3.8`` support
+- ``python >= 3.9`` support
 - ``afferent_section_pos`` is now computed for the synapses
+- full ``SONATA`` support
 
 Improvements
 ~~~~~~~~~~~~
 - ``SGID`` will no longer be offset
 - Everything uses 0-based GID indexing
 - default ``module_archive`` updated to ``archive/2023-06``
-- segment indexing is done with ``SpatialIndex`` and ``libFLATIndex`` was removed
+- segment indexing is done with ``brain-indexer`` and ``libFLATIndex`` was removed
 - reading more parameters from circuit config instead of the user-provided config file (see :ref:`ver_3_0_0_breaking`)
 - using ``click`` to handle the commandline interface
 - normal and volume transmission pipelines now share the source node file

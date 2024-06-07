@@ -80,7 +80,7 @@ def test_parameter_sharing(MockTask):
 
 
 @patch.object(test_module, "map_parallelize", new=lambda *args, **_: map(*args))
-@patch.object(test_module.spatial_index, "open_index", new=Mock())
+@patch.object(test_module.brain_indexer, "open_index", new=Mock())
 @patch.object(test_module, "spherical_sampling")
 def test_get_spherical_samples(mock_sample):
     fill_value = 5

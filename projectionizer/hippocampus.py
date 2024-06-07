@@ -3,10 +3,10 @@
 import logging
 from functools import partial
 
+import brain_indexer
+import brain_indexer.experimental
 import numpy as np
 import pandas as pd
-import spatial_index
-import spatial_index.experimental
 
 from projectionizer import synapses, utils
 from projectionizer.utils import write_feather
@@ -31,11 +31,11 @@ def _full_sample_worker(min_xyzs, index_path, voxel_dimensions):
 
     Args:
         min_xyzs(np.array of (Nx3): lower coordinates of voxels
-        index_path(Path): absolute path spatial index `MultiIndex`
+        index_path(Path): absolute path to brain-indexer `MultiIndex`
         voxel_dimensions(1x3 array): voxel dimensions
     """
     dfs = []
-    index = spatial_index.open_index(str(index_path))
+    index = brain_indexer.open_index(str(index_path))
     for min_xyz in min_xyzs:
         segs_df = synapses.pick_segments_voxel(
             index,
@@ -62,7 +62,7 @@ def full_sample_parallel(brain_regions, region, region_id, index_path, output):
         brain_regions(VoxelData): brain regions
         region(str): name of the region to sample
         region_id(int): single region id to sample
-        index_path(Path): absolute path spatial index `MultiIndex`
+        index_path(Path): absolute path to brain-indexer `MultiIndex`
         output(Path): directory where to save the data
     """
     nz = np.array(np.nonzero(brain_regions.raw == region_id)).T
@@ -71,7 +71,7 @@ def full_sample_parallel(brain_regions, region, region_id, index_path, output):
 
     positions = brain_regions.indices_to_positions(nz)
     positions = np.unique(positions, axis=0)
-    order = spatial_index.experimental.space_filling_order(positions)
+    order = brain_indexer.experimental.space_filling_order(positions)
     positions = positions[order]
 
     chunks = (len(positions) // 500000) + 1

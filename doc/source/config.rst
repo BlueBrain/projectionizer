@@ -21,16 +21,19 @@ Lists parameters that are common to all tasks.
   ====================== ========= ============================== =======================================
   Parameter              Mandatory Default                        Description
   ====================== ========= ============================== =======================================
-  circuit_config         Yes                                      The CircuitConfig absolute path.
+  circuit_config         Yes                                      The path to the SONATA circuit config
+  atlas_path             Yes                                      The path to atlas directory
+  target_population      Yes                                      The name of the target node population
+  regions                Yes                                      List of region names to generate projections to. If not given, parsed from MANIFEST (should be defined in [common] > [region]). If not defined in manifest, raises an exception.
   physiology_path        Yes                                      The path to the XML recipe that is used by Spykfunc
-  segment_index_path     Yes                                      The path to segment index created with spatial index
+  segment_index_path     Yes                                      The path to segment index created with brain-indexer
   projectionizer_version Yes                                      The projectionizer version (X.Y.Z) the config is supposed to be run with
   n_total_chunks         Yes                                      In order to prevent RAM from exploding, the computation is split into chunks. This is the number of chunks.
   oversampling           Yes                                      The ratio between the number of sampled synapses during the first step and the number of desired synapses. Oversampling is necessary as it allows to remove unwanted synapses with bad connectivity properties while keeping the final number of synapses stable.
   layers                 Yes                                      List of layer names (as in `hierarchy.json`) arranged from bottom to top (e.g., `[L6, L5, L4, L3, L2, L1]`)
   fiber_locations_path   Yes                                      Path to a csv file containing fiber positions and directions. It can be :ref:`generated<Index_CreatingFibers>` with projectionizer.
+  morphology_type        No        "asc"                          Morphology type (used to pick correct morphology path from the circuit config)
   module_archive         No        archive/2022-01                Which archive to load spykfunc and parquet-converters from
-  regions                No        None                           List of region names to generate projections to. If not given, parsed from MANIFEST (should be defined in [common] > [region]). If not defined in manifest, raises an exception.
   hex_apron_bounding_box No        None                           Coordinates of the bounding box of the apron optionally used with columns to reduce edge effects (see: :ref:`apron<FAQ_apron>`)
   target_mtypes          No        ["L4_PC", "L4_UPC", "L4_TPC"]  M-types used for measuring the connectivity in dichotomy pipeline
   ====================== ========= ============================== =======================================
@@ -180,10 +183,13 @@ Example
     ClosestFibersPerVoxel:
       closest_count: 25
     CommonParams:
-      circuit_config: /gpfs/bbp.cscs.ch/project/proj87/scratch/circuits/SSCX-O1/CircuitConfig
+      circuit_config: /gpfs/bbp.cscs.ch/project/proj87/scratch/circuits/SSCX-O1/sonata/circuit_config.json
+      atlas_path: /gpfs/bbp.cscs.ch/project/proj83/data/atlas/O1/MEAN/Bio_M
+      morphology_type: asc
+      target_population: sscx_neurons
       fiber_locations_path: /gpfs/bbp.cscs.ch/project/proj87/scratch/projections/SSCX-O1/dopamine/dopamine_fibers.csv
       physiology_path: /gpfs/bbp.cscs.ch/project/proj87/scratch/projections/SSCX-O1/dopamine/DA_proj_recipe.xml
-      segment_index_path: /path/to/spatial/index/multi/index
+      segment_index_path: /path/to/brain/indexer/multi/index
       projectionizer_version: 3.0.0
       layers:
       - L6

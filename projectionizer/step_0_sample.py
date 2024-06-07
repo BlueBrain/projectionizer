@@ -1,13 +1,12 @@
-"""Step 0; sample segments from circuit to be used as potential synapses
-"""
+"""Step 0; sample segments from circuit to be used as potential synapses"""
 
 import json
 
+import brain_indexer.experimental
 import numpy as np
 import pandas as pd
-import spatial_index.experimental
-from bluepy import Circuit
 from luigi import FloatParameter, IntParameter, ListParameter
+from voxcell.nexus.voxelbrain import Atlas
 
 from projectionizer.luigi_utils import FeatherTask, JsonTask, NrrdTask
 from projectionizer.sscx import (
@@ -46,9 +45,8 @@ class Height(NrrdTask):  # pragma: no cover
     """
 
     def run(self):
-        regions = self.get_regions()
-        atlas = Circuit(self.circuit_config).atlas
-        mask = mask_by_region(regions, atlas)
+        atlas = Atlas.open(str(self.atlas_path))
+        mask = mask_by_region(self.regions, atlas)
         distance = atlas.load_data("[PH]y")
 
         if len(self.hex_apron_bounding_box):
@@ -61,7 +59,7 @@ class Height(NrrdTask):  # pragma: no cover
 
 
 class VoxelOrder(FeatherTask):
-    """Reorganize voxel order optimally for SpatialIndex."""
+    """Reorganize voxel order optimally for brain-indexer."""
 
     def requires(self):  # pragma: no cover
         return self.clone(VoxelSynapseCount)
@@ -70,7 +68,7 @@ class VoxelOrder(FeatherTask):
         voxels = load(self.input().path)
         idx = np.transpose(np.nonzero(voxels.raw))
         xyzs = voxels.indices_to_positions(idx)
-        order = spatial_index.experimental.space_filling_order(xyzs)
+        order = brain_indexer.experimental.space_filling_order(xyzs)
         voxel_indices = pd.DataFrame(idx[order], columns=XYZ)
 
         write_feather(self.output().path, voxel_indices)

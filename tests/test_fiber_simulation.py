@@ -2,7 +2,7 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
-from bluepy import Cell
+from bluepysnap.bbp import Cell
 from numpy.testing import assert_allclose, assert_almost_equal, assert_array_equal
 from voxcell.nexus.voxelbrain import Atlas
 
@@ -85,10 +85,10 @@ def test_generate_kmeans():
     bounding_rectangle = [[9, 9], [13, 13]]
 
     mock_cells = Mock(return_value=cells)
-    circuit = Mock(cells=Mock(get=mock_cells))
+    node_population = Mock(get=mock_cells)
 
     fibers = test_module.generate_kmeans(
-        circuit,
+        node_population,
         n_fibers,
         v_dir,
         y_level,
@@ -104,7 +104,7 @@ def test_generate_kmeans():
 
     region = "TEST_layers"
     mock_cells.reset_mock()
-    fibers = test_module.generate_kmeans(circuit, n_fibers, v_dir, y_level, regions=region)
+    fibers = test_module.generate_kmeans(node_population, n_fibers, v_dir, y_level, regions=region)
 
     # Check that cells.get was called with a query {Cell.REGION: region}
     assert {Cell.REGION: region} in mock_cells.call_args[0]
@@ -113,7 +113,7 @@ def test_generate_kmeans():
     assert_array_equal(fibers[XZ], [cells.mean()])
 
     # Check that cells.get wasn't called with any args the second time
-    fibers = test_module.generate_kmeans(circuit, n_fibers, v_dir, y_level)
+    fibers = test_module.generate_kmeans(node_population, n_fibers, v_dir, y_level)
     assert not mock_cells.call_args_list[1][0]
 
 

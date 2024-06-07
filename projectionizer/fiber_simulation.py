@@ -6,12 +6,21 @@ import numpy as np
 import pandas as pd
 import scipy.ndimage as nd
 import voxcell
-from bluepy import Cell, Circuit
-from luigi import Config, FloatParameter, IntParameter, ListParameter, PathParameter
+from bluepysnap import Circuit
+from bluepysnap.bbp import Cell
+from luigi import (
+    Config,
+    FloatParameter,
+    IntParameter,
+    ListParameter,
+    Parameter,
+    PathParameter,
+)
 from scipy.cluster.vq import kmeans
 from scipy.spatial import cKDTree
+from voxcell.nexus.voxelbrain import Atlas
 
-from projectionizer.utils import XYZUVW, mask_by_region, read_regions_from_manifest
+from projectionizer.utils import XYZUVW, mask_by_region
 
 L = logging.getLogger(__name__)
 XZ = list("xz")
@@ -26,22 +35,17 @@ class GenerateFibers(Config):  # pragma: no cover
 
     circuit_config = PathParameter()
     n_fibers = IntParameter(default=np.inf)
-    regions = ListParameter(default="")
+    regions = ListParameter()
     out_file = PathParameter()
+    atlas_path = PathParameter()
+    target_population = Parameter()
 
     def _save_as_csv(self, fibers):
         L.info("Saving fibers to %s", self.out_file)
         fibers.to_csv(self.out_file, index=False, sep=",")
 
     def _generate_fibers(self):
-        circuit = Circuit(self.circuit_config)
-        regions = self.regions
-
-        if not regions:
-            regions = read_regions_from_manifest(self.circuit_config)
-            assert regions, "No regions defined"
-
-        return generate_raycast(circuit.atlas, regions, self.n_fibers)
+        return generate_raycast(Atlas.open(str(self.atlas_path)), self.regions, self.n_fibers)
 
     def run(self):
         fibers = self._generate_fibers()
@@ -57,7 +61,7 @@ class GenerateFibersHex(GenerateFibers):  # pragma: no cover
 
     def _generate_fibers(self):
         return generate_kmeans(
-            Circuit(self.circuit_config),
+            Circuit(self.circuit_config).nodes[self.target_population],
             self.n_fibers,
             self.v_direction,
             self.y_level,
@@ -69,13 +73,13 @@ class GenerateFibersHex(GenerateFibers):  # pragma: no cover
 # -- K means clustering --
 
 
-def generate_kmeans(circuit, n_fibers, v_dir, y_level, regions="", bounding_rectangle=""):
+def generate_kmeans(node_population, n_fibers, v_dir, y_level, regions="", bounding_rectangle=""):
     """Generate fibers using k-means clustering."""
     assert np.isfinite(n_fibers), "Number of fibers to generate not given"
 
     if bounding_rectangle:
         min_xz, max_xz = bounding_rectangle
-        cells = circuit.cells.get(properties=XZ)
+        cells = node_population.get(properties=XZ)
         cells = cells[
             (min_xz[0] < cells.x)
             & (cells.x < max_xz[1])
@@ -83,9 +87,9 @@ def generate_kmeans(circuit, n_fibers, v_dir, y_level, regions="", bounding_rect
             & (cells.z < max_xz[1])
         ].reset_index(drop=True)
     elif regions:
-        cells = circuit.cells.get({Cell.REGION: regions}, properties=XZ)
+        cells = node_population.get({Cell.REGION: regions}, properties=XZ)
     else:
-        cells = circuit.cells.get(properties=XZ)
+        cells = node_population.get(properties=XZ)
 
     return _generate_kmeans_fibers(cells, n_fibers, v_dir, y_level)
 

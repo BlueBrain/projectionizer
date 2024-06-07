@@ -1,11 +1,10 @@
+import json
 from collections.abc import Iterable
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from morphio import SectionType
-
-from projectionizer.utils import MANIFEST_FILE
 
 TEST_DIR = Path(__file__).parent.absolute()
 TEST_DATA_DIR = TEST_DIR / "data"
@@ -50,25 +49,13 @@ def fake_segments(min_xyz, max_xyz, count):
     return df.copy()
 
 
-def fake_manifest(path):
-    manifest = "common:\n" f"  node_population_name: {NODE_POPULATION}\n"
-    (path / MANIFEST_FILE).write_text(manifest)
-
-
 def fake_circuit_config(path):
-    # Point everything to the given path.
-    # Otherwise `bluepy_configfile` logs warnings cluttering the output.
-    config = (
-        "Run Default {\n"
-        f"    CircuitPath {path}\n"
-        f"    nrnPath {path}\n"
-        f"    MorphologyPath {path}\n"
-        "    MorphologyType fake\n"
-        f"    METypePath {path}\n"
-        f"    MEComboInfoFile {path}\n"
-        f"    CellLibraryFile {path}\n"
-        f"    BioName {path}\n"
-        f"    Atlas {path}\n"
-        "}"
-    )
-    (path / CIRCUIT_CONFIG_FILE).write_text(config)
+    config = {
+        "components": {"alternate_morphologies": {"neurolucida-asc": str(TEST_DATA_DIR)}},
+        "networks": {
+            "nodes": [{"nodes_file": "fake_path.h5", "populations": {"fake": {}}}],
+            "edges": [],
+        },
+        "metadata": {"status": "partial"},
+    }
+    (path / CIRCUIT_CONFIG_FILE).write_text(json.dumps(config))

@@ -1,11 +1,11 @@
 from unittest.mock import Mock, patch
 
+import brain_indexer.experimental
 import luigi
 import numpy as np
 import numpy.testing as npt
 import pandas as pd
 import pytest
-import spatial_index.experimental
 from voxcell import VoxelData
 
 import projectionizer
@@ -18,7 +18,7 @@ def _synapse_count():
     return VoxelData(raw, [1, 1, 1])
 
 
-@patch.object(spatial_index.experimental, "space_filling_order")
+@patch.object(brain_indexer.experimental, "space_filling_order")
 @pytest.mark.MockTask(cls=test_module.VoxelOrder)
 def test_VoxelOrder(mock_space_filling_order, MockTask):
     voxel_counts = _synapse_count()

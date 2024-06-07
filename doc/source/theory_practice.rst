@@ -33,8 +33,8 @@ Sampling
 --------
 
 .. note::
-    To find the segments in the voxels, projectionizer uses SpatialIndex and requires that the segment path is provided in the config.
-    Please refer to the `SpatialIndex documentation <https://bbpteam.epfl.ch/documentation/projects/spatial-index/latest/>`_ on how to build a segment index (Multi Index).
+    To find the segments in the voxels, projectionizer uses brain-indexer and requires that the segment path is provided in the config.
+    Please refer to the `brain-indexer documentation <https://github.com/BlueBrain/brain-indexer>`_ on how to build a segment index (Multi Index).
 
 Post-synaptic dendritic segments within the defined regions are picked randomly.
 They will be the locations of the future synapses.

@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import h5py
 import numpy as np
@@ -14,7 +14,7 @@ from voxcell.nexus.voxelbrain import Atlas
 
 import projectionizer.utils as test_module
 
-from utils import CIRCUIT_CONFIG_FILE, TEST_DATA_DIR
+from utils import TEST_DATA_DIR
 
 
 def test_parallel_count_env():
@@ -216,37 +216,6 @@ def test_mask_by_region():
     assert mask.sum() == 60 * 28 * 28
 
     assert pytest.raises(KeyError, test_module.mask_by_region, ["Fake_layers"], atlas)
-
-
-def test_regex_to_regions():
-    reg_str = "@^region_1$"
-    res = test_module._regex_to_regions(reg_str)
-
-    assert_array_equal(res, ["region_1"])
-
-    reg_str = r"@^(region_1\|region_2)$"
-    res = test_module._regex_to_regions(reg_str)
-
-    assert_array_equal(res, ["region_1", "region_2"])
-
-
-@patch.object(test_module, "BlueConfig")
-def test_read_regions_from_manifest(mock_config, tmp_confdir):
-    mock_config.return_value = Mock(Run=Mock(BioName=tmp_confdir))
-    circuit_config = tmp_confdir / CIRCUIT_CONFIG_FILE
-    manifest_path = tmp_confdir / test_module.MANIFEST_FILE
-    manifest_obj = {"common": {"region": "R1"}}
-
-    circuit_config.write_text("")
-    manifest_path.write_text(yaml.dump(manifest_obj))
-
-    res = test_module.read_regions_from_manifest(circuit_config)
-    assert_array_equal(res, [manifest_obj["common"]["region"]])
-
-    manifest_path.write_text(yaml.dump({}))
-
-    res = test_module.read_regions_from_manifest(circuit_config)
-    assert_array_equal(res, [])
 
 
 def test_convert_to_smallest_allowed_int_type():

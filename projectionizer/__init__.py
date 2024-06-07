@@ -5,8 +5,8 @@ import logging
 from projectionizer.version import VERSION as __version__  # pylint: disable=W0611
 
 # Since projectionizer does not build a `multi-index` but merely queries it, momentarily change
-# log level to not show the warning of spatial index not having `MPI` support.
-logging.getLogger("spatial_index").setLevel(logging.ERROR)
+# log level to not show the warning of brain-indexer not having `MPI` support.
+logging.getLogger("brain_indexer").setLevel(logging.ERROR)
 
 try:
     #  Luigi needs this to be able to call all the commands from the `CLI`
@@ -34,7 +34,7 @@ try:
     )
     from projectionizer.step_3_write import RunAll, SynapseCountPerConnectionTarget
 finally:
-    logging.getLogger("spatial_index").setLevel(logging.ERROR)
+    logging.getLogger("brain_indexer").setLevel(logging.INFO)
 
 # Configure the root logger without touching the LogLevel of it
 # Set logging level only for projectionizer. Luigi and `matplotlib` DEBUG logging is too noisy.

@@ -8,7 +8,8 @@ from pathlib import Path
 import click
 import numpy as np
 import pandas as pd
-from bluepy import Circuit
+from bluepysnap import Circuit
+from voxcell.nexus.voxelbrain import Atlas
 
 from projectionizer import (
     afferent_section_position,
@@ -134,8 +135,8 @@ def full_sample(ctx, region):
     output = output / SAMPLE_PATH
     output.mkdir(parents=True, exist_ok=True)
 
-    atlas = Circuit(config["circuit_config"]).atlas
-    index_path = config["spatial_index_path"]
+    atlas = Atlas.open(config["atlas_path"])
+    index_path = config["segment_index_path"]
 
     assert region in config["region_percentages"]
 
@@ -206,7 +207,7 @@ def assign(ctx, region):
     """
     config, output = ctx.obj["config"], ctx.obj["output"]
 
-    cells = Circuit(config["circuit_config"]).cells.get()
+    cells = Circuit(config["circuit_config"]).nodes[config["target_node_population"]].get()
 
     synapse_count = config["synapse_count_per_type"]
     int_count = int(

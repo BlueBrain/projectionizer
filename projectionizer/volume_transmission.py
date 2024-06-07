@@ -4,10 +4,10 @@ import logging
 import shutil
 from functools import partial
 
+import brain_indexer.experimental
 import h5py
 import numpy as np
 import pandas as pd
-import spatial_index.experimental
 from luigi import FloatParameter, ListParameter, LocalTarget
 from tqdm import tqdm
 
@@ -17,7 +17,7 @@ from projectionizer.straight_fibers import calc_pathlength_to_fiber_start
 from projectionizer.synapses import (
     CACHE_SIZE_MB,
     PARALLEL_JOBS,
-    spatial_index,
+    brain_indexer,
     spherical_sampling,
 )
 from projectionizer.utils import (
@@ -39,7 +39,7 @@ EDGE_FILE_NAME = "volume-transmission-edges.h5"
 
 def _sample_chunk_spherical(chunk, index_path, radius):
     """Perform spherical sampling on a chunk of positions."""
-    index = spatial_index.open_index(str(index_path), max_cache_size_mb=CACHE_SIZE_MB)
+    index = brain_indexer.open_index(str(index_path), max_cache_size_mb=CACHE_SIZE_MB)
     syns = [spherical_sampling((np.array(pos), int(sgid)), index, radius) for *pos, sgid in chunk]
 
     return pd.concat(syns, ignore_index=True) if syns else None
@@ -54,7 +54,7 @@ def _get_spherical_samples(syns, index_path, radius):
     sgid = syns["sgid"].to_numpy()
     pos_sgid = np.hstack((pos, sgid[:, np.newaxis]))
 
-    order = spatial_index.experimental.space_filling_order(pos)
+    order = brain_indexer.experimental.space_filling_order(pos)
     chunks = np.array_split(pos_sgid[order], PARALLEL_JOBS)
 
     samples = map_parallelize(func, tqdm(chunks))

@@ -6,7 +6,7 @@ It provides the fibers in a sonata format.
 
 .. warning::
 
-    Due to the change of sampling being done by SpatialIndex (instead of libFLATIndex), **any of the projection workflow output files created prior to March 2023 should not be used with projectionizer version 3.0.0 or newer** due to the change of the GID indexing.
+    Due to the change of sampling being done by brain-indexer (instead of libFLATIndex), **any of the projection workflow output files created prior to March 2023 should not be used with projectionizer version 3.0.0 or newer** due to the change of the GID indexing.
     For further information, see: :ref:`FAQ<FAQ_Indexing>`.
 
     If need be, these older output files should be used with one of the projectionizer versions using libFLATIndex (i.e., projectionizer < 3.0.0).
@@ -174,9 +174,9 @@ There are some things to take into account:
 
     - the number of CPU cores used for parallelization of certain tasks.
 
-  - `SPATIAL_INDEX_CACHE_SIZE_MB`
+  - `BRAIN_INDEXER_CACHE_SIZE_MB`
 
-    - The cache size (per process) used by SpatialIndex.
+    - The cache size (per process) used by brain-indexer.
     - When changing this value, please take into account the number of parallel processes and the overall system memory.
 
 You can use this example to base your sbatch file on:
@@ -205,8 +205,8 @@ You can use this example to base your sbatch file on:
     # Number of processes in parallel functions (OOM Error -> use less cores)
     PARALLEL_COUNT=70
 
-    # Cache size (per process) for spatial index, in Mb [default: 4000]
-    SPATIAL_INDEX_CACHE_SIZE_MB = 4000
+    # Cache size (per process) for brain-indexer, in Mb [default: 4000]
+    BRAIN_INDEXER_CACHE_SIZE_MB = 4000
 
     source $VENV/bin/activate
 
