@@ -5,3 +5,7 @@ coverage.xml
 .coverage
 doc/build
 .tox
+.venv
+venv
+build
+.idea

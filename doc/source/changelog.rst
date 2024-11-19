@@ -74,6 +74,10 @@ Improvements
 - normal and volume transmission pipelines now share the source node file
 - All the fibers and their information (start point, direction) are now included in the output nodes file
 
+Bug Fixes
+~~~~~~~~~
+- Fix layers regexp to match acronyms in the latest hierarchy.
+- Do not convert OrientationField to int8, as it can contain float data.
 
 Version v2.0.2
 --------------

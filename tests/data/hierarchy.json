@@ -1,41 +1,117 @@
 {
-  "id" : 65535,
-  "acronym" : "Br",
-  "name" : "brain",
-  "children" : [{
-    "id" : 5,
-    "acronym" : "TEST",
-    "name" : "fake cortex",
-    "children" : [{
-        "id" : 10,
-        "acronym" : "TEST_layers",
-        "name" : "test region",
-        "children" : [ {
-          "id" : 11,
-          "acronym" : "L1",
-          "name" : "test_layer_1"
-        }, {
-          "id" : 12,
-          "acronym" : "L2",
-          "name" : "test_layer_2"
-        }, {
-          "id" : 13,
-          "acronym" : "L3",
-          "name" : "test_layer_3"
-        }, {
-          "id" : 14,
-          "acronym" : "L4",
-          "name" : "test_layer_4"
-        }, {
-          "id" : 15,
-          "acronym" : "L5",
-          "name" : "test_layer_5"
-        }, {
-          "id" : 16,
-          "acronym" : "L6",
-          "name" : "test_layer_6"
-        } ]
-      }
-    ]
-  }]
+  "id": 65535,
+  "acronym": "Br",
+  "name": "brain",
+  "children": [
+    {
+      "id": 5,
+      "acronym": "TEST",
+      "name": "fake cortex",
+      "children": [
+        {
+          "id": 10,
+          "acronym": "TEST_layers",
+          "name": "test region",
+          "children": [
+            {
+              "id": 11,
+              "acronym": "TEST1",
+              "name": "test_layer_1"
+            },
+            {
+              "id": 12,
+              "acronym": "TEST2",
+              "name": "test_layer_2"
+            },
+            {
+              "id": 13,
+              "acronym": "TEST3",
+              "name": "test_layer_3"
+            },
+            {
+              "id": 14,
+              "acronym": "TEST4",
+              "name": "test_layer_4"
+            },
+            {
+              "id": 15,
+              "acronym": "TEST5",
+              "name": "test_layer_5"
+            },
+            {
+              "id": 16,
+              "acronym": "TEST6a",
+              "name": "test_layer_6a"
+            },
+            {
+              "id": 17,
+              "acronym": "TEST6b",
+              "name": "test_layer_6b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "acronym": "TEST-ALT",
+      "name": "fake alt cortex",
+      "children": [
+        {
+          "id": 20,
+          "acronym": "SSp-bfd",
+          "name": "SSp-bfd region",
+          "children": [
+            {
+              "id": 21,
+              "acronym": "SSp-bfd1",
+              "name": "SSp-bfd layer 1"
+            },
+            {
+              "id": 22,
+              "acronym": "SSp-bfd2",
+              "name": "SSp-bfd layer 2"
+            },
+            {
+              "id": 23,
+              "acronym": "SSp-bfd2/3",
+              "name": "SSp-bfd layer 2/3"
+            },
+            {
+              "id": 24,
+              "acronym": "SSp-bfd3",
+              "name": "SSp-bfd layer 3"
+            }
+          ]
+        },
+        {
+          "id": 30,
+          "acronym": "SSp-bfd-A1",
+          "name": "SSp-bfd-A1 region",
+          "children": [
+            {
+              "id": 31,
+              "acronym": "SSp-bfd-A1-1",
+              "name": "SSp-bfd-A1 layer 1"
+            },
+            {
+              "id": 32,
+              "acronym": "SSp-bfd-A1-2",
+              "name": "SSp-bfd-A1 layer 2"
+            },
+            {
+              "id": 33,
+              "acronym": "SSp-bfd-A1-2/3",
+              "name": "SSp-bfd-A1 layer 2/3"
+            },
+            {
+              "id": 34,
+              "acronym": "SSp-bfd-A1-3",
+              "name": "SSp-bfd-A1 layer 3"
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }

@@ -20,7 +20,7 @@ phy = phy.transpose(1, 2, 0)
 ph6 = np.full((*phy.shape, 2), np.nan)
 br = np.zeros(phy.shape)
 
-# each layer has it's own region id [11,...,16]
+# each layer has its own region id [11,...,16]
 for i in range(6):
     ind = 51 - i*10
     br[1:-1, ind:ind+10, 1:-1] = 11+i

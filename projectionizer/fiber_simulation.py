@@ -170,6 +170,9 @@ def ray_tracing(atlas, target_mask, fiber_positions, fiber_directions):
 
         ret.append(np.concatenate((pos, dirs)))
 
+    if len(ret) == 0:
+        raise RuntimeError("ray tracing did not hit any voxels in mask")
+
     ret = np.vstack(ret)
 
     return pd.DataFrame(ret, columns=XYZUVW)
@@ -178,7 +181,7 @@ def ray_tracing(atlas, target_mask, fiber_positions, fiber_directions):
 def mask_layer_6_bottom(atlas, regions):
     """Get the mask for the bottom of layer6."""
     distance = atlas.load_data("[PH]y")
-    mask6 = mask_layers_in_regions(atlas, ["L6"], regions)
+    mask6 = mask_layers_in_regions(atlas, ["6a", "6b"], regions)
     distance.raw[np.invert(mask6)] = np.nan
     min_dist = np.min(distance.raw[np.isfinite(distance.raw)])
 
@@ -190,8 +193,8 @@ def get_l5_l34_border_voxel_indices(atlas, regions):
 
     i.e., the indices of the voxels that lie on the border of L5 and L3/L4.
     """
-    mask_l5 = mask_layers_in_regions(atlas, ["L5"], regions)
-    mask_l34 = mask_layers_in_regions(atlas, ["L3", "L4"], regions)
+    mask_l5 = mask_layers_in_regions(atlas, ["5"], regions)
+    mask_l34 = mask_layers_in_regions(atlas, ["3", "4"], regions)
     mask = mask_l5 & nd.binary_dilation(mask_l34)
 
     return np.transpose(np.where(mask))
@@ -200,7 +203,6 @@ def get_l5_l34_border_voxel_indices(atlas, regions):
 def get_fiber_directions(fiber_positions, atlas):
     """Get the fiber directions at positions defined in fiber_positions."""
     orientation = atlas.load_data("orientation", cls=voxcell.OrientationField)
-    orientation.raw = orientation.raw.astype(np.int8)
     y_vec = np.array([0, 1, 0])
     R = orientation.lookup(fiber_positions)
 
@@ -215,10 +217,25 @@ def mask_layers_in_regions(atlas, layers, regions):
 
 
 def get_region_ids(atlas, layers, regions):
-    """Get region id's for the regions and layers."""
+    """Get region id's for the regions and layers.
+
+    In the hierarchy, all the acronyms for regions in a specific layer should end with the
+    layer number: 1, 2, 2/3, 3, 4, 5, 6a, 6b.
+
+    Exception: SSp-bfd-* acronyms may end with a number even when they are not specific to a layer.
+
+    Example:
+        SSp-bfd: Primary somatosensory area, barrel field
+        SSp-bfd1: Primary somatosensory area, barrel field, layer 1
+
+        SSp-bfd-A1: Primary somatosensory area, barrel field, A1 barrel
+        SSp-bfd-A1-1: Primary somatosensory area, barrel field, A1 barrel layer 1
+    """
+    layers = [f"SSp-bfd-.+-{layer}|(?!SSp-bfd-).*[^/]{layer}" for layer in layers]
+
     rmap = atlas.load_region_map()
     regex_str_regions = f"@^({'|'.join(regions)})$"
-    regex_str_layers = f"@^.*({'|'.join(layers)})$"
+    regex_str_layers = f"@^({'|'.join(layers)})$"
 
     id_regions_children = rmap.find(regex_str_regions, attr="acronym", with_descendants=True)
     id_layers_all_regions = rmap.find(regex_str_layers, attr="acronym")
