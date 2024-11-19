@@ -22,7 +22,7 @@ setup(
         "luigi>3.0",
         "matplotlib<4.0.0",
         "morphio<4.0.0",
-        "numpy>=1.19",
+        "numpy>=1.19,<2",
         "pandas<2.0.0",
         "pyarrow>=0.11.1",
         "pyyaml<7.0",

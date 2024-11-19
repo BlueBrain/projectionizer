@@ -109,6 +109,6 @@ def test_recipe_to_relative_heights_per_layer():
 
     ret = test_module.recipe_to_relative_heights_per_layer(distance, atlas, layers)
 
-    assert_array_equal(np.isfinite(ret.raw), atlas.get_region_mask("L6", attr="acronym").raw)
+    assert_array_equal(np.isfinite(ret.raw), atlas.get_region_mask("TEST6a", attr="acronym").raw)
     assert np.all(ret.raw[np.isfinite(ret.raw)] >= 0.0)
     assert np.all(ret.raw[np.isfinite(ret.raw)] <= 1.0)
