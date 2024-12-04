@@ -203,10 +203,10 @@ You can use this example to base your sbatch file on:
     OUTDIR=./out
 
     # Number of processes in parallel functions (OOM Error -> use less cores)
-    PARALLEL_COUNT=70
+    export PARALLEL_COUNT=70
 
     # Cache size (per process) for brain-indexer, in Mb [default: 4000]
-    BRAIN_INDEXER_CACHE_SIZE_MB = 4000
+    export BRAIN_INDEXER_CACHE_SIZE_MB=4000
 
     source $VENV/bin/activate
 
